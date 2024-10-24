@@ -1,6 +1,7 @@
-#Rotation Measures in the CGM of Andromeda
+# Rotation Measures in the CGM of Andromeda
 
-# Sky Position Analysis Scripts
+##main.py
+Contains global vairables and functions that are reference bby other scirpts. Extracts Rotation MEasures from catalog and defines most functions that can be used to manipulate and analyse the data when called in subsequent scripts.
 
 ## Uniform_distribution_simulation.py
 The script generates random sky positions and plots them on 3D spheres from various viewing angles. It uses histograms for RA and Dec to evaluate the uniformity of the point distributions.
