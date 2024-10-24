@@ -25,7 +25,7 @@ The data related to the Andromeda Galaxy (M31) and its surroundings was processe
 ![Polar Plots - Part 2](./IMGs/Part_2.png)  
 
 ## RM_smoothing.py
-The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the <a href="https://www.aanda.org/articles/aa/abs/2004/14/aa0423/aa0423.html" target="_blank" rel="noopener noreferrer">BT04</a> data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
+The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the [BT04](https://www.aanda.org/articles/aa/abs/2004/14/aa0423/aa0423.html){:target="_blank"} data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
 
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
