@@ -1,0 +1,17 @@
+Copyright (C) 2024 Samwel Amani Njoroge. All Rights Reserved.
+
+This code and it's associated files are the intellectual property of the copyright holder, Samwel Amani Njoroge.
+
+Permissions
+No permission is granted to:
+1. Copy, distribute, or modify the Software.
+2. Use the Software in any capacity, including personal, commercial, or educational purposes.
+3. Publish or repackage the Software or any derivatives of it.
+
+Restrictions
+1. You must not host, mirror, or make the Software available on any platform or medium without prior written consent from the copyright holder.
+2. You must not reverse-engineer, decompile, or attempt to derive the source code or underlying algorithms from any part of the Software.
+
+Disclaimer
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+"""

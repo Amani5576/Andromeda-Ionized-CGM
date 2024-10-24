@@ -1,0 +1,7 @@
+astropy
+numpy
+matplotlib
+scipy
+warnings  # Note: This is part of the Python standard library and doesn't need installation
+pickle    # Note: This is also part of the Python standard library and doesn't need installation
+csv       # Note: This is part of the Python standard library and doesn't need installation
