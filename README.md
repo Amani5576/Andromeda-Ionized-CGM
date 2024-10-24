@@ -24,12 +24,15 @@ The data related to the Andromeda Galaxy (M31) and its surroundings was processe
 ![Polar Plots - Part 2](./IMGs/Part_2.png)  
 
 ## RM_smoothing.py
-The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the BT04 data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
+The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the [BT04](https://www.aanda.org/articles/aa/abs/2004/14/aa0423/aa0423.html) data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
 
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
-![Dwarf Galaxies - Appendix A Combined](./IMGs/Appendix_A_combined.png)  
-![Dwarf Galaxies - Appendix B Combined](./IMGs/Appendix_B_combined.png)  
+
+<video width="640" height="480" controls>
+  <source src="./VIDs/smoothing_video.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ## dwarf_galaxies.py
 The dwarf galaxy data was read from a CSV file and converted for proper unit handling. A function was defined to analyze dwarf galaxy statistics within a specified radius, calculating angular separations and mean values of rotation measures after background subtraction, with results being pickled for efficient storage and later retrieval.
