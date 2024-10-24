@@ -12,7 +12,7 @@ The script generates random sky positions and plots them on 3D spheres from vari
 ## M31_signal_vs_entire_sky.py
 To explore the significance of Andromeda's Rotation Measure (RM) signal, random virial radii analogous to those of M31 were plotted. This analysis aimed to assess whether the RM values observed in Andromeda stood out against the backdrop of typical virial radii. By comparing these random samples, the potential implications for the magneto-ionized plasma surrounding the galaxy were evaluated.
 
-![M31 Signal vs Entire Sky](./IMGs/8000_patches_new.png)  
+![M31 Signal vs Entire Sky](./IMGs/8000_patches.png)  
 
 ## RM_vs_M31_radius.py
 The standard error of the mean was calculated for the Rotation Measure (RM) data of M31, allowing error bars to be represented in the plot. The change in RM around the circumgalactic medium (CGM) was illustrated over a radial projection from M31, with distinct colors used to differentiate between the RM values within the CGM and the background RM values. The boundary of the virial radius was marked by a red dotted line, while the mean RM per bin was represented by the black line, which was analyzed across up to 22 bins.
