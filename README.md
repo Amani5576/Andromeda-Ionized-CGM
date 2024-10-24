@@ -1,6 +1,6 @@
 # Rotation Measures in the CGM of Andromeda
 
-##main.py
+## main.py
 Contains global vairables and functions that are reference bby other scirpts. Extracts Rotation MEasures from catalog and defines most functions that can be used to manipulate and analyse the data when called in subsequent scripts.
 
 ## Uniform_distribution_simulation.py
