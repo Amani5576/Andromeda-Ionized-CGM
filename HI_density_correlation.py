@@ -3,13 +3,13 @@ from main import (
 # Importing functions
 dens_verses_rm,
 characterize_densVersesRM,
-assessing_boxScatter_with_HI,
+# assessing_boxScatter_with_HI,
 
 #Importing package alias'
 plt,
 
 #Importing variables
-rm_m31, m31_pos, m31_pa, rm_pos_icrs, err_m31, m31_condition, eq_pos,
+rm_m31, err_m31, m31_condition, eq_pos,
 
 )
 
