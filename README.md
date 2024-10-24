@@ -1,7 +1,7 @@
 # Rotation Measures in the CGM of Andromeda
 
 ## main.py
-Contains global vairables and functions that are reference bby other scirpts. Extracts Rotation MEasures from catalog and defines most functions that can be used to manipulate and analyse the data when called in subsequent scripts.
+Contains global variables and functions that are referenced by other scripts. Extracts Rotation MEasures from the catalog and defines most functions that can be used to manipulate and analyze the data when called in subsequent scripts.
 
 ## Uniform_distribution_simulation.py
 The script generates random sky positions and plots them on 3D spheres from various viewing angles. It uses histograms for RA and Dec to evaluate the uniformity of the point distributions.
@@ -38,7 +38,7 @@ The dwarf galaxy data was read from a CSV file and converted for proper unit han
 ![Dwarf Galaxies - Individual Analysis](./IMGs/individual_dwarf_anal.png)  
 
 ## near_m31_new_axis_patch.py
-The FITS file was opened, and data was extracted for the Andromeda Galaxy (M31). A WCS projection was set up, and contours were added to a figure to visualize HI density and its dampening effects onto the RM field. Scatter plots were created for positive and negative RM values, and various features, such as arrows and labels, were incorporated to enhance the representation of the galactic environment.
+The FITS file was opened, and data was extracted for the Andromeda Galaxy (M31). A WCS projection was set up, and contours were added to a figure to visualize HI density and dampening effects on the RM field. Scatter plots were created for positive and negative RM values, and various features, such as arrows and labels, were incorporated to enhance the representation of the galactic environment.
 
 ![Near M31 New Axis Patch - Part 4a](./IMGs/Part_4a.png)  
 
@@ -48,7 +48,11 @@ The data was initially separated to facilitate a more detailed analysis of the R
 ![RM Damping - Part 4b](./IMGs/Part_4b.png)  
 ![RM Damping - Part 4b 1](./IMGs/Part_4b_1.png)  
 
+
+https://github.com/user-attachments/assets/fdebbf1f-3694-4e0f-83a6-3c78e5ba97e3
+
+
 ## HI_density_correlation.py
-A scatter plot of Rotation Measure (RM) versus column density was created, illustrating the correlation between the logarithm of neutral hydrogen (HI) column density and RM values. The maximum correlation threshold was represented by a blue line, while its reflection at RM -25 rad m² indicated the minimum threshold. Sensitivity limits for WSRT, HIPASS, and GBT were depicted with dotted lines, and filled regions highlighted areas of significant detection above these limits.
+A scatter plot of Rotation Measure (RM) versus column density was created, illustrating the correlation between the neutral hydrogen (HI) column density logarithm and RM values. A blue line represented the maximum correlation threshold, while its reflection at RM -25 rad m² indicated the minimum threshold. Sensitivity limits for WSRT, HIPASS, and GBT were depicted with dotted lines, and filled regions highlighted areas of significant detection above these limits.
 
 ![HI Density Correlation](./IMGs/Part_5.png)  
