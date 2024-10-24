@@ -28,6 +28,8 @@ The value of sigma_detect_limit was adjusted to modify the smoothing results of 
 
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
+![Dwarf Galaxies - Appendix A Combined](./IMGs/Appendix_A_combined.png)  
+![Dwarf Galaxies - Appendix B Combined](./IMGs/Appendix_B_combined.png)  
 
 ## dwarf_galaxies.py
 The dwarf galaxy data was read from a CSV file and converted for proper unit handling. A function was defined to analyze dwarf galaxy statistics within a specified radius, calculating angular separations and mean values of rotation measures after background subtraction, with results being pickled for efficient storage and later retrieval.
@@ -35,8 +37,6 @@ The dwarf galaxy data was read from a CSV file and converted for proper unit han
 ![Dwarf Galaxies - Part 3.3](./IMGs/Part_3.3_3.png)  
 ![Dwarf Galaxies - Last](./IMGs/Part_3.3_last.png)  
 ![Dwarf Galaxies - Individual Analysis](./IMGs/individual_dwarf_anal.png)  
-![Dwarf Galaxies - Appendix A Combined](./IMGs/Appendix_A_combined.png)  
-![Dwarf Galaxies - Appendix B Combined](./IMGs/Appendix_B_combined.png)  
 
 ## near_m31_new_axis_patch.py
 The FITS file was opened, and data was extracted for the Andromeda Galaxy (M31). A WCS projection was set up, and contours were added to a figure to visualize HI density and its dampening effects onto the RM field. Scatter plots were created for positive and negative RM values, and various features, such as arrows and labels, were incorporated to enhance the representation of the galactic environment.
