@@ -48,7 +48,7 @@ The FITS file was opened, and data was extracted for the Andromeda Galaxy (M31).
 ![Near M31 New Axis Patch - Part 4a](./IMGs/Part_4a.png)  
 
 ## RM_Damping.py
-The data was initially separated to facilitate a more detailed analysis of the Rotation Measure (RM) values, but it was later combined for comprehensive evaluation. The analysis aimed to characterize the dampening effect of neutral hydrogen (HI) on the RM. Binned scatter plots and bar plots were generated, illustrating the RM values against their transformed coordinates.
+The data was initially separated to facilitate a more detailed analysis of the Rotation Measure (RM) values, but it was later combined for comprehensive evaluation. The analysis aimed to characterize the dampening effect of neutral hydrogen (HI) on the RM. Binned scatter plots and bar plots were generated, illustrating the RM values against their transformed coordinates. (All results below are above 5σ)
 
 ![RM Damping - Part 4b](./IMGs/Part_4b.png)  
 ![RM Damping - Part 4b 1](./IMGs/Part_4b_1.png)  
