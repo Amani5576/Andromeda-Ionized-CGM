@@ -31,7 +31,7 @@ The value of sigma_detect_limit was adjusted to modify the smoothing results of 
 (All Rotation Measures within the CGM)
 
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
-(All rotation Measures above 5$\sigma$)
+(All rotation Measures above 5 &sigma)
 
 https://github.com/user-attachments/assets/e04d43d5-6698-4806-9138-72e06b3b844c
 
