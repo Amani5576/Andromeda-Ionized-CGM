@@ -30,6 +30,10 @@ The value of sigma_detect_limit was adjusted to modify the smoothing results of 
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
 
+
+https://github.com/user-attachments/assets/e04d43d5-6698-4806-9138-72e06b3b844c
+
+
 ## dwarf_galaxies.py
 The dwarf galaxy data was read from a CSV file and converted for proper unit handling. A function was defined to analyze dwarf galaxy statistics within a specified radius, calculating angular separations and mean values of rotation measures after background subtraction, with results being pickled for efficient storage and later retrieval.
 
