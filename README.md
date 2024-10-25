@@ -27,14 +27,13 @@ The data related to the Andromeda Galaxy (M31) and its surroundings was processe
 ## RM_smoothing.py
 The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the [BT04](https://www.aanda.org/articles/aa/abs/2004/14/aa0423/aa0423.html) data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
 
+All Rotation Measures within the CGM:
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
-(All Rotation Measures within the CGM)
 
+All rotation Measures above 5σ:
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
-(All rotation Measures above 5 &sigma)
 
 https://github.com/user-attachments/assets/e04d43d5-6698-4806-9138-72e06b3b844c
-
 
 ## dwarf_galaxies.py
 The dwarf galaxy data was read from a CSV file and converted for proper unit handling. A function was defined to analyze dwarf galaxy statistics within a specified radius, calculating angular separations and mean values of rotation measures after background subtraction, with results being pickled for efficient storage and later retrieval.
