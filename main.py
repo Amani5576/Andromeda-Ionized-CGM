@@ -580,17 +580,26 @@ def confining_rectangle(ax, ra, dec, width, height, angle, polar_angle, position
                     neg_in_region, rm_value_neg, get_width_midpoints(rect))
 
 def fit_and_plot_damped_sine_wave(X, Y, initial_guess, ax, color, prime):
+    
     def func(x, A, gamma, omega, phi):
-        return A * np.exp(-gamma * x) * np.sin(omega * x + phi)
+        return A * (np.exp(-gamma * x) * np.sin(omega * x + phi))
 
-    popt, pcov = curve_fit(func, X, Y, p0=initial_guess)
+    popt, pcov = curve_fit(func, X, Y, p0=initial_guess, maxfev=int(1e5))
     A_opt, gamma_opt, omega_opt, phi_opt = popt
 
     x_fit = np.linspace(min(X), max(X), 500)
     y_fit = func(x_fit, A_opt, gamma_opt, omega_opt, phi_opt)
 
-    ax.plot(x_fit, y_fit, color=color, label = rf"RM = $({A_opt:.3g}) e^{{-({gamma_opt:.3g}) {prime}'}} \cdot \sin\left[{omega_opt:.3g} {prime}' + ({phi_opt:.3g})\right]$")
+    ax.plot(x_fit, y_fit, color=color, 
+            label = rf"RM = $({A_opt:.3g}) e^{{-({gamma_opt:.3g}) {prime}'}} \cdot \sin\left[{omega_opt:.3g} {prime}' + ({phi_opt:.3g})\right]$")
 
+    # #Calculating residuals and reduced chi-square
+    # residuals = Y - func(X, *popt)
+    # chi_squared = np.sum(residuals ** 2)
+    # dof = len(Y) - len(popt)  # Degrees of freedom
+    # reduced_chi_square = chi_squared / dof
+    # print(f"Reduced Chi-Square: {reduced_chi_square}")
+    
 def axis_transformation(points, RA_range, DEC_range):
 
     #Calclating gradient of line
