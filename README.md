@@ -27,8 +27,13 @@ The data related to the Andromeda Galaxy (M31) and its surroundings was processe
 ## RM_smoothing.py
 The value of sigma_detect_limit was adjusted to modify the smoothing results of the data. A FITS file was opened, and the WCS projection was set up to visualize the angular resolution of the [BT04](https://www.aanda.org/articles/aa/abs/2004/14/aa0423/aa0423.html) data. Contours were added, and various celestial objects, including M31, M33, and AGN background coordinates, were plotted to enhance the analysis of the region.
 
+All Rotation Measures within the CGM:
 ![RM Smoothing - Part 3.1 and 3.2 Latest](./IMGs/Part_3.1_3.2_newest.png)  
+
+All rotation Measures above 5σ, within the CGM:
 ![RM Smoothing - Sigma 5](./IMGs/Part_3.1_3.2_sigma_5.png)  
+
+https://github.com/user-attachments/assets/e04d43d5-6698-4806-9138-72e06b3b844c
 
 ## dwarf_galaxies.py
 The dwarf galaxy data was read from a CSV file and converted for proper unit handling. A function was defined to analyze dwarf galaxy statistics within a specified radius, calculating angular separations and mean values of rotation measures after background subtraction, with results being pickled for efficient storage and later retrieval.
@@ -43,7 +48,7 @@ The FITS file was opened, and data was extracted for the Andromeda Galaxy (M31).
 ![Near M31 New Axis Patch - Part 4a](./IMGs/Part_4a.png)  
 
 ## RM_Damping.py
-The data was initially separated to facilitate a more detailed analysis of the Rotation Measure (RM) values, but it was later combined for comprehensive evaluation. The analysis aimed to characterize the dampening effect of neutral hydrogen (HI) on the RM. Binned scatter plots and bar plots were generated, illustrating the RM values against their transformed coordinates.
+The data was initially separated to facilitate a more detailed analysis of the Rotation Measure (RM) values, but it was later combined for comprehensive evaluation. The analysis aimed to characterize the dampening effect of neutral hydrogen (HI) on the RM. Binned scatter plots and bar plots were generated, illustrating the RM values against their transformed coordinates. (All results below are above 5σ)
 
 ![RM Damping - Part 4b](./IMGs/Part_4b.png)  
 ![RM Damping - Part 4b 1](./IMGs/Part_4b_1.png)  
