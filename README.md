@@ -58,6 +58,6 @@ https://github.com/user-attachments/assets/fdebbf1f-3694-4e0f-83a6-3c78e5ba97e3
 
 
 ## HI_density_correlation.py
-A scatter plot of Rotation Measure (RM) versus column density was created, illustrating the correlation between the neutral hydrogen (HI) column density logarithm and RM values. A blue line represented the maximum correlation threshold, while its reflection at RM -25 rad m² indicated the minimum threshold. Sensitivity limits for WSRT, HIPASS, and GBT were depicted with dotted lines, and filled regions highlighted areas of significant detection above these limits.
+A scatter plot of Rotation Measure (RM) versus column density was created, illustrating the correlation between the neutral hydrogen (HI) column density logarithm and RM values. A blue line represented the maximum correlation threshold, while its reflection at RM -25 rad/$M^2$ indicated the minimum threshold. Sensitivity limits for WSRT, HIPASS, and GBT were depicted with dotted lines, and filled regions highlighted areas of significant detection above these limits.
 
 ![HI Density Correlation](./IMGs/Part_5.png)  
