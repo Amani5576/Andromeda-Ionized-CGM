@@ -35,7 +35,7 @@ t.keep_columns(["l", "b", "RM", "e_RM"])
 RM_unit = u.rad/u.m**2
 
 """IMPORTANT"""
-sigma_detect_limit = 5
+sigma_detect_limit = 0
 
 sig_mask = ~(sigma_detect_limit*np.abs(t["e_RM"])>np.abs(t["RM"]))
 t["l"].unit = u.deg
@@ -102,7 +102,7 @@ err_m31 = rm_err[m31_condition] #Record m31's RM errors
 
 # #Subtracting mean RM outside of Rvir (backgorund) from all RM belonging to m31's CGM.  
 rm_m31-= np.average(rm_bg) 
-rm_bg-= np.average(rm_bg) #Doingsame forbackground itself
+rm_bg-= np.average(rm_bg) #Doing same forbackground itself
 rm -= np.average(rm_bg) #for all rm readings
 
 #Validation/Sanity Check
@@ -199,6 +199,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
     
     #Parametric equation of ellipse in polar coordinates
     r = (major_axis * minor_axis) / np.sqrt((minor_axis * np.cos(theta))**2 + (major_axis * np.sin(theta))**2)
+    
     # Rotate ellipse
     x = r * np.cos(theta)
     y = r * np.sin(theta)
@@ -212,7 +213,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
     #plot ellipse
     if ax_small: ax.plot(theta_rot, r_rot, label='ellipse')
     
-    # Plotmajor axis line
+    # Plotting major axis line
     if ax_small: 
         major_line_r = np.array([0, major_axis])
         major_line_radians = np.array([PA_rad, PA_rad])
