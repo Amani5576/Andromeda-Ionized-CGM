@@ -1,3 +1,4 @@
+#Note that this script only declares variables and functions. No ouput graps are produced
 from astropy.table import Table
 from astropy import units as u
 import numpy as np

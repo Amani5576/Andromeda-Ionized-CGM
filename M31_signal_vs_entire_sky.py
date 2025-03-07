@@ -260,7 +260,7 @@ RM_coords_sep = [rm_coords.separation(patch_pos)
                  for rm_coords, patch_pos in 
                  list(zip(RM_coords_per_patch, Patch_pos))]
 
-Max_med, Min_med, Max_mean, Min_mean, D_bin_centers = None, None, None, None, None
+Max_med, Min_med, Max_mean, Min_mean, D_bin_centers = [None]*5
 
 all_d_bin_centers=[] #For x-axis
 all_means = []
@@ -269,7 +269,7 @@ for i in range(len(RM_coords_sep)):
     
     if i == 0: print("Mean and Median calculations have begun")
     
-    if not (RM_coords_per_patch[i].shape == ()):  # Check not empty or filled with NaNs
+    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
         if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
             d_bin_centers, bin_mean, bin_med, bin_std = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
             
@@ -487,4 +487,5 @@ def test_patches_on_sphere():
         plt.show()
         counter += 1
         
-test_patches_on_sphere()
+if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
+    test_patches_on_sphere()
