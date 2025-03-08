@@ -193,12 +193,21 @@ def extract_continuum_data(file, **kw):
 extract_continuum_data("M31_contSources.txt", label_legend= "Cont. Sources")
 extract_continuum_data("M33_contSources.txt")
 
+<<<<<<< HEAD
 # Coordniates of Backgorund AGN 
 #from https://doi.org/10.3847/1538-4357/aa87b4
 AGN_bg = convert_txt_to_Skycoord("AGN_background.txt")
 ax.scatter(AGN_bg.ra, AGN_bg.dec, color="blue", marker='*',
     transform=ax.get_transform('world'), s=100, edgecolor='k',
     label="Background AGN")
+=======
+# # Coordniates of Backgorund AGN 
+# #from https://doi.org/10.3847/1538-4357/aa87b4
+# AGN_bg = convert_txt_to_Skycoord("AGN_background.txt")
+# ax.scatter(AGN_bg.ra, AGN_bg.dec, color="blue", marker='*',
+#     transform=ax.get_transform('world'), s=100, edgecolor='k',
+#     label="Background AGN")
+>>>>>>> 2c86ec6cf1109084efb18a64c209c7decfa89b14
 
 from astropy.visualization.wcsaxes import CoordinateHelper
 ra_axis: CoordinateHelper = ax.coords[0]

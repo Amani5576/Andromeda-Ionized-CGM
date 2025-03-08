@@ -260,7 +260,7 @@ RM_coords_sep = [rm_coords.separation(patch_pos)
                  for rm_coords, patch_pos in 
                  list(zip(RM_coords_per_patch, Patch_pos))]
 
-Max_med, Min_med, Max_mean, Min_mean, D_bin_centers = None, None, None, None, None
+Max_med, Min_med, Max_mean, Min_mean, D_bin_centers = [None]*5
 
 all_d_bin_centers=[] #For x-axis
 all_means = []
@@ -487,5 +487,9 @@ def test_patches_on_sphere():
         plt.show()
         counter += 1
         
+<<<<<<< HEAD
 if input:= "Want to show patches on spehre as they get smaller?[Y,N] ".lower() in ['y','yes']:
+=======
+if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
+>>>>>>> 2c86ec6cf1109084efb18a64c209c7decfa89b14
     test_patches_on_sphere()
