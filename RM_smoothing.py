@@ -1,11 +1,13 @@
 #NOTE: Increase/Decrease the value of 'sigma_detect_limit' in order to change the smoothing results
 #BE CAREFUL not to oversmooth.
 from personal_converter import convert_magellanic_stream_coords
+from astropy.coordinates import Angle, FK4, ICRS
+from astropy.time import Time
 
 from main import (
     
 # Imprting alias'
-fits, WCS, plt, u, np, Table,
+fits, WCS, plt, u, np, Table, SkyCoord,
 
 #importing variables
 m31_pos, Circle, Rectangle, rm_pos_icrs, 
@@ -152,6 +154,7 @@ dwarf_galaxies.keep_columns(["l_MS", "b_MS", "Name"])
 dwarf_galaxies["l_MS"].unit, dwarf_galaxies["b_MS"].unit = u.deg, u.deg #Giving
 dwf_Gs = convert_magellanic_stream_coords(dwarf_galaxies["l_MS"], dwarf_galaxies["b_MS"])
 
+# Plotting Dwarf Gaslaxies
 ax.scatter(dwf_Gs.ra, dwf_Gs.dec, 
            #Changing color due to mentioning in http://dx.doi.org/10.3847/0004-637X/816/2/81
            #That these satellite galaxies are what could have casued the fomartion of the filament region
@@ -161,6 +164,34 @@ ax.scatter(dwf_Gs.ra, dwf_Gs.dec,
     label="dwrf G"
     )
 more += 0.03
+
+def extract_continuum_data(file, **kw):
+    #Continuum Absoroption features form paper:
+    #from paper https://ui.adsabs.harvard.edu/abs/1993ApJ...405..153D/abstract
+    contSources = Table.read(file, format='ascii')
+    contSources.keep_columns(['NAME','RA_1950','DEC_1950','N_H','T_B_max'])
+
+    label = kw["label_legend"] if "label_legend" in kw else ""
+
+    contSources["Coords"] = SkyCoord(ra=contSources["RA_1950"], 
+                                     dec=contSources["DEC_1950"], 
+                                     unit = (u.hourangle, u.deg), 
+                                     frame=FK4(equinox="B1950.0"))
+
+    contSources["RA"], contSources["DEC"] = contSources["Coords"].ra, contSources["Coords"].dec #incase i wanna deal with one or the other.
+    contSources["N_H"] = np.int64(contSources["N_H"])
+    contSources["T_B_max"] = np.float64(contSources["T_B_max"])
+    contSources["N_H"].unit, contSources["T_B_max"].unit = (10**(19))/(u.cm**2), u.K
+
+    cords=contSources["Coords"]
+    temp = np.array(list(map(int,([0] + list(contSources["T_B_max"])[1:]))))
+    ax.scatter(cords.ra, cords.dec, 
+            color='k', marker='x',transform=ax.get_transform('world'),
+            s=np.int64((temp/min(temp[temp!=0]))*17), label=label
+        )
+
+extract_continuum_data("M31_contSources.txt", label_legend= "Cont. Sources")
+extract_continuum_data("M33_contSources.txt")
 
 # Coordniates of Backgorund AGN 
 #from https://doi.org/10.3847/1538-4357/aa87b4

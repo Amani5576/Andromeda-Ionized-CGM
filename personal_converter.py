@@ -88,17 +88,17 @@ def convert_string_where_applicable(table):
     """This makes sure that the RA and DEC found in the McConnachie paper
         are utitlised instead of relying on Lehner et. al. Table 3. 
         However, Not all dwarf galaxies from Lehner et. al Table 3 are
-        Listed in the McConnachie. Those missing stallites are then acquired 
+        Listed in the McConnachie. Those missing satellites are then acquired 
         via conversion from lehner et. al. Table 3 Magellanic Stream to
         ICRS.
     """
     #Making SkyCoord object
     coord = SkyCoord(ra=table["RA"], dec=table["DEC"], unit=(u.hourangle, u.deg), frame='icrs')
     
-    # No need to return since they are astropy tables are mutable
+    #No need to return since they are astropy tables are mutable
     table["RA"], table["DEC"] = coord.ra.deg, coord.dec.deg
     
-    #If There wasnt a value then dont give o, but rather convert from l_ms and b_ms 
+    #If There wasnt a value then dont give 0, but rather convert from l_ms and b_ms 
     table["RA"] = np.where(table["RA"] == 0, 
                            convert_magellanic_stream_coords(table["l_MS"], 
                                                             table["b_MS"], 
