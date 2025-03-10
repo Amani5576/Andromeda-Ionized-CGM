@@ -1,4 +1,5 @@
 from scipy.interpolate import interp1d
+import seaborn as sns
 
 from main import (
 #Importing alias'
@@ -213,6 +214,63 @@ def plot_m31_stats(ax):
                 color="black", fmt = '.-', alpha=.6)#, label ="$\mu_{M31}$")
     ax.errorbar(d_bin_centers_m31, np.absolute(bin_med_m31), yerr=bin_std_m31, 
                 color='orange', fmt='.-', capsize=2, markeredgecolor="k", alpha=.6)
+
+def plot_m31_dispersion(bin_num):
+
+    plt.figure(figsize = (10, 6))
+
+    #Dispersion of RM values in each bin (Standard Error of the Means)
+    bin_std, _, _ = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic=stats.sem, bins = bin_num)
+    plt.plot(d_bin_centers, bin_std, "ko")
+    plt.xlabel('Projected Separation from M31[kpc]')
+    plt.ylabel('$\sigma_{RM} [\mathrm{rad} \ \mathrm{m}^{-2}]$', rotation='horizontal', labelpad=60, fontsize=15)
+
+    x_values = np.linspace(0, 296, 1000)
+
+    plt.grid(True)
+    plt.tight_layout()
+
+    # #Plotting the curve_fit
+    # coefficients = np.polyfit(d_bin_centers, bin_std, 3)
+    # fit_line = np.poly1d(coefficients)
+    # plt.plot(d_bin_centers.value, fit_line(d_bin_centers.value), 
+    #             color = 'orange', linestyle = "--")
+
+    plt.title("Dispersion of RM values in each bin")
+
+    #Mentioned on page 841 of https://doi.org/10.1093/mnras/stad2811
+    plt.axhline(xmin=0, xmax = np.max(x_values), y=6, linestyle="--",
+                label="Observed $\sigma_{RM}$ indepenedent of Galactic Latitude")
+
+    plt.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
+                framealpha = 0, ncols = (2,2))
+    plt.show()
+
+def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers):
+    y_upper=100
+    def shade_ms_mimic(data,#average mean/ medians (interpolated)
+                        std,#standard deviation (interpolated)
+                        bin_centers, #Bin centers
+                        cmap, name):
+
+        X, Y = np.meshgrid(bin_centers, np.linspace(np.min(data-std), np.max(data+std), 100))
+
+        #Computing dispersion-density based on the fill_between regions
+        Z = np.exp(-((Y - data[:, None])**2 / (2 * std[:, None]**2)))
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        sns.heatmap(Z, cmap=cmap, alpha=0.6, cbar=True, xticklabels=False, yticklabels=False)
+        y = np.arange(0,y_upper+10, 10)
+        ax.set_yticks(y); ax.set_yticklabels(y)
+        ax.set_xlabel(r'R$_{projected}$ [kpc]', fontsize=12)
+        ax.set_ylabel('|RM|', fontsize=12)
+        ax.set_ylim(0, y_upper) #np.max(data + std))
+        plt.title('Dispersion of RM Variations ('+name+')')
+
+    shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_D_bin_centers, name="Means", cmap="viridis")
+    shade_ms_mimic(int_Avg_medians, int_Avg_medians_std, int_D_bin_centers, cmap="viridis", name="Medians")
+
+    plt.show()
 
 #Note that it might take too long to fit patches that dont overlap each other 
 #If the number of patches are too many and/or the size of the patches are too big
@@ -486,10 +544,13 @@ def test_patches_on_sphere():
         plt.tight_layout()
         plt.show()
         counter += 1
-        
-<<<<<<< HEAD
-if input:= "Want to show patches on spehre as they get smaller?[Y,N] ".lower() in ['y','yes']:
-=======
+
+#Data close to Gundo's shade_ms plots to spot any storng outliers
+Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
+
+
 if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
->>>>>>> 2c86ec6cf1109084efb18a64c209c7decfa89b14
     test_patches_on_sphere()
+
+if (inpt := input("Display Dispersion vs RM [Y,N]?").lower()) in ['y','yes']:
+    plot_m31_dispersion(bin_num_from_main)
