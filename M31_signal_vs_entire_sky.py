@@ -13,6 +13,7 @@ bin_med as bin_med_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
+L_m31,
 
 #importing functions
 get_projected_d_old, confining_circle
@@ -206,14 +207,23 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std
 
-
-def plot_annuli_analysis(sep_vals, rm_vals):
+def annuli_analysis(save_plot=False): #defualt is plotting rather than saving plots to path
     
+    # Converting Radial separation from relative patch to projected distance to be used for BG correction
+    projected_distances = [
+        [get_projected_d_old(val)
+        for val in sublist.value] 
+        for sublist in RM_coords_sep]
+    
+    RM_values_per_patch_corr = [
+        [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
+        for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
+        for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
+    ]
+
     #Flattening the lists fro easier computation
     flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
-    flat_rm_vals = np.concatenate(RM_values_per_patch)  #Corresponding RM values
-
-    indiv_bg_corr(arr, bin_cent=, absol=True)
+    flat_rm_vals = np.concatenate(RM_values_per_patch_corr)  #Corresponding RM values
 
     #30 bins for annular regions
     bin_edges = np.linspace(flat_sep_vals.min(), flat_sep_vals.max(), 31)  # 30 bins
@@ -228,17 +238,42 @@ def plot_annuli_analysis(sep_vals, rm_vals):
     # Convert lists to numpy arrays for easier handling
     rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
 
-    annuli_to_plot = np.arange(0, 31, 1)  # Adjusting annuli ranges based on bin edges (in degrees)
+    annuli_to_plot = np.arange(0, round(L_m31), 1)  # Adjusting annuli ranges based on bin edges (in degrees)
 
     for bin_idx in annuli_to_plot:
+        plt.figure(figsize=(6, 4))
         if bin_idx in rm_per_annulus:
-            plt.figure(figsize=(6, 4))
             counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
             plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} deg")
             plt.xlabel("RM Values")
             plt.ylabel("Count")
             plt.ylim(0, np.max(counts) * 1.1)
-            plt.show()  # Waits for each figure to be closed before moving to the next
+
+            #Comparing with relative annulus around M31
+            plt.axvline(x=bin_means_m31[bin_idx-1], 
+                        label=f"RM_m31={bin_means_m31[bin_idx-1]:.1f}",
+                        color='k', linestyle='--', linewidth=.8)
+            
+            # Filling the region around the mean RM value within 1 sigma
+            plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
+                  x1=bin_means_m31[bin_idx-1] - bin_std_m31[bin_idx-1],
+                  x2=bin_means_m31[bin_idx-1] + bin_std_m31[bin_idx-1],
+                  color='k', alpha=0.2, edgecolor="none",
+                  label=r"$1\sigma \approx {:.2f}$".format(bin_std_m31[bin_idx-1]))
+
+            # print(bin_idx)
+            # print(bin_means_m31[bin_idx-1])
+
+            plt.legend()
+            if save_plot: 
+                path = "/home/amani/Documents/MASTERS_UCT/Results/Week_1/"
+                plt.savefig(f"{path}" + f"my_plot{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
+                plt.clf() #clearing the figure (not deleting it)
+            else:
+                plt.show()
+    if save_plot: 
+        plt.close() #Deleting the figure to clear memory
+        print(f"All images saved to {path}")
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
@@ -447,20 +482,29 @@ def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_me
 #Individiual backgorund correction
 def indiv_bg_corr(arr, bin_cent, absol=True):
 
-    arr_bg = np.where(bin_cent > 300, arr, 0) #Fill all values within virial radius with 0
-    arr_bg_no_0 = arr_bg[np.flatnonzero(arr_bg)] #removing all the zeros to only focus on mean of backgrounds 
+    #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
+    bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
+    if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
+        bin_cent = bin_cent.to_value()
+
+    arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
+    
+    arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
+
+    # Ensure arr_bg is at least 1D
+    arr_bg = np.atleast_1d(arr_bg)
+
+    arr_bg_no_0 = arr_bg[np.flatnonzero(arr_bg)]  # Remove zeros to compute mean of background
     BG = arr_bg_no_0.mean() if arr_bg_no_0.size > 0 else 0
 
-    #Subtracting mean of BG from entire arr (inlcluding the background itself)
-    #Getting absolute RM values to focus on strengh of RM (default)
-    return np.abs(np.array(arr) - BG) if absol else np.array(np.array(arr) - BG)
+    return np.abs(arr - BG) if absol else arr - BG
 
 #Note that it might take too long to fit patches that dont overlap each other 
 #If the number of patches are too many and/or the size of the patches are too big
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
@@ -522,7 +566,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             #plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
 
 #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-plot_annuli_analysis(RM_values_per_patch, RM_coords_sep) ; import sys; sys.exit()
+annuli_analysis(save_plot=True)
 
 if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     
