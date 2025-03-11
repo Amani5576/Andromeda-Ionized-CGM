@@ -116,6 +116,7 @@ bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, s
 #bin median isnt used anywhere yet.
 bin_med, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
 
+
 bin_width = (bin_edges[1] - bin_edges[0])
 bin_centers = bin_edges[1:] - bin_width/2
 
