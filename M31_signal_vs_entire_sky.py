@@ -13,6 +13,10 @@ bin_med as bin_med_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
+<<<<<<< HEAD
+=======
+L_m31,
+>>>>>>> 72a6afd2943d6244b1b702bba28e133137377587
 
 #importing functions
 get_projected_d_old, confining_circle
@@ -201,10 +205,78 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
     #Standard error of the mean for error bars
     bin_std, bin_edges, binnumber = stats.binned_statistic(
         sep_vals, rm_vals,
-        statistic=lambda rm_vals: stats.sem(rm_vals),  # Standard Error of Mean
+        statistic=stats.sem,  # Standard Error of Mean
         bins=bin_num)
 
     return d_bin_centers, bin_means, bin_med, bin_std
+
+def annuli_analysis(save_plot=False): #defualt is plotting rather than saving plots to path
+    
+    # Converting Radial separation from relative patch to projected distance to be used for BG correction
+    projected_distances = [
+        [get_projected_d_old(val)
+        for val in sublist.value] 
+        for sublist in RM_coords_sep]
+    
+    RM_values_per_patch_corr = [
+        [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
+        for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
+        for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
+    ]
+
+    #Flattening the lists fro easier computation
+    flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
+    flat_rm_vals = np.concatenate(RM_values_per_patch_corr)  #Corresponding RM values
+
+    #30 bins for annular regions
+    bin_edges = np.linspace(flat_sep_vals.min(), flat_sep_vals.max(), 31)  # 30 bins
+    bin_indices = np.digitize(flat_sep_vals, bins=bin_edges)  # Assign each RM to a bin
+
+    #Store RM values per annulus
+    rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}  #Dictionary to store RM values for each bin
+
+    for i, bin_idx in enumerate(bin_indices):
+        rm_per_annulus[bin_idx].append(flat_rm_vals[i])  # Append RM values to corresponding bin
+
+    # Convert lists to numpy arrays for easier handling
+    rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
+
+    annuli_to_plot = np.arange(0, round(L_m31), 1)  # Adjusting annuli ranges based on bin edges (in degrees)
+
+    for bin_idx in annuli_to_plot:
+        plt.figure(figsize=(6, 4))
+        if bin_idx in rm_per_annulus:
+            counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
+            plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} deg")
+            plt.xlabel("RM Values")
+            plt.ylabel("Count")
+            plt.ylim(0, np.max(counts) * 1.1)
+
+            #Comparing with relative annulus around M31
+            plt.axvline(x=bin_means_m31[bin_idx-1], 
+                        label=f"RM_m31={bin_means_m31[bin_idx-1]:.1f}",
+                        color='k', linestyle='--', linewidth=.8)
+            
+            # Filling the region around the mean RM value within 1 sigma
+            plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
+                  x1=bin_means_m31[bin_idx-1] - bin_std_m31[bin_idx-1],
+                  x2=bin_means_m31[bin_idx-1] + bin_std_m31[bin_idx-1],
+                  color='k', alpha=0.2, edgecolor="none",
+                  label=r"$1\sigma \approx {:.2f}$".format(bin_std_m31[bin_idx-1]))
+
+            # print(bin_idx)
+            # print(bin_means_m31[bin_idx-1])
+
+            plt.legend()
+            if save_plot: 
+                path = "/home/amani/Documents/MASTERS_UCT/Results/Week_1/"
+                plt.savefig(f"{path}" + f"my_plot{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
+                plt.clf() #clearing the figure (not deleting it)
+            else:
+                plt.show()
+    if save_plot: 
+        plt.close() #Deleting the figure to clear memory
+        print(f"All images saved to {path}")
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
@@ -218,6 +290,7 @@ def plot_m31_stats(ax):
                 color='orange', fmt='.-', capsize=2, markeredgecolor="k", alpha=.6)
 
 def plot_m31_dispersion(bin_num):
+<<<<<<< HEAD
 
     plt.figure(figsize = (10, 6))
         
@@ -277,40 +350,39 @@ def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_me
 #Note that it might take too long to fit patches that dont overlap each other 
 #If the number of patches are too many and/or the size of the patches are too big
 patch_size = 30 #in degrees (same as M31 Virial Radius)
+=======
+>>>>>>> 72a6afd2943d6244b1b702bba28e133137377587
 
-"""IMPORTANT"""
-number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+    plt.figure(figsize = (10, 6))
 
+    #Dispersion of RM values in each bin (Standard Error of the Means)
+    bin_std, _, _ = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic=stats.sem, bins = bin_num)
+    plt.plot(d_bin_centers, bin_std, "ko")
+    plt.xlabel('Projected Separation from M31[kpc]')
+    plt.ylabel('$\sigma_{RM} [\mathrm{rad} \ \mathrm{m}^{-2}]$', rotation='horizontal', labelpad=60, fontsize=15)
 
-BINS = 30
-rm_s, rm_errs = get_real_rm_data()
+    x_values = np.linspace(0, 296, 1000)
 
-patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
-                                                  ra_range=(min(eq_pos.ra.deg), 
-                                                            max(eq_pos.ra.deg)),
-                                                  dec_range=(min(eq_pos.dec.deg),
-                                                              max(eq_pos.dec.deg)),
-                                                  overlap=True, #Allowing circles to overlap
-                                                  radius = patch_size, #in degrees
-                                                  min_distance_deg = patch_size #minimum separation of points in degrees
-                                                  )
+    plt.grid(True)
+    plt.tight_layout()
 
-Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
-print("Saved random points as SkyCoord")
+    # #Plotting the curve_fit
+    # coefficients = np.polyfit(d_bin_centers, bin_std, 3)
+    # fit_line = np.poly1d(coefficients)
+    # plt.plot(d_bin_centers.value, fit_line(d_bin_centers.value), 
+    #             color = 'orange', linestyle = "--")
 
-# RM_coords_per_patch will be filled with values when collection_of_points_from_WCS_sphere() is called
-# Same goes for RM_values_per_patch
-RM_values_per_patch, RM_coords_per_patch = [], []
+    plt.title("Dispersion of RM values in each bin")
 
-#Creating axis that will be used when doing WCS axis point collections
-fig1 = plt.figure(figsize=(6, 5))
-ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-fig1.clf() #No need to show figure. Only axis is needed
+    #Mentioned on page 841 of https://doi.org/10.1093/mnras/stad2811
+    plt.axhline(xmin=0, xmax = np.max(x_values), y=6, linestyle="--",
+                label="Observed $\sigma_{RM}$ indepenedent of Galactic Latitude")
 
-print("(No longer plotting) but collecting of points from each circular patch has begun...")
-collection_of_points_from_WCS_sphere() #IMPORTANT
-print("Collection of points by each circular patch on WCS sphere is complete")
+    plt.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
+                framealpha = 0, ncols = (2,2))
+    plt.show()
 
+<<<<<<< HEAD
 fig2 = plt.figure(figsize=(10, 5))
 ax2 = fig2.add_subplot(111)
 
@@ -416,6 +488,10 @@ plt.show()
 #Data close to Gundo's shade_ms plots to spot any storng outliers
 Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
 
+=======
+    # In[A little extra testing]:
+        
+>>>>>>> 72a6afd2943d6244b1b702bba28e133137377587
 #This code below produces 2 subplots on a figure.
 #First plot is sphere with unformly random points with patches of equal area placed on the surface of the sphere
 #Second is a 3d scatter plot representing how many points were collected by each patchcollected (with a given ra and dec)
@@ -434,7 +510,7 @@ def test_patches_on_sphere():
         #Creating figure and axis with WCS projection
         fig = plt.figure(figsize=(16,5))
         ax = fig.add_subplot(131, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), 
-                             slices=('x', 'y', 0, 0))
+                            slices=('x', 'y', 0, 0))
         ax.grid(True, alpha=1, color = "k")
         ax.set_aspect('equal') # Making Sphere purely spherical-looking
         # ax.grid(True, alpha=0.5, color='k')
@@ -456,7 +532,7 @@ def test_patches_on_sphere():
         # # Convert these to pixel coordinates using WCS
         # bottom_left = wcs.world_to_pixel_values(ra_min, dec_min, 0, 0)
         # top_right = wcs.world_to_pixel_values(ra_max, dec_max, 0, 0)
-           
+        
         # #Extracting pixel coordinates
         # x_min, y_min, _, _ = bottom_left
         # x_max, y_max, _, _ = top_right
@@ -482,25 +558,25 @@ def test_patches_on_sphere():
                 #     continue
             
                 (patch_region_coord_pos,
-                 rm_val_filament_pos,
-                 patch_region_coord_neg,
-                 rm_val_filament_neg
-                 ) = confining_circle(ax, 
-                                       ra=ra, #degrees
-                                       dec=dec, #degrees
-                                       radius=step, #radius of the circle
-                                       angle=7, #used for addition onto polar angle (may be unnecessary to be honest)
-                                       polar_angle=-10, #degrees 
-                                       positions=random_SC_coords, #all points on WCS axis
-                                       pos_mask=positive_mask, #All positive points on WCS axis
-                                       neg_mask = negative_mask, #All negative points on WCS axis
-                                       rm_s=random_mag, 
-                                       rm_errs=random_err,
-                                       return_data=True, return_err=False,
-                                       plot=(True, #plotting patch 
-                                             True) #plotting scatter within patch
-                                       )
-              
+                rm_val_filament_pos,
+                patch_region_coord_neg,
+                rm_val_filament_neg
+                ) = confining_circle(ax, 
+                                    ra=ra, #degrees
+                                    dec=dec, #degrees
+                                    radius=step, #radius of the circle
+                                    angle=7, #used for addition onto polar angle (may be unnecessary to be honest)
+                                    polar_angle=-10, #degrees 
+                                    positions=random_SC_coords, #all points on WCS axis
+                                    pos_mask=positive_mask, #All positive points on WCS axis
+                                    neg_mask = negative_mask, #All negative points on WCS axis
+                                    rm_s=random_mag, 
+                                    rm_errs=random_err,
+                                    return_data=True, return_err=False,
+                                    plot=(True, #plotting patch 
+                                            True) #plotting scatter within patch
+                                    )
+            
                 #Store the dec value after the counts (counts, dec) tuple
                 #Notice that this is for the same patch that has both ra and dec widths
                 storage.append((len(rm_val_filament_neg)+len(rm_val_filament_pos), ra, dec))
@@ -548,9 +624,209 @@ def test_patches_on_sphere():
         plt.tight_layout()
         plt.show()
         counter += 1
+
+def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers):
+    def shade_ms_mimic(data,#average mean/ medians (interpolated)
+                        std,#standard deviation (interpolated)
+                        bin_centers, #Bin centers
+                        cmap, name):
+
+        y_upper= np.max(data + std)  #100
+
+        X, Y = np.meshgrid(bin_centers, np.linspace(np.min(data-std), np.max(data+std), 100))
+
+        #Computing dispersion-density based on the fill_between regions
+        Z = np.exp(-((Y - data[:, None])**2 / (2 * std[:, None]**2)))
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        sns.heatmap(Z, cmap=cmap, alpha=0.6, cbar=True, xticklabels=False, yticklabels=False)
+        y = np.arange(0,y_upper+10, 10)
+        ax.set_yticks(y); ax.set_yticklabels(y)
+        ax.set_xlabel(r'R$_{projected}$ [kpc]', fontsize=12)
+        ax.set_ylabel('|RM|', fontsize=12)
+        ax.set_ylim(0, y_upper)
+        plt.title('Dispersion of RM Variations ('+name+')')
+
+    shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_D_bin_centers, name="Means", cmap="viridis")
+    shade_ms_mimic(int_Avg_medians, int_Avg_medians_std, int_D_bin_centers, cmap="viridis", name="Medians")
+
+    plt.show()
+
+#Individiual backgorund correction
+def indiv_bg_corr(arr, bin_cent, absol=True):
+
+    #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
+    bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
+    if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
+        bin_cent = bin_cent.to_value()
+
+    arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
+    
+    arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
+
+    # Ensure arr_bg is at least 1D
+    arr_bg = np.atleast_1d(arr_bg)
+
+    arr_bg_no_0 = arr_bg[np.flatnonzero(arr_bg)]  # Remove zeros to compute mean of background
+    BG = arr_bg_no_0.mean() if arr_bg_no_0.size > 0 else 0
+
+    return np.abs(arr - BG) if absol else arr - BG
+
+#Note that it might take too long to fit patches that dont overlap each other 
+#If the number of patches are too many and/or the size of the patches are too big
+patch_size = 30 #in degrees (same as M31 Virial Radius)
+
+"""IMPORTANT"""
+number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+
+
+BINS = 50
+rm_s, rm_errs = get_real_rm_data()
+
+patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
+                                                  ra_range=(min(eq_pos.ra.deg), 
+                                                            max(eq_pos.ra.deg)),
+                                                  dec_range=(min(eq_pos.dec.deg),
+                                                              max(eq_pos.dec.deg)),
+                                                  overlap=True, #Allowing circles to overlap
+                                                  radius = patch_size, #in degrees
+                                                  min_distance_deg = patch_size #minimum separation of points in degrees
+                                                  )
+
+Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
+print("Saved random points as SkyCoord")
+
+# RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+# Same goes for RM_values_per_patch
+RM_values_per_patch, RM_coords_per_patch = [], []
+
+#Creating axis that will be used when doing WCS axis point collections
+fig1 = plt.figure(figsize=(6, 5))
+ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+fig1.clf() #No need to show figure. Only axis is needed
+
+print("(No longer plotting) but collecting of points from each circular patch has begun...")
+collection_of_points_from_WCS_sphere() #IMPORTANT
+print("Collection of points by each circular patch on WCS sphere is complete")
+
+fig2 = plt.figure(figsize=(10, 5))
+ax2 = fig2.add_subplot(111)
+
+print("Getting separation of RM from center of relative patch")
+#Get separation of RM from center of relative patch.
+RM_coords_sep = [rm_coords.separation(patch_pos) 
+                 for rm_coords, patch_pos in 
+                 list(zip(RM_coords_per_patch, Patch_pos))]
+
+all_d_bin_centers=[] #For x-axis
+all_means = []
+all_medians = []
+all_bin_stds = []
+
+print("Mean and Median calculations have begun")
+for i in range(len(RM_coords_sep)): #Searching through each patch
+    
+    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+        if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+            d_bin_centers, bin_mean, bin_med, bin_std = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+            
+            all_d_bin_centers.append(d_bin_centers) #For x axis
+            all_means.append(bin_mean) #For y-axis
+            all_medians.append(bin_med) #For y-axis
+            all_bin_stds.append(bin_std)
+            #This has been commented out to remove clatter
+            #The they are all being collected and will be averaged to make a final one
+            #plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
+
+#MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
+annuli_analysis(save_plot=True)
+
+if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
+    
+    #getting mean of background
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS)
+
+    all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
+    all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
+    all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
+    all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
+    BG_mean = np.mean(all_means_bg)
+    BG_median = np.mean(all_medians_bg)
+
+    Avg_means = np.mean(all_means, axis=0) - BG_mean
+    Avg_medians = np.mean(all_medians, axis=0) - BG_median
+    Avg_means_std = np.std(all_means, axis=0)
+    Avg_medians_std= np.std(all_medians, axis=0)
+
+    #Interpolating all data to have 100 poitns for more smoothness
+    #Default type of smoothing is via quadratic interpolation
+    Tup = ()
+    for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
+        Tup += (interpolate(data, num_points=100),)
+    int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
+
+    # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS #BINS #Number of points for interpolation (smoothens it out)
+                                            #Must be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
+
+    # Find a common range of D_bin_centers for interpolation
+    int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=100 #BINS #Number of points for interpolation (smoothens it out)
+                                            #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
+
+    plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
+
+    ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
+    ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
+                color= 'green', fmt='.-', capsize = 2)#,label ='$Median_{\mu patch}$')
         
+<<<<<<< HEAD
 if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
     test_patches_on_sphere()
 
 if (inpt := input("Display Dispersion vs RM [Y,N]?").lower()) in ['y','yes']:
     plot_m31_dispersion(bin_num_from_main)
+=======
+    # #plotting average (Interpolated for smoother effect)
+    # ax2.plot(D_bin_centers, Avg_means, color='blue', label='$\mu_{\mu patch}$')
+    # ax2.plot(D_bin_centers, Avg_medians, color='green', label='$Median_{\mu patch}$')
+
+    # After all plots, fill the area between the highest and lowest lines
+    ax2.fill_between(int_D_bin_centers, 
+                    int_Avg_means - int_Avg_means_std , 
+                    int_Avg_means + int_Avg_means_std, 
+                    color='blue', alpha=0.2)#, label='$\mu_{patch}$' + ' Coverage')
+    ax2.fill_between(int_D_bin_centers, 
+                    int_Avg_medians - int_Avg_medians_std, 
+                    int_Avg_medians + int_Avg_medians_std, 
+                    color='green', alpha=0.4)#, label='$Median_{patch}$' + ' Coverage')
+    ax2.set_xlabel(r'R$_{projected}$ [kpc]',fontsize=12)
+    ax2.set_ylabel('|RM|', fontsize=12)
+    ax2.set_xlim(0, 300)
+    ax2.set_ylim(0,)
+
+    # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
+    # ax2.fill_between(D_bin_centers, Avg_medians_std, Avg_medians_std, color='green', alpha=0.4, label='Median standard deviation of the patches')
+
+    ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
+                framealpha = 0, ncols = (2,4))
+    plt.tight_layout()
+    plt.show()
+
+    # #Data close to Gundo's shade_ms plots to spot any storng outliers
+    # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
+
+
+    if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
+        test_patches_on_sphere()
+
+    if (inpt := input("Display Dispersion vs RM [Y,N]?").lower()) in ['y','yes']:
+        plot_m31_dispersion(bin_num_from_main)
+>>>>>>> 72a6afd2943d6244b1b702bba28e133137377587
