@@ -170,7 +170,6 @@ def extract_continuum_data(file, **kw):
     #from paper https://ui.adsabs.harvard.edu/abs/1993ApJ...405..153D/abstract
     contSources = Table.read(file, format='ascii')
     contSources.keep_columns(['NAME','RA_1950','DEC_1950','N_H','T_B_max'])
-
     label = kw["label_legend"] if "label_legend" in kw else ""
 
     contSources["Coords"] = SkyCoord(ra=contSources["RA_1950"], 

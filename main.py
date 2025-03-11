@@ -109,7 +109,7 @@ rm -= np.average(rm_bg) #for all rm readings
 #Validation/Sanity Check
 # print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
-bin_num = 30
+bin_num = 30 #For M31 alone. (See "M31_signal_vs_entire_sky.py" for 'BINS')
 #Calculate mean of RM values within Rvir of M31
 bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
 
