@@ -13,3 +13,5 @@ echo "Submitting Slurm Job for Andromeda Annulus Calculations"
 
 # Run your script
 singularity exec /idia/software/containers/ASTRO-PY3.simg python3 M31_signal_vs_entire_sky.py 
+
+echo "Done Running"
