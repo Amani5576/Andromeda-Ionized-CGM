@@ -586,7 +586,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
 
 
-if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
+if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
     if args.annuli_anal: annuli_analysis(save_plot=True)
