@@ -4,7 +4,7 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--show-patches', action='store_true', help='show patches on sphere as they get smaller')
+parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
 parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
 args = parser.parse_args()
@@ -650,7 +650,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
                     color='green', alpha=0.4)#, label='$Median_{patch}$' + ' Coverage')
     ax2.set_xlabel(r'R$_{projected}$ [kpc]',fontsize=12)
     ax2.set_ylabel('|RM|', fontsize=12)
-    ax2.set_xlim(0, 300)
+    ax2.set_xlim(0,)
     ax2.set_ylim(0,)
 
     # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
@@ -662,13 +662,13 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
 
     #plt.show()
     path = curr_dir_path() + "Results/"
-    plt.savefig(f"{path}" + "M31_signal_vs_entire_sky.png", dpi=600, bbox_inches="tight")#Saving as image
+    plt.savefig(f"{path}" + f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight")#Saving as image
     plt.close() #Deleting the Figure
 
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
 
-    if args.show_dispersion: #show patches on sphere as they get smaller
+    if args.test_patches: #show patches on sphere as they get smaller
         test_patches_on_sphere()
 
     if args.show_dispersion:
