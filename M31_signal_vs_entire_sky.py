@@ -276,7 +276,7 @@ def annuli_analysis(save_plot=False): #defualt is plotting rather than saving pl
                 plt.show()
     if save_plot: 
         plt.close() #Deleting the figure to clear memory
-        print(f"All images saved to {path}");
+        print(f"All images saved to {path}")
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
