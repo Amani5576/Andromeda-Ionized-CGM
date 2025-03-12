@@ -1,0 +1,4 @@
+  File "M31_signal_vs_entire_sky.py", line 659
+    if args.--show_dispersion: #show patches on spehre as they get smaller
+            ^
+SyntaxError: invalid syntax
