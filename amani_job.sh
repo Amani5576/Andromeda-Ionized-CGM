@@ -1,4 +1,4 @@
-# #!/bin/bash
+#!/bin/bash
 # #SBATCH --job-name="AndromedaAnnulusCalc"
 # #SBATCH --output=Andromeda-annulus-calc-%j.log
 # #SBATCH --error=Andromeda-annulus-calc-%j-error.log
