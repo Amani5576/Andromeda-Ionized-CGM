@@ -81,7 +81,7 @@ y_mean_grid, y_med_grid = np.linspace(min(y_mean), max(y_mean), grid_num), np.li
 X, Y_mean = np.meshgrid(x_grid, y_mean_grid)
 X, Y_med = np.meshgrid(x_grid, y_med_grid)
 
-bw = 0.05
+bw = 0.019
 kde_mean  = gaussian_kde(xy_mean, bw_method=bw, weights=std)
 kde_med = gaussian_kde(xy_med, bw_method=bw, weights=std)
 
@@ -97,13 +97,12 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 plot_m31_stats(axes[0]) 
 plot_m31_stats(axes[1]) 
 
-
 # PLOTTING THE MEAN (using contourf)
 im1 = axes[0].contourf(X, Y_mean, Z_mean/Z_mean.max(), levels=levels, cmap="viridis")
 # axes[0].scatter(x, y_mean, s=5, alpha=0.3, c='k')  # Original points
 axes[0].set_title("Mean")
-axes[0].set_xlabel("X-axis")
-axes[0].set_ylabel("Y-axis")
+axes[0].set_xlabel(r'R$_{projected}$ [kpc]')
+axes[0].set_ylabel("|RM| (rad/m^2)")
 axes[0].set_ylim(0, 85)
 axes[0].set_xlim(0,300)
 
@@ -114,7 +113,7 @@ axes[0].set_xlim(0,300)
 im2 = axes[1].contourf(X, Y_med, Z_med/Z_med.max(), levels=levels, cmap="viridis")
 # axes[1].scatter(x, y_med, s=5, alpha=0.3, c='k')  # Original points
 axes[1].set_title("Median")
-axes[1].set_xlabel("X-axis")
+axes[1].set_xlabel(r'R$_{projected}$ [kpc]')
 axes[1].set_ylim(0, 85)
 axes[1].set_xlim(0,300)
 
