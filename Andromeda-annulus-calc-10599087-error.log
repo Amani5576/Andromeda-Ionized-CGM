@@ -1,0 +1,4 @@
+  File "M31_signal_vs_entire_sky.py", line 653
+    if (inpt := input("Want to show patches on spehre as they get smaller [Y,N]?").lower()) in ['y','yes']:
+             ^
+SyntaxError: invalid syntax
