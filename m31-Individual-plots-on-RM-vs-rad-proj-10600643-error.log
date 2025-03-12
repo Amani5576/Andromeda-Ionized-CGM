@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/quantity.py", line 727, in to_value
+    scale = self.unit._to(unit)
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/core.py", line 951, in _to
+    f"'{self!r}' is not a scaled version of '{other!r}'")
+astropy.units.core.UnitConversionError: 'Unit("kpc")' is not a scaled version of 'Unit(dimensionless)'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/quantity.py", line 1073, in __float__
+    return float(self.to_value(dimensionless_unscaled))
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/quantity.py", line 730, in to_value
+    value = self._to_value(unit, equivalencies)
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/quantity.py", line 661, in _to_value
+    equivalencies=equivalencies)
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/core.py", line 987, in to
+    return self._get_converter(other, equivalencies=equivalencies)(value)
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/core.py", line 918, in _get_converter
+    raise exc
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/core.py", line 904, in _get_converter
+    self, other, self._normalize_equivalencies(equivalencies))
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/core.py", line 888, in _apply_equivalencies
+    unit_str, other_str))
+astropy.units.core.UnitConversionError: 'kpc' (length) and '' (dimensionless) are not convertible
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "M31_signal_vs_entire_sky.py", line 632, in <module>
+    plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
+  File "M31_signal_vs_entire_sky.py", line 298, in plot_m31_stats
+    color="black", fmt = '.-', alpha=.6)#, label ="$\mu_{M31}$")
+  File "/anaconda3/lib/python3.6/site-packages/matplotlib/__init__.py", line 1447, in inner
+    return func(ax, *map(sanitize_sequence, args), **kwargs)
+  File "/anaconda3/lib/python3.6/site-packages/matplotlib/axes/_axes.py", line 3455, in errorbar
+    *apply_mask([x, lower, upper], everymask), **eb_lines_style))
+  File "/anaconda3/lib/python3.6/site-packages/matplotlib/__init__.py", line 1447, in inner
+    return func(ax, *map(sanitize_sequence, args), **kwargs)
+  File "/anaconda3/lib/python3.6/site-packages/matplotlib/axes/_axes.py", line 1250, in vlines
+    x, ymin, ymax = cbook._combine_masks(x, ymin, ymax)
+  File "/anaconda3/lib/python3.6/site-packages/matplotlib/cbook/__init__.py", line 1007, in _combine_masks
+    x = np.asanyarray(x)
+  File "/anaconda3/lib/python3.6/site-packages/numpy/core/_asarray.py", line 136, in asanyarray
+    return array(a, dtype, copy=False, order=order, subok=True)
+  File "/anaconda3/lib/python3.6/site-packages/astropy/units/quantity.py", line 1075, in __float__
+    raise TypeError('only dimensionless scalar quantities can be '
+TypeError: only dimensionless scalar quantities can be converted to Python scalars
+/var/lib/slurm/slurmd/job10600643/slurm_script: line 22: syntax error: unexpected end of file
