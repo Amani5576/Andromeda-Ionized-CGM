@@ -1,5 +1,6 @@
 from scipy.interpolate import interp1d
 import seaborn as sns
+import os
 
 from main import (
 #Importing alias'
@@ -23,6 +24,11 @@ get_projected_d_old, confining_circle
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter('ignore', AstropyWarning)
 warnings.simplefilter("ignore", RuntimeWarning) #Suppresses stats SmallSampleWarning when using stats.sem()
+
+
+def curr_dir_path():
+    """Returns the folder path of the currently running script."""
+    return os.path.dirname(os.path.abspath(__file__)) + "/"
 
 def interpolate(data, num_points):
     #Function to quadratically interpolate data (increasing number of points for smoothness)
@@ -266,8 +272,8 @@ def annuli_analysis(save_plot=False): #defualt is plotting rather than saving pl
 
             plt.legend()
             if save_plot: 
-                path = "/home/amani/Documents/MASTERS_UCT/Results/Week_1/"
-                plt.savefig(f"{path}" + f"my_plot{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}" + f"my_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
                 plt.clf() #clearing the figure (not deleting it)
             else:
                 plt.show()
@@ -504,7 +510,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(8e2) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
