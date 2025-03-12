@@ -81,7 +81,7 @@ y_mean_grid, y_med_grid = np.linspace(min(y_mean), max(y_mean), grid_num), np.li
 X, Y_mean = np.meshgrid(x_grid, y_mean_grid)
 X, Y_med = np.meshgrid(x_grid, y_med_grid)
 
-bw = 0.019
+bw = 0.02
 kde_mean  = gaussian_kde(xy_mean, bw_method=bw, weights=std)
 kde_med = gaussian_kde(xy_med, bw_method=bw, weights=std)
 
@@ -125,6 +125,5 @@ cont_cbar_med = fig.colorbar(im2, ax=axes[1], fraction=0.06, pad=0.01)
 give_cbar_properties(cont_cbar_med)
 
 plt.tight_layout(w_pad=1)
-
 plt.show()
 
