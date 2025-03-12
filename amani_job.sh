@@ -12,5 +12,4 @@
 echo "Submitting Slurm Job for Andromeda Annulus Calculations"
 
 # Run your script
-sinteractive --cpus-per-task=8 --mem=50G --time=00:50:00
 singularity exec /idia/software/containers/ASTRO-PY3.simg python3 M31_signal_vs_entire_sky.py 

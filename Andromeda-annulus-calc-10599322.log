@@ -1,0 +1,3 @@
+Submitting Slurm Job for Andromeda Annulus Calculations
+Warning: memory is not tracked in the Devel partition, the -m (--mem) parameter will be ignored.
+Starting interactive Slurm session.
