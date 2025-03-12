@@ -504,7 +504,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
     bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
     if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
-        bin_cent = bin_cent.to_value()
+        bin_cent = bin_cent.to_value(u.kpc)
 
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
