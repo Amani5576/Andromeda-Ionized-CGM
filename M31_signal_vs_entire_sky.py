@@ -516,9 +516,9 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
-
+``
 BINS = 50
 rm_s, rm_errs = get_real_rm_data()
 
