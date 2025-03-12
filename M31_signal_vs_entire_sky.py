@@ -6,6 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--show-patches', action='store_true', help='show patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
+parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
 args = parser.parse_args()
 
 from main import (
@@ -26,7 +27,7 @@ L_m31,
 get_projected_d_old, confining_circle
 )
 
-#Hanlding unnneccesary clutter of printing form warnings
+#Hanlding unnneccesary clutter of printing from warnings
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter('ignore', AstropyWarning)
 warnings.simplefilter("ignore", RuntimeWarning) #Suppresses stats SmallSampleWarning when using stats.sem()
@@ -298,7 +299,7 @@ def plot_m31_stats(ax):
     ax.errorbar(d_bin_centers_m31, np.absolute(bin_med_m31), yerr=bin_std_m31, 
                 color='orange', fmt='.-', capsize=2, markeredgecolor="k", alpha=.6)
 
-def plot_m31_dispersion(bin_num):
+def plot_m31_dispersion(bin_num, save_plot=False):
 
     plt.figure(figsize = (10, 6))
 
@@ -327,10 +328,16 @@ def plot_m31_dispersion(bin_num):
 
     plt.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
                 framealpha = 0, ncols = (2,2))
-    plt.show()
+    
+    if save_plot: 
+        path = curr_dir_path() + "Results/"
+        plt.savefig(f"{path}" + "Dispersion_M31.png", dpi=600, bbox_inches="tight")#Saving as image
+        plt.clf() #clearing the figure (not deleting it)
+    else:
+        plt.close() #Deleting the figure to clear memory
+        print(f"Dispersion image saved in " + f"{path}")
 
-    # In[A little extra testing]:
-        
+# In[A little extra testing]:        
 #This code below produces 2 subplots on a figure.
 #First plot is sphere with unformly random points with patches of equal area placed on the surface of the sphere
 #Second is a 3d scatter plot representing how many points were collected by each patchcollected (with a given ra and dec)
@@ -573,15 +580,16 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             all_means.append(bin_mean) #For y-axis
             all_medians.append(bin_med) #For y-axis
             all_bin_stds.append(bin_std)
+            
             #This has been commented out to remove clatter
             #The they are all being collected and will be averaged to make a final one
-            #plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
+            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
 
 
 if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    annuli_analysis(save_plot=True)
+    if args.annuli_anal: annuli_analysis(save_plot=True)
     
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
@@ -651,13 +659,16 @@ if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_si
     ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
                 framealpha = 0, ncols = (2,4))
     plt.tight_layout()
-    plt.show()
+
+    #plt.show()
+    path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}" + "M31_signal_vs_entire_sky.png", dpi=600, bbox_inches="tight")#Saving as image
+                plt.close() #Deleting the Figure
 
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
 
-
-    if args.show_dispersion: #show patches on spehre as they get smaller
+    if args.show_dispersion: #show patches on sphere as they get smaller
         test_patches_on_sphere()
 
     if args.show_dispersion:
