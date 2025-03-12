@@ -508,7 +508,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
-    arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
+    arr_bg = np.where(bin_cent > 300* u.kpc, arr, 0*u.kpc)  # Fill all values within virial radius with 0
 
     # Ensure arr_bg is at least 1D
     arr_bg = np.atleast_1d(arr_bg)
