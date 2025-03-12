@@ -662,8 +662,8 @@ if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_si
 
     #plt.show()
     path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}" + "M31_signal_vs_entire_sky.png", dpi=600, bbox_inches="tight")#Saving as image
-                plt.close() #Deleting the Figure
+    plt.savefig(f"{path}" + "M31_signal_vs_entire_sky.png", dpi=600, bbox_inches="tight")#Saving as image
+    plt.close() #Deleting the Figure
 
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
