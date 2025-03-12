@@ -656,7 +656,7 @@ if "__name__" == "__main__": #continue (this makes it easier to excecute "M31_si
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
 
 
-    if args.--show_dispersion: #show patches on spehre as they get smaller
+    if args.show_dispersion: #show patches on spehre as they get smaller
         test_patches_on_sphere()
 
     if args.show_dispersion:
