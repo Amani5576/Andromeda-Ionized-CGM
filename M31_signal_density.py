@@ -81,6 +81,7 @@ y_mean_grid, y_med_grid = np.linspace(min(y_mean), max(y_mean), grid_num), np.li
 X, Y_mean = np.meshgrid(x_grid, y_mean_grid)
 X, Y_med = np.meshgrid(x_grid, y_med_grid)
 
+bw = 0.05
 kde_mean  = gaussian_kde(xy_mean, bw_method=bw, weights=std)
 kde_med = gaussian_kde(xy_med, bw_method=bw, weights=std)
 
