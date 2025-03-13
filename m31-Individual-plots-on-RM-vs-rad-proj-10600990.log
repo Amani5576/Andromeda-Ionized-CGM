@@ -1,0 +1,45 @@
+Submitting Slurm Job for Testing individual plots of Honours |RM| against radial projection
+Saved random points as SkyCoord
+(No longer plotting) but collecting of points from each circular patch has begun...
+Collection of points by each circular patch on WCS sphere is complete
+Getting separation of RM from center of relative patch
+Mean and Median calculations have begun
+
+1
+
+
+2
+
+
+3
+
+
+4
+
+
+5
+
+
+6
+
+
+7
+
+
+8
+
+----------------------------------------------------
+SLURM Job Efficiency Report for Job ID: 10600990
+Job ID: 10600990
+Cluster: ilifu-slurm2021
+User/Group: amani/idia-group
+State: RUNNING
+Nodes: 1
+Cores per node: 8
+CPU Utilized: 00:00:00
+CPU Efficiency: 0.00% of 00:34:08 core-walltime
+Job Wall-clock time: 00:04:16
+Memory Utilized: 0.00 MB (estimated maximum)
+Memory Efficiency: 0.00% of 20.00 GB (20.00 GB/node)
+WARNING: Efficiency statistics may be misleading for RUNNING jobs.
+----------------------------------------------------
