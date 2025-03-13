@@ -582,8 +582,8 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             all_bin_stds.append(bin_std)
             
             #Background correction for the individual plots
-            all_means = indiv_bg_corr(all_means, all_d_bin_centers)
-            all_medians = indiv_bg_corr(all_medians, all_d_bin_centers)
+            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
             #This has been commented out to remove clatter
             #The they are all being collected and will be averaged to make a final one
@@ -591,55 +591,40 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
-    print()
-    print(1)
-    print()
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
     if args.annuli_anal: annuli_analysis(save_plot=True)
-    print()
-    print(2)
-    print()
+    
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
                                     max([max(centers) for centers in all_d_bin_centers]), 
                                     num=BINS)
-    print()
-    print(3)
-    print()
+    
     all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
     all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
     all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
     all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
     BG_mean = np.mean(all_means_bg)
     BG_median = np.mean(all_medians_bg)
-    print()
-    print(4)
-    print()
+
     Avg_means = np.mean(all_means, axis=0) - BG_mean
     Avg_medians = np.mean(all_medians, axis=0) - BG_median
     Avg_means_std = np.std(all_means, axis=0)
     Avg_medians_std= np.std(all_medians, axis=0)
-    print()
-    print(5)
-    print()
+
     #Interpolating all data to have 100 poitns for more smoothness
     #Default type of smoothing is via quadratic interpolation
     Tup = ()
     for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
         Tup += (interpolate(data, num_points=100),)
     int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
-    print()
-    print(6)
-    print()
+
     # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
                                     max([max(centers) for centers in all_d_bin_centers]), 
                                     num=BINS #BINS #Number of points for interpolation (smoothens it out)
                                             #Must be same as bin_num parameter in function "get_mean_and_med_stats"
                                     )
-    print()
-    print(7)
-    print()
+    
     # Find a common range of D_bin_centers for interpolation
     int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
                                     max([max(centers) for centers in all_d_bin_centers]), 
@@ -653,20 +638,12 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     # print(f"Overall Min: {min([min(centers) for centers in all_d_bin_centers if centers])}")
     # print(f"Overall Max: {max([max(centers) for centers in all_d_bin_centers if centers])}")
 
-
-    print()
-    print(8)
-    print()
     plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
-    print()
-    print(9)
-    print()
+
     ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
     ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
                 color= 'green', fmt='.-', capsize = 2)#,label ='$Median_{\mu patch}$')
-    print()
-    print(10)
-    print()
+    
     # #plotting average (Interpolated for smoother effect)
     # ax2.plot(D_bin_centers, Avg_means, color='blue', label='$\mu_{\mu patch}$')
     # ax2.plot(D_bin_centers, Avg_medians, color='green', label='$Median_{\mu patch}$')
@@ -684,35 +661,19 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     ax2.set_ylabel('|RM|', fontsize=12)
     ax2.set_xlim(0,)
     ax2.set_ylim(0,)
-    print()
-    print(11)
-    print()
+
     # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
     # ax2.fill_between(D_bin_centers, Avg_medians_std, Avg_medians_std, color='green', alpha=0.4, label='Median standard deviation of the patches')
 
     ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
                 framealpha = 0, ncols = (2,4))
     plt.tight_layout()
-    print()
-    print(12)
-    print()
     #plt.show()
     path = curr_dir_path() + "Results/"
-    print()
-    print(13)
-    print()
     fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
-    print()
-    print(14)
-    print()
     print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
-    print()
-    print(15)
-    print()
     plt.close(fig2) #Deleting the Figure
-    print()
-    print(16)
-    print()
+    
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
 
