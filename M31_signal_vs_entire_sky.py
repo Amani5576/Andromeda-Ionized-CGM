@@ -593,7 +593,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    if args.stack_annuli_anal: annuli_analysis(save_plot=True)
+    if args.annuli_anal: annuli_analysis(save_plot=True)
     
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
