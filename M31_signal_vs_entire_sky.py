@@ -587,8 +587,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
             #This has been commented out to remove clatter
             #The they are all being collected and will be averaged to make a final one
-            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
-
+            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
@@ -632,12 +631,6 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
                                             #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
                                     )
     
-    # print(f"all_d_bin_centers: {all_d_bin_centers}")
-    # print(f"Min values per list: {[min(centers) for centers in all_d_bin_centers if centers]}")
-    # print(f"Max values per list: {[max(centers) for centers in all_d_bin_centers if centers]}")
-    # print(f"Overall Min: {min([min(centers) for centers in all_d_bin_centers if centers])}")
-    # print(f"Overall Max: {max([max(centers) for centers in all_d_bin_centers if centers])}")
-
     plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
 
     ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
