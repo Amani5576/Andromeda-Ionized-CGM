@@ -3,9 +3,9 @@
 #SBATCH --output=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j.log
 #SBATCH --error=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j-error.log
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=20G
-#SBATCH --time=00:30:00
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=35G
+#SBATCH --time=00:40:00
 #SBATCH --partition=Main
 
 # Load required modules
