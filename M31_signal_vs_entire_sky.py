@@ -662,9 +662,9 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
 
     #plt.show()
     path = curr_dir_path() + "Results/"
-    plt.savefig(f"{path}" + f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight")#Saving as image
+    fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
     print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
-    plt.close() #Deleting the Figure
+    plt.close(fig2) #Deleting the Figure
 
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
