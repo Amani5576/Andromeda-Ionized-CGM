@@ -222,77 +222,83 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
 def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
     
-    def indiv_stacking(): #Stacking all patches together without any mean analysis
+    def construct_and_plot_annuli(distance_flat, rm_vals_flat):
+        #30 bins for annular regions
+        bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), 31)  # 30 bins
+        bin_indices = np.digitize(distance_flat, bins=bin_edges)  #Assigning each RM to a bin
+
+        #Storing RM values per annulus
+        rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}  #Dictionary to store RM values for each bin
+
+        for i, bin_idx in enumerate(bin_indices):
+            rm_per_annulus[bin_idx].append(rm_vals_flat[i])  # Append RM values to corresponding bin
+
+        #Converting lists to numpy arrays for easier handling
+        rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
+
+        annuli_to_plot = np.arange(0, round(L_m31), 1)  # Adjusting annuli ranges based on bin edges (in degrees)
+
+        for bin_idx in annuli_to_plot:
+            plt.figure(figsize=(6, 4))
+            if bin_idx in rm_per_annulus:
+                counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
+                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} deg")
+                plt.xlabel("RM Values")
+                plt.ylabel("Count")
+                plt.ylim(0, np.max(counts) * 1.1)
+
+                #Comparing with relative annulus around M31
+                plt.axvline(x=bin_means_m31[bin_idx-1], 
+                            label=f"RM_m31={bin_means_m31[bin_idx-1]:.1f}",
+                            color='k', linestyle='--', linewidth=.8)
+                
+                # Filling the region around the mean RM value within 1 sigma
+                plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
+                    x1=bin_means_m31[bin_idx-1] - bin_std_m31[bin_idx-1],
+                    x2=bin_means_m31[bin_idx-1] + bin_std_m31[bin_idx-1],
+                    color='k', alpha=0.2, edgecolor="none",
+                    label=r"$1\sigma \approx {:.2f}$".format(bin_std_m31[bin_idx-1]))
+
+                # print(bin_idx)
+                # print(bin_means_m31[bin_idx-1])
+
+                plt.legend()
+                if save_plot: 
+                    path = curr_dir_path() + "Results/"
+                    plt.savefig(f"{path}" + f"annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
+                    plt.clf() #clearing the figure (not deleting it)
+                else:
+                    plt.show()
+        if save_plot: 
+            plt.close() #Deleting the figure to clear memory
+            print(f"All images saved to {path}")
+    
+    #Stacking all patches together without any mean analysis
+    if stack_indiv_patch:
+        
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
             [get_projected_d_old(val)
             for val in sublist.value] 
             for sublist in RM_coords_sep]
         
-        RM_values_per_patch = [
+        RM_values_per_patch_corr = [
             [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
             for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
+        #Flattening the lists fro easier computation
+        flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
+        flat_rm_vals = np.concatenate(RM_values_per_patch_corr)  #Corresponding RM values
+        construct_and_plot_annuli(flat_sep_vals, flat_rm_vals)
 
-    if stack_indiv_patch:
+    #Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
+    else: 
+        D_Bin_centers = np.concatenate([bin_centers for bin_centers in np.abs(D_bin_centers)])
+        Avg_Means = np.concatenate([avg_mean for avg_mean in np.abs(Avg_means)]) 
+        construct_and_plot_annuli(D_Bin_centers, Avg_Means)
         
-    else:
-
-    #Flattening the lists fro easier computation
-    flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
-    flat_rm_vals = np.concatenate(RM_values_per_patch_corr)  #Corresponding RM values
-
-    #30 bins for annular regions
-    bin_edges = np.linspace(flat_sep_vals.min(), flat_sep_vals.max(), 31)  # 30 bins
-    bin_indices = np.digitize(flat_sep_vals, bins=bin_edges)  # Assign each RM to a bin
-
-    #Store RM values per annulus
-    rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}  #Dictionary to store RM values for each bin
-
-    for i, bin_idx in enumerate(bin_indices):
-        rm_per_annulus[bin_idx].append(flat_rm_vals[i])  # Append RM values to corresponding bin
-
-    # Convert lists to numpy arrays for easier handling
-    rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
-
-    annuli_to_plot = np.arange(0, round(L_m31), 1)  # Adjusting annuli ranges based on bin edges (in degrees)
-
-    for bin_idx in annuli_to_plot:
-        plt.figure(figsize=(6, 4))
-        if bin_idx in rm_per_annulus:
-            counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
-            plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} deg")
-            plt.xlabel("RM Values")
-            plt.ylabel("Count")
-            plt.ylim(0, np.max(counts) * 1.1)
-
-            #Comparing with relative annulus around M31
-            plt.axvline(x=bin_means_m31[bin_idx-1], 
-                        label=f"RM_m31={bin_means_m31[bin_idx-1]:.1f}",
-                        color='k', linestyle='--', linewidth=.8)
-            
-            # Filling the region around the mean RM value within 1 sigma
-            plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
-                  x1=bin_means_m31[bin_idx-1] - bin_std_m31[bin_idx-1],
-                  x2=bin_means_m31[bin_idx-1] + bin_std_m31[bin_idx-1],
-                  color='k', alpha=0.2, edgecolor="none",
-                  label=r"$1\sigma \approx {:.2f}$".format(bin_std_m31[bin_idx-1]))
-
-            # print(bin_idx)
-            # print(bin_means_m31[bin_idx-1])
-
-            plt.legend()
-            if save_plot: 
-                path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}" + f"my_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
-                plt.clf() #clearing the figure (not deleting it)
-            else:
-                plt.show()
-    if save_plot: 
-        plt.close() #Deleting the figure to clear memory
-        print(f"All images saved to {path}")
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
@@ -588,13 +594,13 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             all_medians.append(bin_med) #For y-axis
             all_bin_stds.append(bin_std)
             
-            #Background correction for the individual plots
-            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+            # #Background correction for the individual plots
+            # bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+            # bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-            #This has been commented out to remove clatter
-            #The they are all being collected and will be averaged to make a final one
-            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            # #This has been commented out to remove clatter
+            # #The they are all being collected and will be averaged to make a final one
+            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
