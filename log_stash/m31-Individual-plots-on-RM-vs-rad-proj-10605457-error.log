@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "M31_signal_vs_entire_sky.py", line 596, in <module>
+    if args.stack_annuli_anal: annuli_analysis(save_plot=True)
+AttributeError: 'Namespace' object has no attribute 'stack_annuli_anal'
