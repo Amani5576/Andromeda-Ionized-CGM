@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "M31_signal_vs_entire_sky.py", line 609, in <module>
+    if args.annuli_anal: annuli_analysis(save_plot=True)
+  File "M31_signal_vs_entire_sky.py", line 300, in annuli_analysis
+    D_Bin_centers = np.concatenate([bin_centers for bin_centers in np.abs(D_bin_centers)])
+NameError: name 'D_bin_centers' is not defined
