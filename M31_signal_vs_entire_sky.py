@@ -642,6 +642,14 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
                                     num=100 #BINS #Number of points for interpolation (smoothens it out)
                                             #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
                                     )
+    
+    print(f"all_d_bin_centers: {all_d_bin_centers}")
+    print(f"Min values per list: {[min(centers) for centers in all_d_bin_centers if centers]}")
+    print(f"Max values per list: {[max(centers) for centers in all_d_bin_centers if centers]}")
+    print(f"Overall Min: {min([min(centers) for centers in all_d_bin_centers if centers])}")
+    print(f"Overall Max: {max([max(centers) for centers in all_d_bin_centers if centers])}")
+
+
     print()
     print(8)
     print()
