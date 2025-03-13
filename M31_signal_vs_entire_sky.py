@@ -6,7 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
+parser.add_argument('--stack_annuli-anal', action='store_true', help='Conducting stacking annulus analysis for histograms')
 args = parser.parse_args()
 
 from main import (
@@ -220,7 +220,7 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std
 
-def stack_annuli_analysis(save_plot=False): #defualt is plotting rather than saving plots to path
+def stack_annuli_analysis(save_plot=False): #Plots by default but saves in ./Results/ by manual argument when called.
     # Converting Radial separation from relative patch to projected distance to be used for BG correction
     projected_distances = [
         [get_projected_d_old(val)
@@ -589,7 +589,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    if args.annuli_anal: stack_annuli_analysis(save_plot=True)
+    if args.stack_annuli_anal: stack_annuli_analysis(save_plot=True)
     
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
