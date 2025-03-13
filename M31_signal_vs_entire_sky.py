@@ -222,18 +222,23 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
 def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
     
-    if stack_indiv_patch:
+    def indiv_stacking(): #Stacking all patches together without any mean analysis
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
             [get_projected_d_old(val)
             for val in sublist.value] 
             for sublist in RM_coords_sep]
         
-        RM_values_per_patch_corr = [
+        RM_values_per_patch = [
             [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
             for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
+
+
+    if stack_indiv_patch:
+        
+    else:
 
     #Flattening the lists fro easier computation
     flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
