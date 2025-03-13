@@ -665,7 +665,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
                     color='green', alpha=0.4)#, label='$Median_{patch}$' + ' Coverage')
     ax2.set_xlabel(r'R$_{projected}$ [kpc]',fontsize=12)
     ax2.set_ylabel('|RM|', fontsize=12)
-    ax2.set_xlim(0,)
+    ax2.set_xlim(0,300)
     ax2.set_ylim(0,)
 
     # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
