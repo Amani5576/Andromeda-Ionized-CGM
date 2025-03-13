@@ -220,8 +220,7 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std
 
-def annuli_analysis(save_plot=False): #defualt is plotting rather than saving plots to path
-    
+def stack_annuli_analysis(save_plot=False): #defualt is plotting rather than saving plots to path
     # Converting Radial separation from relative patch to projected distance to be used for BG correction
     projected_distances = [
         [get_projected_d_old(val)
@@ -590,7 +589,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    if args.annuli_anal: annuli_analysis(save_plot=True)
+    if args.annuli_anal: stack_annuli_analysis(save_plot=True)
     
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
@@ -657,8 +656,8 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
     # ax2.fill_between(D_bin_centers, Avg_medians_std, Avg_medians_std, color='green', alpha=0.4, label='Median standard deviation of the patches')
 
-    ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
-                framealpha = 0, ncols = (2,4))
+    # ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
+    #             framealpha = 0, ncols = (2,4))
     plt.tight_layout()
     #plt.show()
     path = curr_dir_path() + "Results/"
