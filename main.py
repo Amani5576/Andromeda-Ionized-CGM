@@ -102,7 +102,7 @@ m31_sep_Rvir = (m31_sep.deg[m31_condition])*u.deg #Record m31's RM separated val
 err_m31 = rm_err[m31_condition] #Record m31's RM errors
 
 # #Subtracting mean RM outside of Rvir (backgorund) from all RM belonging to m31's CGM.  
-rm_m31-= np.average(rm_bg) 
+rm_m31-= np.average(rm_bg)
 rm_bg-= np.average(rm_bg) #Doing same forbackground itself
 rm -= np.average(rm_bg) #for all rm readings
 
@@ -112,6 +112,14 @@ rm -= np.average(rm_bg) #for all rm readings
 bin_num = 30
 #Calculate mean of RM values within Rvir of M31
 bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
+
+#Calculate mean of RM values within Rvir of M31 (inclusive of background RM for R_vir)
+(bin_means_past_rvir, 
+bin_edges_past_rvir, 
+binnumber_past_rvir )= stats.binned_statistic(
+    np.concatenate([m31_sep_Rvir,m31_sep_bg]), 
+    np.concatenate([rm_m31,rm_bg]), 
+    statistic = 'mean', bins = bin_num)
 
 #bin median isnt used anywhere yet.
 bin_med, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
@@ -139,6 +147,15 @@ bin_std, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir,
     rm_m31, 
     statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
     bins = bin_num)  
+
+#Using standard error of mean for error bars:  (inclusive of background RM for R_vir)
+(bin_std_past_rvir, 
+bin_edges_past_rvir, 
+binnumber_past_rvir )= stats.binned_statistic(
+    np.concatenate([m31_sep_Rvir,m31_sep_bg]), 
+    np.concatenate([rm_m31,rm_bg]), 
+    statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+    bins = bin_num) 
     
 #Calculating polar angles
 shift = 180*u.deg

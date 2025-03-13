@@ -22,7 +22,10 @@ bin_med as bin_med_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
-R_vir,
+bin_std_past_rvir, L_m31,
+
+#Thes eare statisics for the entire sepration from m31 center to all 
+bin_means_past_rvir, bin_edges_past_rvir, binnumber_past_rvir,
 
 #importing functions
 get_projected_d_old, confining_circle
@@ -243,29 +246,30 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default
 
         annuli_to_plot = np.arange(0, 31)  # Adjusting annuli ranges based on bin edges (in kpc) (Limit is Virial Radius)
 
+        anul_dist_type = "deg" if stack_indiv_patch else "kpc"
+        b_m = bin_means_m31 if stack_indiv_patch else bin_means_past_rvir #whether bin_mean or bin_median
+        std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir
+
         for bin_idx in annuli_to_plot:
             plt.figure(figsize=(6, 4))
             if bin_idx in rm_per_annulus:
                 counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
-                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} kpc")
+                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} "+ anul_dist_type)
                 plt.xlabel("RM Values")
                 plt.ylabel("Count")
                 plt.ylim(0, np.max(counts) * 1.1)
-
+                
                 #Comparing with relative annulus around M31
-                plt.axvline(x=bin_means_m31[bin_idx-1], 
-                            label=f"RM_m31={bin_means_m31[bin_idx-1]:.1f}",
+                plt.axvline(x=b_m[bin_idx-1], 
+                            label=f"RM_m31={b_m[bin_idx-1]:.1f}",
                             color='k', linestyle='--', linewidth=.8)
                 
                 # Filling the region around the mean RM value within 1 sigma
                 plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
-                    x1=bin_means_m31[bin_idx-1] - bin_std_m31[bin_idx-1],
-                    x2=bin_means_m31[bin_idx-1] + bin_std_m31[bin_idx-1],
+                    x1=b_m[bin_idx-1] - std[bin_idx-1],
+                    x2=b_m[bin_idx-1] + std[bin_idx-1],
                     color='k', alpha=0.2, edgecolor="none",
-                    label=r"$1\sigma \approx {:.2f}$".format(bin_std_m31[bin_idx-1]))
-
-                # print(bin_idx)
-                # print(bin_means_m31[bin_idx-1])
+                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]))
 
                 plt.legend()
                 if save_plot: 
