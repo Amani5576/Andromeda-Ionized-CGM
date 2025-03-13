@@ -6,7 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-parser.add_argument('--stack_annuli-anal', action='store_true', help='Conducting stacking annulus analysis for histograms')
+parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
 args = parser.parse_args()
 
 from main import (
@@ -220,18 +220,20 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std
 
-def stack_annuli_analysis(save_plot=False): #Plots by default but saves in ./Results/ by manual argument when called.
-    # Converting Radial separation from relative patch to projected distance to be used for BG correction
-    projected_distances = [
-        [get_projected_d_old(val)
-        for val in sublist.value] 
-        for sublist in RM_coords_sep]
+def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
     
-    RM_values_per_patch_corr = [
-        [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
-        for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
-        for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
-    ]
+    if stack_indiv_patch:
+        # Converting Radial separation from relative patch to projected distance to be used for BG correction
+        projected_distances = [
+            [get_projected_d_old(val)
+            for val in sublist.value] 
+            for sublist in RM_coords_sep]
+        
+        RM_values_per_patch_corr = [
+            [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
+            for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
+            for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
+        ]
 
     #Flattening the lists fro easier computation
     flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
@@ -505,7 +507,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     """
     # Ensure bin_cent is an array and force it to have units
     bin_cent = np.asarray(bin_cent) * u.kpc if not hasattr(bin_cent, "unit") else bin_cent
-    bin_cent = bin_cent.to_value(u.kpc)  # Convert to unitless kpc
+    bin_cent = bin_cent.to_value()  # Convert to unitless
     
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
@@ -591,7 +593,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    if args.stack_annuli_anal: stack_annuli_analysis(save_plot=True)
+    if args.stack_annuli_anal: annuli_analysis(save_plot=True)
     
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
