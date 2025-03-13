@@ -503,8 +503,8 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
     bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
     if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
-        bin_cent = bin_cent.to_value()
-
+        bin_cent = bin_cent.value
+    
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
     arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
@@ -522,7 +522,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8.6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
