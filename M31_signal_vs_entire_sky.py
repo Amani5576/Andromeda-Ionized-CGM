@@ -504,11 +504,11 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
     bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
     if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
-        bin_cent = bin_cent.to_value(u.kpc)
+        bin_cent = bin_cent.to_value()
 
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
-    arr_bg = np.where(bin_cent > 300* u.kpc, arr, 0*u.kpc)  # Fill all values within virial radius with 0
+    arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
 
     # Ensure arr_bg is at least 1D
     arr_bg = np.atleast_1d(arr_bg)
@@ -523,7 +523,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8e3) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(8e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
@@ -581,6 +581,10 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             all_medians.append(bin_med) #For y-axis
             all_bin_stds.append(bin_std)
             
+            #Background correction for the individual plots
+            all_means = indiv_bg_corr(all_means, all_d_bin_centers)
+            all_medians = indiv_bg_corr(all_medians, all_d_bin_centers)
+
             #This has been commented out to remove clatter
             #The they are all being collected and will be averaged to make a final one
             plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean, bin_med, bin_std)
