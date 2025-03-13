@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
 parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
-parser.add_argument('--RM-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
+parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
 args = parser.parse_args()
 
 from main import (
@@ -22,7 +22,7 @@ bin_med as bin_med_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
-L_m31,
+R_vir,
 
 #importing functions
 get_projected_d_old, confining_circle
@@ -224,10 +224,13 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
 def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
     
-    def construct_and_plot_annuli(distance_flat, rm_vals_flat):
+    def construct_and_plot_annuli(distance_flat, rm_vals_flat, save_plot=save_plot):
+        distance_flat = np.asarray(distance_flat)
+        rm_vals_flat = np.asarray(rm_vals_flat)
+
         #30 bins for annular regions
         bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), 31)  # 30 bins
-        bin_indices = np.digitize(distance_flat, bins=bin_edges)  #Assigning each RM to a bin
+        bin_indices = np.digitize(distance_flat, bins=bin_edges) #Assigning each RM to a bin
 
         #Storing RM values per annulus
         rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}  #Dictionary to store RM values for each bin
@@ -238,13 +241,13 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default
         #Converting lists to numpy arrays for easier handling
         rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
 
-        annuli_to_plot = np.arange(0, round(L_m31), 1)  # Adjusting annuli ranges based on bin edges (in degrees)
+        annuli_to_plot = np.arange(0, 31)  # Adjusting annuli ranges based on bin edges (in kpc) (Limit is Virial Radius)
 
         for bin_idx in annuli_to_plot:
             plt.figure(figsize=(6, 4))
             if bin_idx in rm_per_annulus:
                 counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
-                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} deg")
+                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} kpc")
                 plt.xlabel("RM Values")
                 plt.ylabel("Count")
                 plt.ylim(0, np.max(counts) * 1.1)
@@ -297,8 +300,8 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default
 
     #Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
     else: 
-        D_Bin_centers = np.concatenate([bin_centers for bin_centers in np.abs(D_bin_centers)])
-        Avg_Means = np.concatenate([avg_mean for avg_mean in np.abs(Avg_means)]) 
+        D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
+        Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
         construct_and_plot_annuli(D_Bin_centers, Avg_Means)
         
 
@@ -518,6 +521,11 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
     arr - RM arrays . RM separation distances in degrees
     """
+
+    # If arr and bin_cent are lists of arrays, process each separately
+    if isinstance(arr, list) and isinstance(bin_cent, list):
+        return [indiv_bg_corr(a, b, absol) for a, b in zip(arr, bin_cent)]
+    
     # Ensure bin_cent is an array and force it to have units
     bin_cent = np.asarray(bin_cent) * u.kpc if not hasattr(bin_cent, "unit") else bin_cent
     bin_cent = bin_cent.to_value()  # Convert to unitless
@@ -539,7 +547,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(6.1e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
@@ -603,6 +611,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             # #This has been commented out to remove clatter
             # #The they are all being collected and will be averaged to make a final one
             # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+print("Mean and Median calculations have ended")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
 
@@ -692,5 +701,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     if args.show_dispersion:
         plot_m31_dispersion(bin_num_from_main)
 
+    all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False)
+    all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
     if args.annuli_anal: annuli_analysis(save_plot=True)
