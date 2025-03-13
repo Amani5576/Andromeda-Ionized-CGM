@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "M31_signal_vs_entire_sky.py", line 647, in <module>
+    print(f"Min values per list: {[min(centers) for centers in all_d_bin_centers if centers]}")
+  File "M31_signal_vs_entire_sky.py", line 647, in <listcomp>
+    print(f"Min values per list: {[min(centers) for centers in all_d_bin_centers if centers]}")
+ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+/var/lib/slurm/slurmd/job10600692/slurm_script: line 24: syntax error: unexpected end of file
