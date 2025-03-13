@@ -11,7 +11,10 @@
 # Load required modules
 echo "Submitting Slurm Job for Testing individual plots of Honours |RM| against radial projection"
 
-# Running my script
+# Running main.py first to define variables
+singularity exec /idia/software/containers/ASTRO-PY3.simg python3 main.py
+
+#Script of interest to be run in current job
 singularity exec /idia/software/containers/ASTRO-PY3.simg python3 M31_signal_vs_entire_sky.py 
 
 
