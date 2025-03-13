@@ -499,11 +499,13 @@ def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_me
 
 #Individiual backgorund correction
 def indiv_bg_corr(arr, bin_cent, absol=True):
-
-    #bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
-    bin_cent = np.asarray(bin_cent)  # Ensure bin_cent is an array
-    if hasattr(bin_cent, "unit"):  # If it's an astropy Quantity, make it unitless
-        bin_cent = bin_cent.value
+    """
+    bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
+    arr - RM arrays . RM separation distances in degrees
+    """
+    # Ensure bin_cent is an array and force it to have units
+    bin_cent = np.asarray(bin_cent) * u.kpc if not hasattr(bin_cent, "unit") else bin_cent
+    bin_cent = bin_cent.to_value(u.kpc)  # Convert to unitless kpc
     
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
@@ -522,7 +524,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(8.8e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
