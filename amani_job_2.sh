@@ -19,3 +19,5 @@ if [ $? -eq 0 ]; then
     echo "run successfully"
 else
     echo "There was an issue. Run lerr in terminal for more info"
+
+sacct -j $SLURM_JOB_ID --format=JobID,MaxRSS,Elapsed,State >> m31-Individual-plots-on-RM-vs-rad-proj-$SLURM_JOB_ID.log
