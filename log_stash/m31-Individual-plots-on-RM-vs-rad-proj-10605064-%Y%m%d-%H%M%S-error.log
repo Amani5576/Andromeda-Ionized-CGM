@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "M31_signal_vs_entire_sky.py", line 585, in <module>
-    all_means = indiv_bg_corr(all_means, all_d_bin_centers)
-  File "M31_signal_vs_entire_sky.py", line 516, in indiv_bg_corr
-    arr_bg_no_0 = arr_bg[np.flatnonzero(arr_bg)]  # Remove zeros to compute mean of background
-IndexError: index 38 is out of bounds for axis 0 with size 1
