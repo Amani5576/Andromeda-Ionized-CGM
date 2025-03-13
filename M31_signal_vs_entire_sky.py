@@ -523,7 +523,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(8.6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
@@ -554,7 +554,6 @@ fig1.clf() #No need to show figure. Only axis is needed
 print("(No longer plotting) but collecting of points from each circular patch has begun...")
 collection_of_points_from_WCS_sphere() #IMPORTANT
 print("Collection of points by each circular patch on WCS sphere is complete")
-
 
 print("Getting separation of RM from center of relative patch")
 #Get separation of RM from center of relative patch.
