@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
 parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
+parser.add_argument('--RM-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
 args = parser.parse_args()
 
 from main import (
@@ -219,6 +220,7 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
         bins=bin_num)
 
     return d_bin_centers, bin_means, bin_med, bin_std
+
 
 def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
     
@@ -605,7 +607,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
     if args.annuli_anal: annuli_analysis(save_plot=True)
-    
+
     #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
                                     max([max(centers) for centers in all_d_bin_centers]), 
@@ -675,9 +677,12 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     #             framealpha = 0, ncols = (2,4))
     plt.tight_layout()
     #plt.show()
-    path = curr_dir_path() + "Results/"
-    fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
-    print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
+    
+    if args.rm_vs_proj_dist:
+        path = curr_dir_path() + "Results/"
+        fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
+        print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
+    
     plt.close(fig2) #Deleting the Figure
     
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
