@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name="m31_Individual_plots_on_RM_vs_rad_proj"
-#SBATCH --output=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j-$(date +%Y%m%d-%H%M%S).log
-#SBATCH --error=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j-$(date +%Y%m%d-%H%M%S)-error.log
+#SBATCH --output=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j-%Y%m%d-%H%M%S.log
+#SBATCH --error=log_stash/m31-Individual-plots-on-RM-vs-rad-proj-%j-%Y%m%d-%H%M%S-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=20G
