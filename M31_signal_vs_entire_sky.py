@@ -264,7 +264,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         for bin_idx in annuli_to_plot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  # Create 1x2 subplot grid
             
-            x_axis_label = r" (rad m$^{-2}$)"
+            x_axis_label = r" [rad m$^{-2}$]"
             histbin = 50 #number of beans per histogram's RM-axis (x-axis)
             if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
 
@@ -272,7 +272,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
                 axes[0].set_title("Mean")
                 axes[0].set_xlabel("RM " +  x_axis_label)
-                axes[0].set_ylabel("Counts" + r"/$\xi$" + f" ({annul_dist_type}"+ r"$^{-2}$)")
+                axes[0].set_ylabel("Counts" + r"/$\xi$" + f" [{annul_dist_type}"+ r"$^{-2}$]")
                 
                 #dividing Counts of Mean by Annulus Area
                 for p in patches_mean: p.set_height(p.get_height() / annul_area)
