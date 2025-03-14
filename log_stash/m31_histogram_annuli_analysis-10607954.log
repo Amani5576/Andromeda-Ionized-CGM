@@ -1,0 +1,18 @@
+Submitting Slurm Job for plotting Histograms after presenting stacked (non-mean) verison at 12th March Wednesday meeting
+
+=========================================
+The start-up time of CASA may vary
+depending on whether the shared libraries
+are cached or not.
+=========================================
+
+]0;IPython: GitStuff/Andromeda-Ionized-CGMIPython 5.1.0 -- An enhanced Interactive Python.
+
+CASA 5.7.0-134   -- Common Astronomy Software Applications
+
+Creating a new telemetry file
+Telemetry initialized. Telemetry will send anonymized usage statistics to NRAO.
+You can disable telemetry by adding the following line to your ~/.casarc file:
+EnableTelemetry: False
+Enter [94mdoc('start')[0m for help getting started with CASA...
+Using matplotlib backend: TkAgg
