@@ -3,8 +3,8 @@
 #SBATCH --output=log_stash/m31_histogram_annuli_analysis-%j.log
 #SBATCH --error=log_stash/m31_histogram_annuli_analysis-%j-error.log
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=20G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=25G
 #SBATCH --time=00:30:00
 #SBATCH --partition=Main
 
