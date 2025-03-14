@@ -292,7 +292,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
 
                 # Filling the region around the mean RM value within 1 sigma (mean RM)
                 axes[0].fill_betweenx(
-                    y=np.linspace(0, 700, 100),
+                    y=np.linspace(0, 5000, 100),
                     x1=(b_m_1[bin_idx-1] - std[bin_idx-1])/annul_area,
                     x2=(b_m_1[bin_idx-1] + std[bin_idx-1])/annul_area,
                     color='k', alpha=0.2, edgecolor="none",
@@ -300,7 +300,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 )
                 # Filling the region around the median RM value within 1 sigma (median RM)
                 axes[1].fill_betweenx(
-                    y=np.linspace(0, 700, 100),
+                    y=np.linspace(0, 5000, 100),
                     x1=(b_m_2[bin_idx-1] - std[bin_idx-1])/annul_area,
                     x2=(b_m_2[bin_idx-1] + std[bin_idx-1])/annul_area,
                     color='k', alpha=0.2, edgecolor="none",
