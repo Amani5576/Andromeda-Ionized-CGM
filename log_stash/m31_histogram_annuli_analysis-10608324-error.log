@@ -1,0 +1,6 @@
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:156: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:165: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/var/lib/slurm/slurmd/job10608324/slurm_script: line 15: 3538150 Killed                  singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal
+slurmstepd: error: Detected 1 oom_kill event in StepId=10608324.batch. Some of the step tasks have been OOM Killed.
