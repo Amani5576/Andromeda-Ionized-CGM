@@ -243,8 +243,8 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         rm_per_annulus_median = {i: [] for i in range(1, len(bin_edges)+1)}  # Dictionary to store RM values for each bin (median)
 
         for i, bin_idx in enumerate(bin_indices):
-            rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i]/annul_area)  # Append RM values for mean to corresponding bin
-            rm_per_annulus_median[bin_idx].append(rm_vals_flat_median[i]/annul_area)  # Append RM values for median to corresponding bin
+            rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i])  # Append RM values for mean to corresponding bin
+            rm_per_annulus_median[bin_idx].append(rm_vals_flat_median[i])  # Append RM values for median to corresponding bin
 
         # Converting lists to numpy arrays for easier handling
         rm_per_annulus_mean = {k: np.array(v) for k, v in rm_per_annulus_mean.items() if len(v) > 0}
@@ -255,7 +255,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         else: 
             annuli_to_plot = np.arange(0, bin_num_from_main+1)  # Adjusting annuli ranges based on bin edges (in kpc)
 
-        anul_dist_type = "deg" if stack_indiv_patch else "kpc"
+        annul_dist_type = "deg" if stack_indiv_patch else "kpc"
         b_m_1 = bin_means_m31 if stack_indiv_patch else bin_means_past_rvir
         b_m_2 = bin_med_m31 if stack_indiv_patch else bin_meds_past_rvir
         std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir #assuming same standard deviation
@@ -264,53 +264,61 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         for bin_idx in annuli_to_plot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  # Create 1x2 subplot grid
             
-            x_axis_label = r" (rad/m$^{2}$/$\xi$)"
+            x_axis_label = r" (rad m$^{-2}$)"
             histbin = 50 #number of beans per histogram's RM-axis (x-axis)
             if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
 
-                # Plot for "Mean" subplot (left side)
-                counts, _, _ = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
+                # Plotting for "Mean" subplot (left side)
+                counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
                 axes[0].set_title("Mean")
-                axes[0].set_xlabel("RM per radial area " +  x_axis_label)
-                axes[0].set_ylabel("Counts")
+                axes[0].set_xlabel("RM " +  x_axis_label)
+                axes[0].set_ylabel("Counts" + r"/$\xi$" + f" ({annul_dist_type}"+ r"$^{-2}$)")
+                
+                #dividing Counts of Mean by Annulus Area
+                for p in patches_mean: p.set_height(p.get_height() / annul_area)
+                counts /= annul_area
                 axes[0].set_ylim(0, np.max(counts) * 1.1)
                 
-                # Plot for "Median" subplot (right side)
-                counts, _, _ = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
+                # Plotting for "Median" subplot (right side)
+                counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
                 axes[1].set_title("Median")
-                axes[1].set_xlabel("RM per radial area " +  x_axis_label)
+                axes[1].set_xlabel("RM " +  x_axis_label)
                 # axes[1].set_ylabel("Counts")
+
+                #dividing Counts of Mean by Annulus Area
+                for p in patches_med: p.set_height(p.get_height() / annul_area)
+                counts /= annul_area
                 axes[1].set_ylim(0, np.max(counts) * 1.1)
 
                 # For M31 relative annulus (mean RM)
-                axes[0].axvline(x=b_m_1[bin_idx-1]/annul_area, 
-                                label=f"m31 = {b_m_1[bin_idx-1]/annul_area:.4f}", 
+                axes[0].axvline(x=b_m_1[bin_idx-1], 
+                                label=f"m31 = {b_m_1[bin_idx-1]:.2f}", 
                                 color='k', linestyle='--', linewidth=.8)
-                axes[1].axvline(x=b_m_2[bin_idx-1]/annul_area, 
-                                label=f"m31 = {b_m_2[bin_idx-1]/annul_area:.4f}", 
+                axes[1].axvline(x=b_m_2[bin_idx-1], 
+                                label=f"m31 = {b_m_2[bin_idx-1]:.2f}", 
                                 color='k', linestyle='--', linewidth=.8)
 
-                # Filling the region around the mean RM value within 1 sigma (mean RM)
+                #Filling the region around the mean RM value within 1 sigma (mean RM)
                 axes[0].fill_betweenx(
-                    y=np.linspace(0, 5000, 100),
-                    x1=(b_m_1[bin_idx-1] - std[bin_idx-1])/annul_area,
-                    x2=(b_m_1[bin_idx-1] + std[bin_idx-1])/annul_area,
+                    y=np.linspace(0, 100, 100),
+                    x1=(b_m_1[bin_idx-1] - std[bin_idx-1]),
+                    x2=(b_m_1[bin_idx-1] + std[bin_idx-1]),
                     color='k', alpha=0.2, edgecolor="none",
-                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]/annul_area)
+                    label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
                 )
-                # Filling the region around the median RM value within 1 sigma (median RM)
+                #Filling the region around the median RM value within 1 sigma (median RM)
                 axes[1].fill_betweenx(
-                    y=np.linspace(0, 5000, 100),
-                    x1=(b_m_2[bin_idx-1] - std[bin_idx-1])/annul_area,
-                    x2=(b_m_2[bin_idx-1] + std[bin_idx-1])/annul_area,
+                    y=np.linspace(0, 100, 100),
+                    x1=(b_m_2[bin_idx-1] - std[bin_idx-1]),
+                    x2=(b_m_2[bin_idx-1] + std[bin_idx-1]),
                     color='k', alpha=0.2, edgecolor="none",
-                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]/annul_area)
+                    label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
                 )
 
                 axes[0].legend(); axes[1].legend()
-                fig.suptitle(f"Range: {bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} {anul_dist_type}" + r" ($\xi$" + f" ={annul_area:.2f}" + f"{anul_dist_type}" r"$^2$)")
+                fig.suptitle(f" ({bin_edges[bin_idx-1]:.2f}" + r" $< r_{proj} <$ " + f"{bin_edges[bin_idx]:.2f}) {annul_dist_type}" + r"  |  Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
                 
-                # Save or display the figure
+                #Saving or displaying
                 if save_plot:
                     path = curr_dir_path() + "Results/"
                     plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
@@ -318,7 +326,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 else:
                     plt.show()
 
-                # break #Testing out one plot
+                break #Testing out one plot
 
         if save_plot: 
             plt.close()  # Deleting the figure to clear memory
