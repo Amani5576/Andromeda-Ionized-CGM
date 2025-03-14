@@ -308,7 +308,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 )
 
                 axes[0].legend(); axes[1].legend()
-                fig.suptitle(f"Range: {bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} {anul_dist_type}" + r" ($\xi$" + f" ={annul_area:.2f}" + r" kpc$^2$)")
+                fig.suptitle(f"Range: {bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} {anul_dist_type}" + r" ($\xi$" + f" ={annul_area:.2f}" + f"{anul_dist_type}" r"$^2$)")
                 
                 # Save or display the figure
                 if save_plot:
