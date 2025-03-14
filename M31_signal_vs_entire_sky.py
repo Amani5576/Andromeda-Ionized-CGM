@@ -22,10 +22,10 @@ bin_med as bin_med_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
-bin_std_past_rvir, L_m31,
+bin_std_past_rvir, L_m31, cutoff,
 
 #Thes eare statisics for the entire sepration from m31 center to all 
-bin_means_past_rvir, bin_edges_past_rvir, binnumber_past_rvir,
+bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
 get_projected_d_old, confining_circle
@@ -225,90 +225,133 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
     return d_bin_centers, bin_means, bin_med, bin_std
 
 
-def annuli_analysis(save_plot=False, stack_indiv_patch=False): #Plots by default but saves in ./Results/ by manual argument when called.
+def annuli_analysis(save_plot=False, stack_indiv_patch=False): 
+    print("Annuli Histogram analysis and plotting have begun")
     
-    def construct_and_plot_annuli(distance_flat, rm_vals_flat, save_plot=save_plot):
+    def construct_and_plot_annuli(distance_flat, rm_vals_flat_mean, rm_vals_flat_median, save_plot=save_plot):
         distance_flat = np.asarray(distance_flat)
-        rm_vals_flat = np.asarray(rm_vals_flat)
+        rm_vals_flat_mean = np.asarray(rm_vals_flat_mean)
+        rm_vals_flat_median = np.asarray(rm_vals_flat_median)
 
-        #30 bins for annular regions
-        bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), 31)  # 30 bins
+        #<bin_num_from_main> number of bins for annular regions
+        bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num_from_main+1) #bin number based 
         bin_indices = np.digitize(distance_flat, bins=bin_edges) #Assigning each RM to a bin
-
-        #Storing RM values per annulus
-        rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}  #Dictionary to store RM values for each bin
+        
+        annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2) #Areas are essentially discrete and are the same.
+        # Storing RM values per annulus
+        rm_per_annulus_mean = {i: [] for i in range(1, len(bin_edges)+1)}  # Dictionary to store RM values for each bin (mean)
+        rm_per_annulus_median = {i: [] for i in range(1, len(bin_edges)+1)}  # Dictionary to store RM values for each bin (median)
 
         for i, bin_idx in enumerate(bin_indices):
-            rm_per_annulus[bin_idx].append(rm_vals_flat[i])  # Append RM values to corresponding bin
+            rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i]/annul_area)  # Append RM values for mean to corresponding bin
+            rm_per_annulus_median[bin_idx].append(rm_vals_flat_median[i]/annul_area)  # Append RM values for median to corresponding bin
 
-        #Converting lists to numpy arrays for easier handling
-        rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
+        # Converting lists to numpy arrays for easier handling
+        rm_per_annulus_mean = {k: np.array(v) for k, v in rm_per_annulus_mean.items() if len(v) > 0}
+        rm_per_annulus_median = {k: np.array(v) for k, v in rm_per_annulus_median.items() if len(v) > 0}
 
-        annuli_to_plot = np.arange(0, 31)  # Adjusting annuli ranges based on bin edges (in kpc) (Limit is Virial Radius)
+        if stack_indiv_patch: 
+            annuli_to_plot = np.arange(0, round(cutoff.value)+1) # Adjusting annuli ranges based on bin edges (in degrees)
+        else: 
+            annuli_to_plot = np.arange(0, bin_num_from_main+1)  # Adjusting annuli ranges based on bin edges (in kpc)
 
         anul_dist_type = "deg" if stack_indiv_patch else "kpc"
-        b_m = bin_means_m31 if stack_indiv_patch else bin_means_past_rvir #whether bin_mean or bin_median
-        std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir
+        b_m_1 = bin_means_m31 if stack_indiv_patch else bin_means_past_rvir
+        b_m_2 = bin_med_m31 if stack_indiv_patch else bin_meds_past_rvir
+        std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir #assuming same standard deviation
 
+        # Loop through the annuli
         for bin_idx in annuli_to_plot:
-            plt.figure(figsize=(6, 4))
-            if bin_idx in rm_per_annulus:
-                counts, _, _ = plt.hist(rm_per_annulus[bin_idx], bins=30, alpha=0.5)
-                plt.title(f"{bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} "+ anul_dist_type)
-                plt.xlabel("RM Values")
-                plt.ylabel("Count")
-                plt.ylim(0, np.max(counts) * 1.1)
-                
-                #Comparing with relative annulus around M31
-                plt.axvline(x=b_m[bin_idx-1], 
-                            label=f"RM_m31={b_m[bin_idx-1]:.1f}",
-                            color='k', linestyle='--', linewidth=.8)
-                
-                # Filling the region around the mean RM value within 1 sigma
-                plt.fill_betweenx(y=np.linspace(0, plt.ylim()[1], 100),  #Filling along y-axis
-                    x1=b_m[bin_idx-1] - std[bin_idx-1],
-                    x2=b_m[bin_idx-1] + std[bin_idx-1],
-                    color='k', alpha=0.2, edgecolor="none",
-                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]))
+            fig, axes = plt.subplots(1, 2, figsize=(12, 6))  # Create 1x2 subplot grid
+            
+            x_axis_label = r" (rad/m$^{2}$/$\xi$)"
+            histbin = 50 #number of beans per histogram's RM-axis (x-axis)
+            if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
 
-                plt.legend()
-                if save_plot: 
+                # Plot for "Mean" subplot (left side)
+                counts, _, _ = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
+                axes[0].set_title("Mean")
+                axes[0].set_xlabel("RM per radial area " +  x_axis_label)
+                axes[0].set_ylabel("Counts")
+                axes[0].set_ylim(0, np.max(counts) * 1.1)
+                
+                # Plot for "Median" subplot (right side)
+                counts, _, _ = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
+                axes[1].set_title("Median")
+                axes[1].set_xlabel("RM per radial area " +  x_axis_label)
+                # axes[1].set_ylabel("Counts")
+                axes[1].set_ylim(0, np.max(counts) * 1.1)
+
+                # For M31 relative annulus (mean RM)
+                axes[0].axvline(x=b_m_1[bin_idx-1]/annul_area, 
+                                label=f"m31 = {b_m_1[bin_idx-1]/annul_area:.4f}", 
+                                color='k', linestyle='--', linewidth=.8)
+                axes[1].axvline(x=b_m_2[bin_idx-1]/annul_area, 
+                                label=f"m31 = {b_m_2[bin_idx-1]/annul_area:.4f}", 
+                                color='k', linestyle='--', linewidth=.8)
+
+                # Filling the region around the mean RM value within 1 sigma (mean RM)
+                axes[0].fill_betweenx(
+                    y=np.linspace(0, 700, 100),
+                    x1=(b_m_1[bin_idx-1] - std[bin_idx-1])/annul_area,
+                    x2=(b_m_1[bin_idx-1] + std[bin_idx-1])/annul_area,
+                    color='k', alpha=0.2, edgecolor="none",
+                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]/annul_area)
+                )
+                # Filling the region around the median RM value within 1 sigma (median RM)
+                axes[1].fill_betweenx(
+                    y=np.linspace(0, 700, 100),
+                    x1=(b_m_2[bin_idx-1] - std[bin_idx-1])/annul_area,
+                    x2=(b_m_2[bin_idx-1] + std[bin_idx-1])/annul_area,
+                    color='k', alpha=0.2, edgecolor="none",
+                    label=r"$1\sigma \approx {:.2f}$".format(std[bin_idx-1]/annul_area)
+                )
+
+                axes[0].legend(); axes[1].legend()
+                fig.suptitle(f"Range: {bin_edges[bin_idx-1]:.2f} - {bin_edges[bin_idx]:.2f} {anul_dist_type}" + r" ($\xi$" + f" ={annul_area:.2f}" + r" kpc$^2$)")
+                
+                # Save or display the figure
+                if save_plot:
                     path = curr_dir_path() + "Results/"
-                    plt.savefig(f"{path}" + f"annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")#Saving as image
-                    plt.clf() #clearing the figure (not deleting it)
+                    plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                    plt.clf()  # clearing the figure (not deleting it)
                 else:
                     plt.show()
+
+                # break #Testing out one plot
+
         if save_plot: 
-            plt.close() #Deleting the figure to clear memory
+            plt.close()  # Deleting the figure to clear memory
             print(f"All images saved to {path}")
     
-    #Stacking all patches together without any mean analysis
+    # Stack all patches together without any mean analysis
     if stack_indiv_patch:
         
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
-            [get_projected_d_old(val)
-            for val in sublist.value] 
-            for sublist in RM_coords_sep]
+            [get_projected_d_old(val) for val in sublist.value] 
+            for sublist in RM_coords_sep
+        ]
         
         RM_values_per_patch_corr = [
-            [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) #Not looking at absolute values of RM 
-            for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
+            [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
-        #Flattening the lists fro easier computation
-        flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  #Separation distanecs (degrees)
-        flat_rm_vals = np.concatenate(RM_values_per_patch_corr)  #Corresponding RM values
-        construct_and_plot_annuli(flat_sep_vals, flat_rm_vals)
+        # Flattening the lists for easier computation
+        flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  # Separation distances (degrees)
+        flat_rm_vals_mean = np.concatenate([RM_values_per_patch_corr_mean for RM_values_per_patch_corr_mean in RM_values_per_patch])  # Corresponding RM values for mean
+        flat_rm_vals_median = np.concatenate([RM_values_per_patch_corr_median for RM_values_per_patch_corr_median in RM_values_per_patch])  # Corresponding RM values for median
+        construct_and_plot_annuli(flat_sep_vals, flat_rm_vals_mean, flat_rm_vals_median)
 
-    #Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
+    # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
     else: 
         D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
         Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
-        construct_and_plot_annuli(D_Bin_centers, Avg_Means)
-        
+        Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
+        construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
+        
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
     ax.errorbar(d_bin_centers, np.absolute(bin_mean), yerr=bin_std, fmt='k.-', alpha=.4)
@@ -551,7 +594,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50

@@ -109,7 +109,7 @@ rm -= np.average(rm_bg) #for all rm readings
 #Validation/Sanity Check
 # print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
-bin_num = 30
+bin_num = 80
 #Calculate mean of RM values within Rvir of M31
 bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
 
@@ -120,6 +120,14 @@ binnumber_past_rvir )= stats.binned_statistic(
     np.concatenate([m31_sep_Rvir,m31_sep_bg]), 
     np.concatenate([rm_m31,rm_bg]), 
     statistic = 'mean', bins = bin_num)
+
+#Calculate mean of RM values within Rvir of M31 (inclusive of background RM for R_vir)
+(bin_meds_past_rvir, 
+bin_edges_past_rvir, 
+binnumber_past_rvir )= stats.binned_statistic(
+    np.concatenate([m31_sep_Rvir,m31_sep_bg]), 
+    np.concatenate([rm_m31,rm_bg]), 
+    statistic = 'median', bins = bin_num)
 
 #bin median isnt used anywhere yet.
 bin_med, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
