@@ -1,0 +1,7 @@
+2025-03-14 12:47:03	INFO	::casa	
+2025-03-14 12:47:03	INFO	::casa	Checking telemetry submission interval
+2025-03-14 12:47:03	INFO	::casa	Creating a new telemetry time stamp file./users/amani/.casa/telemetry-e02232a32a7296414.stamp
+2025-03-14 12:47:03	INFO	::casa	Telemetry submit interval not reached. Not submitting data.
+2025-03-14 12:47:03	INFO	::casa	Next telemetry data submission in: 6 days, 23:59:59.995079
+2025-03-14 12:47:03	INFO	::casa	CASA Version  5.7.0-134  
+2025-03-14 12:47:05	INFO	::casa	
