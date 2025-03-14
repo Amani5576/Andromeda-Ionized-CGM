@@ -651,13 +651,13 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
             all_medians.append(bin_med) #For y-axis
             all_bin_stds.append(bin_std)
             
-            # #Background correction for the individual plots
-            # bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-            # bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+            #Background correction for the individual plots
+            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-            # #This has been commented out to remove clatter
-            # #The they are all being collected and will be averaged to make a final one
-            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            #This has been commented out to remove clatter
+            #The they are all being collected and will be averaged to make a final one
+            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
 print("Mean and Median calculations have ended")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
