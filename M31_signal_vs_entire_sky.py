@@ -278,8 +278,8 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 #dividing Counts of Mean by Annulus Area
                 for p in patches_mean: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                # axes[0].set_ylim(0, np.max(counts) * 1.1)
-                axes[0].set_ylim(*ylim)
+                axes[0].set_ylim(0, np.max(counts) * 1.1)
+                # axes[0].set_ylim(*ylim)
                 axes[0].set_xlim(*xlim)
                 
                 # Plotting for "Median" subplot (right side)
@@ -291,8 +291,8 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 #dividing Counts of Median by Annulus Area
                 for p in patches_med: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                # axes[1].set_ylim(0, np.max(counts) * 1.1)
-                axes[1].set_ylim(*ylim)
+                axes[1].set_ylim(0, np.max(counts) * 1.1)
+                # axes[1].set_ylim(*ylim)
                 axes[1].set_xlim(*xlim)
 
                 # For M31 relative annulus (mean RM)
