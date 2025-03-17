@@ -274,26 +274,26 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 axes[0].set_title("Mean")
                 axes[0].set_xlabel("RM " +  x_axis_label)
                 axes[0].set_ylabel("Counts" + r"/$\xi$" + f" [{annul_dist_type}"+ r"$^{-2}$]")
-                axes[0].set_ylim(*ylim)
-                axes[0].set_xlim(*xlim)
 
                 #dividing Counts of Mean by Annulus Area
                 for p in patches_mean: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                axes[0].set_ylim(0, np.max(counts) * 1.1)
+                # axes[0].set_ylim(0, np.max(counts) * 1.1)
+                axes[0].set_ylim(*ylim)
+                axes[0].set_xlim(*xlim)
                 
                 # Plotting for "Median" subplot (right side)
                 counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
                 axes[1].set_title("Median")
                 axes[1].set_xlabel("RM " +  x_axis_label)
                 # axes[1].set_ylabel("Counts")
-                axes[1].set_ylim(*ylim)
-                axes[1].set_xlim(*xlim)
 
                 #dividing Counts of Median by Annulus Area
                 for p in patches_med: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                axes[1].set_ylim(0, np.max(counts) * 1.1)
+                # axes[1].set_ylim(0, np.max(counts) * 1.1)
+                axes[1].set_ylim(*ylim)
+                axes[1].set_xlim(*xlim)
 
                 # For M31 relative annulus (mean RM)
                 axes[0].axvline(x=b_m_1[bin_idx-1], 
@@ -331,7 +331,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 else:
                     plt.show()
 
-                # break #Testing out one plot
+                break #Testing out one plot
 
         if save_plot: 
             plt.close()  # Deleting the figure to clear memory
