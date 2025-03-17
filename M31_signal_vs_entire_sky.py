@@ -331,7 +331,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 else:
                     plt.show()
 
-                break #Testing out one plot
+                # break #Testing out one plot
 
         if save_plot: 
             plt.close()  # Deleting the figure to clear memory
