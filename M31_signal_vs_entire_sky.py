@@ -28,7 +28,7 @@ bin_std_past_rvir, L_m31, cutoff,
 bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
-get_projected_d_old, confining_circle
+get_projected_d_old, confining_circle, get_wcs
 )
 
 #Hanlding unnneccesary clutter of printing from warnings
@@ -160,10 +160,6 @@ def get_random_points(num=30000, ra_range=(0, 360), dec_range=(-1, 1),
         
         return ra_values, dec_values
 
-def get_wcs(filename):
-    hdu = fits.open(filename)[0]
-    return WCS(hdu.header)
-    
 def collection_of_points_from_WCS_sphere():#Placing patches on sphere with real RM values
 
     for patch_ra, patch_dec in list(zip(patch_ra_points, patch_dec_points)):
@@ -280,7 +276,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 counts /= annul_area
                 axes[0].set_ylim(0, np.max(counts) * 1.1)
                 # axes[0].set_ylim(*ylim)
-                # axes[0].set_xlim(*xlim)
+                axes[0].set_xlim(-75, 125)
                 
                 # Plotting for "Median" subplot (right side)
                 counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
@@ -293,7 +289,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 counts /= annul_area
                 axes[1].set_ylim(0, np.max(counts) * 1.1)
                 # axes[1].set_ylim(*ylim)
-                # axes[1].set_xlim(*xlim)
+                axes[1].set_xlim(-75, 100)
 
                 # For M31 relative annulus (mean RM)
                 axes[0].axvline(x=b_m_1[bin_idx-1], 

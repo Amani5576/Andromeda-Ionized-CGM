@@ -180,6 +180,10 @@ PA_m33 = m33_theta + shift
 # R_vir RM Angular distance from M31 --> m31_sep_Rvir
 # =============================================================================
 
+def get_wcs(filename):
+    hdu = fits.open(filename)[0]
+    return WCS(hdu.header)
+
 def update_projection(ax, row_num, col_num, projection, fig=None):
     """Perosnally modified but with assistance from:
     https://stackoverflow.com/questions/33942233/how-do-i-change-matplotlibs-subplot-projection-of-an-existing-axis
@@ -321,6 +325,35 @@ def ra_dec_to_pixels(RA, Dec, **kw):
 
     return np.array(X_pixels), np.array(Y_pixels)
 
+def print_smoothing_scale(delts, std_x, std_y, nsig):
+    """
+    Computes kernel width in pixels and smoothing scale in degrees.
+
+    Parameters:
+    - delt (float): Pixel scale in degrees per pixel (DELT1 or DELT2)
+    - std_x (float): Standard deviation in pixels (X-axis).
+    - std_y (float): Standard deviation in pixels (Y-axis).
+    - nsig (float, optional): Smoothing extent factor. Default is 0.6.
+
+    Returns:
+    - dict: Kernel width in pixels and smoothing scale in degrees for X and Y.
+    """
+    #incase its reversed (a minus sign... especially for RA)
+    delts = tuple(map(np.abs,(delts[0],delts[1]))) 
+
+    #kernel width in pixels
+    kernel_width_x = 2 * nsig * std_x
+    kernel_width_y = 2 * nsig * std_y
+
+    #smoothing scale in degrees
+    smoothing_scale_x = kernel_width_x * delts[0]
+    smoothing_scale_y = kernel_width_y * delts[1]
+
+    print(f"Kernel width (X): {kernel_width_x:.3f} pixels")
+    print(f"Kernel width (Y): {kernel_width_y:.3f} pixels")
+    print(f"Smoothing scale (X): {smoothing_scale_x:.3f} degrees")
+    print(f"Smoothing scale (Y): {smoothing_scale_y:.3f} degrees")
+
 def smooth_2d_image(ra, dec, fitfile, imsize=5000, nsig=1):
 
     im = np.zeros((imsize, imsize), dtype=float)
@@ -328,10 +361,15 @@ def smooth_2d_image(ra, dec, fitfile, imsize=5000, nsig=1):
     x0s, y0s = ra_dec_to_pixels(ra, dec, fitfile=fitfile)
     
     std_x, std_y = tuple(map(np.std,(x0s, y0s)))
-    
+    # print(f"{std_x=}")
+    # print(f"{std_y=}")
+
     """IMPORTANT"""
     smooth = 1.1 #Factor for smoothing the scatter plot via 2d guassian
     std_x, std_y = smooth*std_x, smooth*std_y
+    
+    DELTS = fits.open('LGSNLGSR.SQLGBB.FITS')[0].header['CDELT*'][:2]
+    print_smoothing_scale(DELTS, std_x=std_x, std_y=std_y, nsig=nsig)
     
     # rm_m31_normalized = np.where(rm_m31 < 0, -1, np.where(rm_m31 > 0, 1, 0))
     
@@ -359,6 +397,7 @@ def smooth_2d_image(ra, dec, fitfile, imsize=5000, nsig=1):
         im[ylo:yhi, xlo:xhi] += gauss2d(imx, imy, amp, x0, y0, sx, sy)
 
     return im
+
 
 def get_width_midpoints(patchname): 
     

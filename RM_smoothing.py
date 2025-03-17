@@ -103,7 +103,7 @@ x0s, y0s = ra_dec_to_pixels(ra, dec, filename=filename)
 # ax.scatter(x0s, y0s, marker='.', s=2)
 
 RM_dens = ax.imshow(im_clipped, cmap='RdYlBu', origin='lower', alpha=0.5)
-   
+
 RM_dens_cbar = plt.colorbar(RM_dens, ax=ax, fraction=0.05, orientation='horizontal')
 RM_dens_cbar.set_label('Smooth RM Intensity (capped)', labelpad=labelpad, fontsize=cbar_lab_size)
 global min_tick_1, max_tick_1, min_tick_2, max_tick_2
@@ -154,7 +154,7 @@ dwarf_galaxies.keep_columns(["l_MS", "b_MS", "Name"])
 dwarf_galaxies["l_MS"].unit, dwarf_galaxies["b_MS"].unit = u.deg, u.deg #Giving
 dwf_Gs = convert_magellanic_stream_coords(dwarf_galaxies["l_MS"], dwarf_galaxies["b_MS"])
 
-# Plotting Dwarf Gaslaxies
+# Plotting Dwarf Galaxies
 ax.scatter(dwf_Gs.ra, dwf_Gs.dec, 
            #Changing color due to mentioning in http://dx.doi.org/10.3847/0004-637X/816/2/81
            #That these satellite galaxies are what could have casued the fomartion of the filament region
@@ -192,21 +192,12 @@ def extract_continuum_data(file, **kw):
 extract_continuum_data("M31_contSources.txt", label_legend= "Cont. Sources")
 extract_continuum_data("M33_contSources.txt")
 
-<<<<<<< HEAD
-# Coordniates of Backgorund AGN 
-#from https://doi.org/10.3847/1538-4357/aa87b4
-AGN_bg = convert_txt_to_Skycoord("AGN_background.txt")
-ax.scatter(AGN_bg.ra, AGN_bg.dec, color="blue", marker='*',
-    transform=ax.get_transform('world'), s=100, edgecolor='k',
-    label="Background AGN")
-=======
 # # Coordniates of Backgorund AGN 
 # #from https://doi.org/10.3847/1538-4357/aa87b4
 # AGN_bg = convert_txt_to_Skycoord("AGN_background.txt")
 # ax.scatter(AGN_bg.ra, AGN_bg.dec, color="blue", marker='*',
 #     transform=ax.get_transform('world'), s=100, edgecolor='k',
 #     label="Background AGN")
->>>>>>> 2c86ec6cf1109084efb18a64c209c7decfa89b14
 
 from astropy.visualization.wcsaxes import CoordinateHelper
 ra_axis: CoordinateHelper = ax.coords[0]
