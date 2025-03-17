@@ -129,9 +129,7 @@ binnumber_past_rvir )= stats.binned_statistic(
     np.concatenate([rm_m31,rm_bg]), 
     statistic = 'median', bins = bin_num)
 
-#bin median isnt used anywhere yet.
 bin_med, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
-
 
 bin_width = (bin_edges[1] - bin_edges[0])
 bin_centers = bin_edges[1:] - bin_width/2
@@ -149,6 +147,8 @@ d_bg = get_projected_d(m31_sep_bg, d_m31)
 d_rm = get_projected_d(m31_sep_Rvir, d_m31) #Is only for within R_vir
 d_m33 = get_projected_d(m33_sep, d_m31)
 d_bin_centers = get_projected_d(bin_centers*u.deg, d_m31)
+
+# SEMed = lambda sig, N: 1.253*sig/N #Using a bootstrap method of calculating standard error of the median
 
 #Using standard error of mean for error bars: 
 bin_std, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, 
