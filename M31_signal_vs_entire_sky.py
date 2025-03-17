@@ -2,6 +2,8 @@ from scipy.interpolate import interp1d
 import seaborn as sns
 import os
 import argparse
+import matplotlib.animation as animation
+import glob
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
@@ -333,6 +335,20 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
             plt.close()  # Deleting the figure to clear memory
             print(f"All images saved to {path}")
     
+            image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
+
+            fig, ax = plt.subplots()
+            img = plt.imshow(plt.imread(image_files[0]))
+
+            def update(frame):
+                img.set_array(plt.imread(image_files[frame]))
+                return [img]
+
+            ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
+            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=300)
+            
+            print(f"Video saved to {path}annuli_video.mp4")
+
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
         
