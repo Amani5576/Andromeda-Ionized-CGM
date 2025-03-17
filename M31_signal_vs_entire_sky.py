@@ -280,7 +280,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 counts /= annul_area
                 axes[0].set_ylim(0, np.max(counts) * 1.1)
                 # axes[0].set_ylim(*ylim)
-                axes[0].set_xlim(*xlim)
+                # axes[0].set_xlim(*xlim)
                 
                 # Plotting for "Median" subplot (right side)
                 counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
@@ -293,7 +293,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 counts /= annul_area
                 axes[1].set_ylim(0, np.max(counts) * 1.1)
                 # axes[1].set_ylim(*ylim)
-                axes[1].set_xlim(*xlim)
+                # axes[1].set_xlim(*xlim)
 
                 # For M31 relative annulus (mean RM)
                 axes[0].axvline(x=b_m_1[bin_idx-1], 
