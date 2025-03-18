@@ -275,9 +275,11 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         #Looping through annuli
         for bin_idx in annuli_to_plot:
 
-            if ~args.overplot: #Then plot individually
+            if not args.overplot: #Then plot individually
                 fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
-            
+            else:#Crete a way to retirveing the highest count value
+                Counts = {"mean":[], "med":[]}
+                
             x_axis_label = r" [rad m$^{-2}$]"
             histbin = 50 #number of beans per histogram's RM-axis (x-axis)
             if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
@@ -292,7 +294,12 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 #dividing Counts of Mean by Annulus Area
                 for p in patches_mean: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                axes[0].set_ylim(0, np.max(counts) * 1.1)
+
+                if args.overplot: 
+                    Counts["mean"].append(np.max(counts))
+                else: 
+                    axes[0].set_ylim(0, np.max(counts) * 1.1)
+
                 # axes[0].set_ylim(*ylim)
                 axes[0].set_xlim(-75, 125)
                 
@@ -305,39 +312,49 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 #dividing Counts of Median by Annulus Area
                 for p in patches_med: p.set_height(p.get_height() / annul_area)
                 counts /= annul_area
-                axes[1].set_ylim(0, np.max(counts) * 1.1)
+
+                if args.overplot: 
+                    Counts["med"].append(np.max(counts))
+                else: 
+                    axes[1].set_ylim(0, np.max(counts) * 1.1)
+
                 # axes[1].set_ylim(*ylim)
                 axes[1].set_xlim(-75, 100)
 
-                #M31 relative annulus (mean RM)
-                axes[0].axvline(x=b_m_1[bin_idx-1], 
-                                label=f"m31 = {b_m_1[bin_idx-1]:.2f}", 
-                                color='k', linestyle='--', linewidth=.8)
-                axes[1].axvline(x=b_m_2[bin_idx-1], 
-                                label=f"m31 = {b_m_2[bin_idx-1]:.2f}", 
-                                color='k', linestyle='--', linewidth=.8)
+                if not args.overplot: #Add vertical line (and std) to individual histogram
+                    #M31 relative annulus (mean RM)
+                    axes[0].axvline(x=b_m_1[bin_idx-1], 
+                                    label=f"m31 = {b_m_1[bin_idx-1]:.2f}", 
+                                    color='k', linestyle='--', linewidth=.8)
+                    axes[1].axvline(x=b_m_2[bin_idx-1], 
+                                    label=f"m31 = {b_m_2[bin_idx-1]:.2f}", 
+                                    color='k', linestyle='--', linewidth=.8)
 
-                #Filling the region around the mean RM value within 1 sigma (mean RM)
-                axes[0].fill_betweenx(
-                    y=np.linspace(0, 100, 100),
-                    x1=(b_m_1[bin_idx-1] - std[bin_idx-1]),
-                    x2=(b_m_1[bin_idx-1] + std[bin_idx-1]),
-                    color='k', alpha=0.2, edgecolor="none",
-                    label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
-                )
-                #Filling the region around the median RM value within 1 sigma (median RM)
-                axes[1].fill_betweenx(
-                    y=np.linspace(0, 100, 100),
-                    x1=(b_m_2[bin_idx-1] - std[bin_idx-1]),
-                    x2=(b_m_2[bin_idx-1] + std[bin_idx-1]),
-                    color='k', alpha=0.2, edgecolor="none",
-                    label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
-                )
+                    #Filling the region around the mean RM value within 1 sigma (mean RM)
+                    axes[0].fill_betweenx(
+                        y=np.linspace(0, 100, 100),
+                        x1=(b_m_1[bin_idx-1] - std[bin_idx-1]),
+                        x2=(b_m_1[bin_idx-1] + std[bin_idx-1]),
+                        color='k', alpha=0.2, edgecolor="none",
+                        label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
+                    )
+                    #Filling the region around the median RM value within 1 sigma (median RM)
+                    axes[1].fill_betweenx(
+                        y=np.linspace(0, 100, 100),
+                        x1=(b_m_2[bin_idx-1] - std[bin_idx-1]),
+                        x2=(b_m_2[bin_idx-1] + std[bin_idx-1]),
+                        color='k', alpha=0.2, edgecolor="none",
+                        label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
+                    )
 
-                axes[0].legend(); axes[1].legend()
-                fig.suptitle(f" ({bin_edges[bin_idx-1]:.2f}" + r" $< r_{proj} <$ " + f"{bin_edges[bin_idx]:.2f}) {annul_dist_type}" + r"  |  Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+                    axes[0].legend(); axes[1].legend()
                 
-                if ~args.overplot: #Then plot individually
+                if not args.overplot:
+                    fig.suptitle(f" ({bin_edges[bin_idx-1]:.2f}" + r" $< r_{proj} <$ " + f"{bin_edges[bin_idx]:.2f}) {annul_dist_type}" + r"  |  Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+                else:
+                    fig.suptitle(r"Discrete Annulus Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+
+                if not args.overplot: #Then plot individually
                     #Saving or displaying
                     if save_plot:
                         path = curr_dir_path() + "Results/"
@@ -346,14 +363,19 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                     else:
                         plt.show()
 
-                if bin_idx == 3: break #Testing out one (or a few) plots
+                # if bin_idx == 3: break #Testing out one (or a few) plots
 
         if args.overplot:
-            if save_plot:#Finally Saving the overplots:
-                path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
-            else:
-                plt.show() #Otherwise show the overplot
+
+            #Give correct y-axis limits from maximum histogram
+                axes[0].set_ylim(0, max(Counts["mean"])* 1.1)
+                axes[1].set_ylim(0, max(Counts["med"])* 1.1)
+
+        if save_plot:#Finally Saving the overplots
+            path = curr_dir_path() + "Results/"
+            plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+        else:
+            plt.show() #Otherwise show the overplot
 
         if save_plot: #Since its not easy to make plots interactively on ilifu
             plt.close()  #Deleting the figure to clear memory
@@ -652,7 +674,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
