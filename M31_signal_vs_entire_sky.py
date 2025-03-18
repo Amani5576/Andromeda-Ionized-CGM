@@ -8,10 +8,11 @@ import glob
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
+parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of random patches in the sky')
 parser.add_argument('--overplot', action='store_true', help='Enable overplotting (only works if --annuli-anal is set)')
 parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
+parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
 args = parser.parse_args()
 
 #Ensuring some arguments are only used when --annuli-anal is enabled
@@ -234,7 +235,7 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
     return d_bin_centers, bin_means, bin_med, bin_std
 
 
-def annuli_analysis(save_plot=False, stack_indiv_patch=False): 
+def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
 
     """
     stack_indiv_patch - Taking all patches of the sky and stacking them on top of each other
@@ -411,7 +412,10 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
 
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
-        
+
+        if args.m31_annuli_anal:
+            parser.error("Cannot stack M31 patch with itself. Only one patch belongs to R_vir of M31")
+
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
             [get_projected_d_old(val) for val in sublist.value] 
@@ -423,18 +427,29 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
-        # Flattening the lists for easier computation
+        # Flattening the lists for easier computation (These are for random patches all over the sky)
         flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  # Separation distances (degrees)
         flat_rm_vals_mean = np.concatenate([RM_values_per_patch_corr_mean for RM_values_per_patch_corr_mean in RM_values_per_patch])  # Corresponding RM values for mean
         flat_rm_vals_median = np.concatenate([RM_values_per_patch_corr_median for RM_values_per_patch_corr_median in RM_values_per_patch])  # Corresponding RM values for median
         construct_and_plot_annuli(flat_sep_vals, flat_rm_vals_mean, flat_rm_vals_median)
 
+        #Same assessment but now for M31's Halo.
+        if args.m31_annuli_anal:
+            construct_and_plot_annuli()
+
+
     # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
     else: 
         D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
-        Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
-        Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
-        construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+        if args.m31_annuli_anal:
+            Avg_Means = [avg_mean for avg_mean in bin_means_m31] 
+            Avg_Medians = [avg_med for avg_med in bin_med_m31]
+            construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+            
+        else:
+            Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
+            Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
+            construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
         
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
@@ -747,11 +762,11 @@ print("Mean and Median calculations have ended")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
 
-    #getting mean of background
     D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
                                     max([max(centers) for centers in all_d_bin_centers]), 
                                     num=BINS)
     
+    #getting mean of background
     all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
     all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
     all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
@@ -833,7 +848,11 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     if args.show_dispersion:
         plot_m31_dispersion(bin_num_from_main)
 
+    #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
     all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False)
     all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)
-    #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    if args.annuli_anal: annuli_analysis(save_plot=True)
+    if args.annuli_anal: 
+        if args.m31_annuli_anal:
+            annuli_analysis(bin_means_m31, bin_med_m31, save_plot=True)
+        else:
+            annuli_analysis(all_means_1, all_medians_1, save_plot=True)
