@@ -280,7 +280,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
         if args.overplot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
             Counts = {"mean":[], "med":[]} #To be able to retirve highest count value for histograms
-        
+            
         #Looping through annuli
         for bin_idx in annuli_to_plot:
 
@@ -301,7 +301,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                 #dividing Counts of Mean by Annulus Area
                 for p in patches_mean: 
                     p.set_height(p.get_height() / annul_area) #Crucial for accurate diviiding counts by area
-                    p.set_width(p.get_width() * 0.4) #Decreasing width of bars
+                    p.set_width(0.4) #Decreasing width of bars
                 counts /= annul_area
 
                 if args.overplot: 
@@ -321,7 +321,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                 #dividing Counts of Median by Annulus Area
                 for p in patches_med: 
                     p.set_height(p.get_height() / annul_area) #Crucial for accurate diviiding counts by area
-                    p.set_width(p.get_width() * 0.4) #Decreasing width of bars
+                    p.set_width(0.4) #Decreasing width of bars
                 counts /= annul_area
 
                 if args.overplot: 
