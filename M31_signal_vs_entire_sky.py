@@ -235,6 +235,12 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
 
 def annuli_analysis(save_plot=False, stack_indiv_patch=False): 
+
+    """
+    stack_indiv_patch - Taking all patches of the sky and stacking them on top of each other
+                        to analyse the ultimate change in RM over a given annulus; along the stack
+    """
+    
     print("Annuli Histogram analysis and plotting have begun")
     
     def construct_and_plot_annuli(distance_flat, rm_vals_flat_mean, rm_vals_flat_median, save_plot=save_plot):
@@ -368,14 +374,14 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         if args.overplot:
 
             #Give correct y-axis limits from maximum histogram
-                axes[0].set_ylim(0, max(Counts["mean"])* 1.1)
-                axes[1].set_ylim(0, max(Counts["med"])* 1.1)
+            axes[0].set_ylim(0, max(Counts["mean"])* 1.1)
+            axes[1].set_ylim(0, max(Counts["med"])* 1.1)
 
-        if save_plot:#Finally Saving the overplots
-            path = curr_dir_path() + "Results/"
-            plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
-        else:
-            plt.show() #Otherwise show the overplot
+            if save_plot:#Finally Saving the overplots
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+            else:
+                plt.show() #Otherwise show the overplot
 
         if save_plot: #Since its not easy to make plots interactively on ilifu
             plt.close()  #Deleting the figure to clear memory
