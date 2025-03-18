@@ -42,7 +42,9 @@ bin_std_past_rvir, L_m31, cutoff,
 bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
-get_projected_d_old, confining_circle, get_wcs
+get_projected_d_old,
+# get_projected_d_old_2,
+ confining_circle, get_wcs
 )
 
 #Hanlding unnneccesary clutter of printing from warnings
@@ -232,19 +234,79 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
         statistic=stats.sem,  # Standard Error of Mean
         bins=bin_num)
 
-    return d_bin_centers, bin_means, bin_med, bin_std
+    return d_bin_centers, bin_means, bin_med, bin_std, bin_edges
 
+def annuli_analysis_m31(rm_m31=rm_m31, save_plot=False):
+    print("Annuli Histogram analysis and plotting have begun for M31 Halo")
 
-def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
+    def construct_and_plot_annuli(distance_flat, rm_vals_flat, save_plot=save_plot):
+        distance_flat = np.asarray(distance_flat)
+        rm_vals_flat = np.asarray(rm_vals_flat)
+
+        #Binning edges based on distances
+        bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num_from_main + 1)
+        bin_indices = np.digitize(distance_flat, bins=bin_edges)
+
+        annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2)  # Assume uniform annuli area
+        scale = 100/annul_area
+
+        # Store RM values per annulus
+        rm_per_annulus = {i: [] for i in range(1, len(bin_edges) + 1)}
+
+        for i, bin_idx in enumerate(bin_indices):
+            rm_per_annulus[bin_idx].append(rm_vals_flat[i])
+
+        # Convert lists to numpy arrays
+        rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
+
+        annuli_to_plot = np.arange(0, bin_num_from_main + 1)
+        annul_dist_type = "kpc"
+
+        b_width = 4  # Width of histogram bars
+
+        for bin_idx in annuli_to_plot:
+            fig, ax = plt.subplots(figsize=(6, 5))  # Single subplot
+
+            histbin = 50  # Number of bins for histogram
+
+            if bin_idx in rm_per_annulus:
+                counts, _, patches = ax.hist(rm_per_annulus[bin_idx], bins=histbin, alpha=0.1, color="k")
+
+                ax.set_xlabel("RM [rad m$^{-2}$]")
+                ax.set_ylabel("Counts" + r" $\times \frac{100}{\xi}$" + f" [{annul_dist_type}" + r"$^{-2}$]")
+
+                for p in patches:
+                    p.set_height(p.get_height() *scale)
+                    p.set_width(b_width)
+
+                ax.set_xlim(-150, 150)
+
+                fig.suptitle(f"Annulus ({bin_edges[bin_idx-1]:.2f} < r < {bin_edges[bin_idx]:.2f}) {annul_dist_type}")
+
+                if save_plot:
+                    path = curr_dir_path() + "Results/"
+                    plt.savefig(f"{path}m31_annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                    plt.clf()
+                else:
+                    plt.show()
+
+        if save_plot:
+            plt.close()
+            print(f"All images saved to {path}")
+
+    #Running annuli analysis just for M31 Halo
+    m31_distances = tuple(map(get_projected_d_old, m31_sep_Rvir.value)) #from seprated distance in degrees - within CGM of M31 - to kpc
+    m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
+    construct_and_plot_annuli(m31_distances, rm_m31)
+
+def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
 
     """
     stack_indiv_patch - Taking all patches of the sky and stacking them on top of each other
                         to analyse the ultimate change in RM over a given annulus; along the stack
     """
-    string_inpt = "_m31_" if args.m31_annuli_anal else "" #for plot images file name saving purposes 
-        
     print("Annuli Histogram analysis and plotting have begun")
-    
+
     def construct_and_plot_annuli(distance_flat, rm_vals_flat_mean, rm_vals_flat_median, save_plot=save_plot):
         distance_flat = np.asarray(distance_flat)
         rm_vals_flat_mean = np.asarray(rm_vals_flat_mean)
@@ -255,6 +317,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
         bin_indices = np.digitize(distance_flat, bins=bin_edges) #Assigning each RM to a bin
         
         annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2) #Areas are essentially discrete and are the same.
+
         # Storing RM values per annulus
         rm_per_annulus_mean = {i: [] for i in range(1, len(bin_edges)+1)}  # Dictionary to store RM values for each bin (mean)
         rm_per_annulus_median = {i: [] for i in range(1, len(bin_edges)+1)}  # Dictionary to store RM values for each bin (median)
@@ -277,10 +340,10 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
         b_m_2 = bin_med_m31 if stack_indiv_patch else bin_meds_past_rvir
         std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir #assuming same standard deviation
 
+        b_width = .8 #width of bars in the overplot
         if args.overplot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
             Counts = {"mean":[], "med":[]} #To be able to retirve highest count value for histograms
-            b_width = .8 #width of bars in the overplot
 
         #Looping through annuli
         for bin_idx in annuli_to_plot:
@@ -370,7 +433,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                     #Saving or displaying
                     if save_plot:
                         path = curr_dir_path() + "Results/"
-                        plt.savefig(f"{path}{string_inpt}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                        plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
                         plt.clf()  # clearing the figure (not deleting it)
                     else:
                         plt.show()
@@ -385,7 +448,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
 
             if save_plot:#Finally Saving the overplots
                 path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}{string_inpt}annuli_overplot.png", dpi=600, bbox_inches="tight")
+                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
             else:
                 plt.show() #Otherwise show the overplot
 
@@ -394,7 +457,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
             print(f"All images saved to {path}")
     
         if args.annuli_video: #Saving a video if needbe
-            image_files = sorted(glob.glob(f"{path}{string_inpt}annuli_plot_*.png"))
+            image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
 
             fig, ax = plt.subplots(figsize=(5.3,3.2))
 
@@ -409,18 +472,15 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                 img.set_array(plt.imread(image_files[frame]))
                 return [img]
 
-            print(f"Saving of {string_inpt}annuli_video.mp4 in {path} ...")
+            print(f"Saving of annuli_video.mp4 in {path} ...")
 
             ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
-            ani.save(f"{path}{string_inpt}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
+            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
             
-            print(f"Video saved to {path}{string_inpt}annuli_video.mp4")
+            print(f"Video saved to {path}annuli_video.mp4")
 
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
-
-        if args.m31_annuli_anal:
-            parser.error("Cannot stack M31 patch with itself. Only one patch belongs to R_vir of M31")
 
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
@@ -439,25 +499,14 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
         flat_rm_vals_median = np.concatenate([RM_values_per_patch_corr_median for RM_values_per_patch_corr_median in RM_values_per_patch])  # Corresponding RM values for median
         construct_and_plot_annuli(flat_sep_vals, flat_rm_vals_mean, flat_rm_vals_median)
 
-        #Same assessment but now for M31's Halo.
-        if args.m31_annuli_anal:
-            construct_and_plot_annuli()
-
-
     # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
-    else: 
+    else:
         D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
-
-        if args.m31_annuli_anal:
-            Avg_Means = [avg_mean for avg_mean in bin_means_m31] 
-            Avg_Medians = [avg_med for avg_med in bin_med_m31]
-        else: #For random patches in the sky
-            Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
-            Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
-
+        Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
+        Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
         construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
-        
+
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
     # Plot the mean and median with error bars
     ax.errorbar(d_bin_centers, np.absolute(bin_mean), yerr=bin_std, fmt='k.-', alpha=.4)
@@ -742,6 +791,7 @@ all_d_bin_centers=[] #For x-axis
 all_means = []
 all_medians = []
 all_bin_stds = []
+all_bin_edges = ''
 
 fig2 = plt.figure(figsize=(10, 5))
 ax2 = fig2.add_subplot(111)
@@ -750,13 +800,16 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
     
     if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
         if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-            d_bin_centers, bin_mean, bin_med, bin_std = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+            d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
             
             all_d_bin_centers.append(d_bin_centers) #For x axis
             all_means.append(bin_mean) #For y-axis
             all_medians.append(bin_med) #For y-axis
             all_bin_stds.append(bin_std)
-            
+
+            if i == 0 : #Only collect bin edges once
+                all_bin_edges = bin_edges
+
             #Background correction for the individual plots
             bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
             bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
@@ -858,7 +911,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False)
     all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)
     if args.annuli_anal: 
-        if args.m31_annuli_anal:
-            annuli_analysis(bin_means_m31, bin_med_m31, save_plot=True)
-        else:
-            annuli_analysis(all_means_1, all_medians_1, save_plot=True)
+        annuli_analysis_random(all_means_1, all_medians_1, save_plot=True)
+    elif args.m31_annuli_anal:
+        annuli_analysis_m31(save_plot=True)
+
