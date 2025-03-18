@@ -332,20 +332,28 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 # break #Testing out one plot
 
         if save_plot: 
-            plt.close()  # Deleting the figure to clear memory
+            plt.close()  #Deleting the figure to clear memory
             print(f"All images saved to {path}")
     
             image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
 
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=(5.3,3.2))
+
+            #Removing everything unnecessary from outer figure
+            ax.set_xticks([])  
+            ax.set_yticks([])  
+            ax.set_frame_on(False) #Including boarders.
+
             img = plt.imshow(plt.imread(image_files[0]))
 
             def update(frame):
                 img.set_array(plt.imread(image_files[frame]))
                 return [img]
 
+            print(f"Saving of annuli_video.mp4 in {path} ...")
+
             ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
-            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=300)
+            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
             
             print(f"Video saved to {path}annuli_video.mp4")
 
