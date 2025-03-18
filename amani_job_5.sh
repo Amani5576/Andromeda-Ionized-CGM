@@ -7,18 +7,25 @@
 #SBATCH --mem=50G
 #SBATCH --time=0:30:00
 #SBATCH --partition=Main
+#SBATCH --array=1-3  # Run three job instances
 
-# Load required modules
-echo "Submitting Slurm Job for plotting Histograms of random patches of the sky, but with a super-imposing of all histograms"
+set -e  # Exit immediately if any command fails
 
-singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal --overplot
+# Define the singularity command
+SINGULARITY_CMD="singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal"
 
-# Load required modules
-echo "Submitting Slurm Job for plotting Histograms just for M31 alone, but per individual annulus"
-
-singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal --m31-annuli-anal
-
-# Load required modules
-echo "Submitting Slurm Job for plotting Histograms just for M31 alone, but an Overplot of all annuli"
-
-singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal --m31-annuli-anal --overplot
+# Run different tasks based on Slurm array ID
+case $SLURM_ARRAY_TASK_ID in
+    1)
+        echo "Submitting Slurm Job for plotting Histograms of random patches of the sky, with superimposed histograms"
+        $SINGULARITY_CMD --overplot
+        ;;
+    2)
+        echo "Submitting Slurm Job for plotting Histograms just for M31 alone, per individual annulus"
+        $SINGULARITY_CMD --m31-annuli-anal
+        ;;
+    3)
+        echo "Submitting Slurm Job for plotting Histograms just for M31 alone, with an Overplot of all annuli"
+        $SINGULARITY_CMD --m31-annuli-anal --overplot
+        ;;
+esac
