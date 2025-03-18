@@ -4,10 +4,10 @@
 #SBATCH --error=log_stash/m31_histogram_annuli_analysis-COMBINED-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
-#SBATCH --mem=50G
-#SBATCH --time=0:30:00
+#SBATCH --mem=22G
+#SBATCH --time=0:50:00
 #SBATCH --partition=Main
-#SBATCH --array=1-3  # Run three job instances
+#SBATCH --array=1-3%1  # Run three job instances (one at a time)
 
 set -e  # Exit immediately if any command fails
 
