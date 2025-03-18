@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="m31_histogram_annuli_analysis-COMBINED-%j"
-#SBATCH --output=log_stash/m31_histogram_annuli_analysis-COMBINED-%j.log
-#SBATCH --error=log_stash/m31_histogram_annuli_analysis-COMBINED-%j-error.log
+#SBATCH --job-name="m31_histogram_annuli_analysis-COMBINED-%A-%a"
+#SBATCH --output=log_stash/m31_histogram_annuli_analysis-COMBINED-%A-%a.log
+#SBATCH --error=log_stash/m31_histogram_annuli_analysis-COMBINED-%A-%a-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=22G
