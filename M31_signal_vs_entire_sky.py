@@ -9,20 +9,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
 parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
-parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of random patches in the sky')
+parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of RANDOM patches in the sky')
 parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
 parser.add_argument('--overplot', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
 args = parser.parse_args()
 
 #Ensuring some arguments are only used when --annuli-anal is enabled
-if not args.annuli_anal:
+if not args.annuli_anal and not args.m31_annuli_anal:
     if args.overplot:
         parser.error("--overplot requires --annuli-anal to be set.")
     if args.annuli_video:
-        parser.error("--annuli-video requires --annuli-anal to be set.")
+        parser.error("--annuli-video requires --annuli-anal to be set.") #At leas tfor now it does... could expand to m31_annuli_anal....
 elif args.overplot and args.annuli_video: #Only make a video if not overplotting (or superimposing plots)
     parser.error("--overplot cannot be done with --annuli-video")
+
+if not args.annuli_anal and args.m31_annuli_anal:
+    parser.error("To lessen confusion please either use --annuli_anal or --m31-annuli-anal. Not Both")
 
 from main import (
 #Importing alias'
@@ -38,7 +41,7 @@ m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
 bin_std_past_rvir, L_m31, cutoff,
 
-#Thes eare statisics for the entire sepration from m31 center to all 
+#These are statisics for the entire sepration from m31 center to all 
 bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
@@ -263,25 +266,41 @@ def annuli_analysis_m31(rm_m31=rm_m31, save_plot=False):
         annul_dist_type = "kpc"
 
         b_width = 4  # Width of histogram bars
+        if args.overplot:
+            fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
 
+        Counts = []
         for bin_idx in annuli_to_plot:
-            fig, ax = plt.subplots(figsize=(6, 5))  # Single subplot
+            
+            if not args.overplot: #Then plot individually
+                fig, ax = plt.subplots(1, 2, figsize=(6, 5))  #1x2 subplot grid
 
             histbin = 50  # Number of bins for histogram
 
             if bin_idx in rm_per_annulus:
                 counts, _, patches = ax.hist(rm_per_annulus[bin_idx], bins=histbin, alpha=0.1, color="k")
 
-                ax.set_xlabel("RM [rad m$^{-2}$]")
-                ax.set_ylabel("Counts" + r" $\times \frac{100}{\xi}$" + f" [{annul_dist_type}" + r"$^{-2}$]")
-
                 for p in patches:
                     p.set_height(p.get_height() *scale)
                     p.set_width(b_width)
 
-                ax.set_xlim(-150, 150)
+                if args.overplot: 
+                    Counts.append(np.max(counts))
+                else: 
+                    axes[0].set_ylim(0, np.max(counts) * 1.1)
 
-                fig.suptitle(f"Annulus ({bin_edges[bin_idx-1]:.2f} < r < {bin_edges[bin_idx]:.2f}) {annul_dist_type}")
+
+                if not args.overplot: #Add vertical line (and std) to individual histogram
+                    mark_m31_sem_vals_on_annulus_hist(ax, bin_means_past_rvir, bin_idx, bin_std_past_rvir, label_prefix="m31")
+                
+                if args.overplot:
+                    fig.suptitle(r"Discrete Annulus Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+                else:
+                    fig.suptitle(f"Annulus ({bin_edges[bin_idx-1]:.2f} < r < {bin_edges[bin_idx]:.2f}) {annul_dist_type}")
+
+                ax.set_xlim(-150, 150)
+                ax.set_xlabel("RM [rad m$^{-2}$]")
+                ax.set_ylabel("Counts" + r" $\times \frac{100}{\xi}$" + f" [{annul_dist_type}" + r"$^{-2}$]")
 
                 if save_plot:
                     path = curr_dir_path() + "Results/"
@@ -294,10 +313,36 @@ def annuli_analysis_m31(rm_m31=rm_m31, save_plot=False):
             plt.close()
             print(f"All images saved to {path}")
 
+        if args.overplot:
+
+            #Give correct y-axis limits from maximum annulus-histogram
+            ax.set_ylim(0, max(Counts)* 1.1)
+
+            if save_plot:#Finally Saving the overplots
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+            else:
+                plt.show() #Otherwise show the overplot
+
     #Running annuli analysis just for M31 Halo
     m31_distances = tuple(map(get_projected_d_old, m31_sep_Rvir.value)) #from seprated distance in degrees - within CGM of M31 - to kpc
     m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
     construct_and_plot_annuli(m31_distances, rm_m31)
+
+def mark_m31_sem_vals_on_annulus_hist(ax, b_m, bin_idx, std, label_prefix="m31"):
+    """Marks M31-related values and fills +-1 sigma region on a histogram axis."""
+    
+    ax.axvline(x=b_m[bin_idx-1], 
+               label=f"{label_prefix} = {b_m[bin_idx-1]:.2f}", 
+               color='k', linestyle='--', linewidth=.8)
+
+    ax.fill_betweenx(y=np.linspace(0, 100, 100),
+                     x1=(b_m[bin_idx-1] - std[bin_idx-1]),
+                     x2=(b_m[bin_idx-1] + std[bin_idx-1]),
+                     color='k', alpha=0.2, edgecolor="none",
+                     label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1]))
+
+    ax.legend()
 
 def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
 
@@ -397,32 +442,9 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
                 axes[1].set_xlim(-75, 100)
 
                 if not args.overplot: #Add vertical line (and std) to individual histogram
-                    #M31 relative annulus (mean RM)
-                    axes[0].axvline(x=b_m_1[bin_idx-1], 
-                                    label=f"m31 = {b_m_1[bin_idx-1]:.2f}", 
-                                    color='k', linestyle='--', linewidth=.8)
-                    axes[1].axvline(x=b_m_2[bin_idx-1], 
-                                    label=f"m31 = {b_m_2[bin_idx-1]:.2f}", 
-                                    color='k', linestyle='--', linewidth=.8)
+                    mark_m31_sem_vals_on_annulus_hist(axes[0], b_m_1, bin_idx, std, label_prefix="m31")
+                    mark_m31_sem_vals_on_annulus_hist(axes[1], b_m_2, bin_idx, std, label_prefix="m31")
 
-                    #Filling the region around the mean RM value within 1 sigma (mean RM)
-                    axes[0].fill_betweenx(
-                        y=np.linspace(0, 100, 100),
-                        x1=(b_m_1[bin_idx-1] - std[bin_idx-1]),
-                        x2=(b_m_1[bin_idx-1] + std[bin_idx-1]),
-                        color='k', alpha=0.2, edgecolor="none",
-                        label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
-                    )
-                    #Filling the region around the median RM value within 1 sigma (median RM)
-                    axes[1].fill_betweenx(
-                        y=np.linspace(0, 100, 100),
-                        x1=(b_m_2[bin_idx-1] - std[bin_idx-1]),
-                        x2=(b_m_2[bin_idx-1] + std[bin_idx-1]),
-                        color='k', alpha=0.2, edgecolor="none",
-                        label=r"$\sigma \approx {:.2f}$".format(std[bin_idx-1])
-                    )
-
-                    axes[0].legend(); axes[1].legend()
                 
                 if not args.overplot:
                     fig.suptitle(f" ({bin_edges[bin_idx-1]:.2f}" + r" $< r_{proj} <$ " + f"{bin_edges[bin_idx]:.2f}) {annul_dist_type}" + r"  |  Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
