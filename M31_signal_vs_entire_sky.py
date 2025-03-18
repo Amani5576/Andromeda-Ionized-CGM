@@ -9,8 +9,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
 parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis for histograms')
+parser.add_argument('--overplot', action='store_true', help='Enable overplotting (only works if --annuli-anal is set)')
+parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
 args = parser.parse_args()
+
+#Ensuring some arguments are only used when --annuli-anal is enabled
+if not args.annuli_anal:
+    if args.overplot:
+        parser.error("--overplot requires --annuli-anal to be set.")
+    if args.annuli_video:
+        parser.error("--annuli-video requires --annuli-anal to be set.")
 
 from main import (
 #Importing alias'
@@ -244,7 +253,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
             rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i])  # Append RM values for mean to corresponding bin
             rm_per_annulus_median[bin_idx].append(rm_vals_flat_median[i])  # Append RM values for median to corresponding bin
 
-        # Converting lists to numpy arrays for easier handling
+        #Converting lists to numpy arrays for easier handling
         rm_per_annulus_mean = {k: np.array(v) for k, v in rm_per_annulus_mean.items() if len(v) > 0}
         rm_per_annulus_median = {k: np.array(v) for k, v in rm_per_annulus_median.items() if len(v) > 0}
 
@@ -258,16 +267,21 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         b_m_2 = bin_med_m31 if stack_indiv_patch else bin_meds_past_rvir
         std = bin_std_m31 if stack_indiv_patch else bin_std_past_rvir #assuming same standard deviation
 
-        # Loop through the annuli
+        if args.overplot:
+            fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
+        
+        #Looping through the annuli
         for bin_idx in annuli_to_plot:
-            fig, axes = plt.subplots(1, 2, figsize=(12, 6))  # Create 1x2 subplot grid
+
+            if ~args.overplot: #Then plot individually
+                fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
             
             x_axis_label = r" [rad m$^{-2}$]"
             histbin = 50 #number of beans per histogram's RM-axis (x-axis)
             if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
 
                 xlim, ylim = (-100, 200), (0, 17)
-                # Plotting for "Mean" subplot (left side)
+                #Plotting for "Mean" subplot (left side)
                 counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
                 axes[0].set_title("Mean")
                 axes[0].set_xlabel("RM " +  x_axis_label)
@@ -280,7 +294,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 # axes[0].set_ylim(*ylim)
                 axes[0].set_xlim(-75, 125)
                 
-                # Plotting for "Median" subplot (right side)
+                #Plotting for "Median" subplot (right side)
                 counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
                 axes[1].set_title("Median")
                 axes[1].set_xlabel("RM " +  x_axis_label)
@@ -293,7 +307,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 # axes[1].set_ylim(*ylim)
                 axes[1].set_xlim(-75, 100)
 
-                # For M31 relative annulus (mean RM)
+                #M31 relative annulus (mean RM)
                 axes[0].axvline(x=b_m_1[bin_idx-1], 
                                 label=f"m31 = {b_m_1[bin_idx-1]:.2f}", 
                                 color='k', linestyle='--', linewidth=.8)
@@ -335,27 +349,28 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
             plt.close()  #Deleting the figure to clear memory
             print(f"All images saved to {path}")
     
-            image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
+            if args.annuli_video: #Saving a video if needbe
+                image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
 
-            fig, ax = plt.subplots(figsize=(5.3,3.2))
+                fig, ax = plt.subplots(figsize=(5.3,3.2))
 
-            #Removing everything unnecessary from outer figure
-            ax.set_xticks([])  
-            ax.set_yticks([])  
-            ax.set_frame_on(False) #Including boarders.
+                #Removing everything unnecessary from outer figure
+                ax.set_xticks([])  
+                ax.set_yticks([])  
+                ax.set_frame_on(False) #Including boarders.
 
-            img = plt.imshow(plt.imread(image_files[0]))
+                img = plt.imshow(plt.imread(image_files[0]))
 
-            def update(frame):
-                img.set_array(plt.imread(image_files[frame]))
-                return [img]
+                def update(frame):
+                    img.set_array(plt.imread(image_files[frame]))
+                    return [img]
 
-            print(f"Saving of annuli_video.mp4 in {path} ...")
+                print(f"Saving of annuli_video.mp4 in {path} ...")
 
-            ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
-            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
-            
-            print(f"Video saved to {path}annuli_video.mp4")
+                ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
+                ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
+                
+                print(f"Video saved to {path}annuli_video.mp4")
 
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
