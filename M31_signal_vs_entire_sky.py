@@ -30,8 +30,8 @@ np, u, SkyCoord, plt, stats, WCS, warnings, fits,
 #importing variables
 d_bin_centers as d_bin_centers_m31,
 bin_means as bin_means_m31,
-bin_std as bin_std_m31,
 bin_med as bin_med_m31,
+bin_std as bin_std_m31,
 rm, rm_err, eq_pos,
 m31_sep_Rvir, rm_m31,
 bin_num as bin_num_from_main,
@@ -277,14 +277,13 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
 
         if args.overplot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
+            Counts = {"mean":[], "med":[]} #To be able to retirve highest count value for histograms
         
         #Looping through annuli
         for bin_idx in annuli_to_plot:
 
             if not args.overplot: #Then plot individually
                 fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
-            else:#Crete a way to retirveing the highest count value
-                Counts = {"mean":[], "med":[]}
                 
             x_axis_label = r" [rad m$^{-2}$]"
             histbin = 50 #number of beans per histogram's RM-axis (x-axis)
