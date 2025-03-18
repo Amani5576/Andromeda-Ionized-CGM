@@ -8,11 +8,11 @@ import glob
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
 parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of random patches in the sky')
-parser.add_argument('--overplot', action='store_true', help='Enable overplotting (only works if --annuli-anal is set)')
-parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
+parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of random patches in the sky')
+parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
+parser.add_argument('--overplot', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
 args = parser.parse_args()
 
 #Ensuring some arguments are only used when --annuli-anal is enabled
