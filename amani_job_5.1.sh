@@ -12,7 +12,7 @@
 set -e  # Exit immediately if any command fails
 
 # Define the singularity command
-SINGULARITY_CMD="singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --annuli-anal"
+SINGULARITY_CMD="singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py"
 
 # Run different tasks based on Slurm array ID
 case $SLURM_ARRAY_TASK_ID in
