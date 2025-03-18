@@ -292,13 +292,15 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
 
                 xlim, ylim = (-100, 200), (0, 17)
                 #Plotting for "Mean" subplot (left side)
-                counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.2, color="k")
+                counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.1, color="k")
                 axes[0].set_title("Mean")
                 axes[0].set_xlabel("RM " +  x_axis_label)
                 axes[0].set_ylabel("Counts" + r"/$\xi$" + f" [{annul_dist_type}"+ r"$^{-2}$]")
 
                 #dividing Counts of Mean by Annulus Area
-                for p in patches_mean: p.set_height(p.get_height() / annul_area)
+                for p in patches_mean: 
+                    p.set_height(p.get_height() / annul_area) #Crucial for accurate diviiding counts by area
+                    p.set_width(p.get_width() * 0.4) #Decreasing width of bars
                 counts /= annul_area
 
                 if args.overplot: 
@@ -310,13 +312,15 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                 axes[0].set_xlim(-75, 125)
                 
                 #Plotting for "Median" subplot (right side)
-                counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.5)
+                counts, _, patches_med = axes[1].hist(rm_per_annulus_median[bin_idx], bins=histbin, alpha=0.1, color="k")
                 axes[1].set_title("Median")
                 axes[1].set_xlabel("RM " +  x_axis_label)
                 # axes[1].set_ylabel("Counts")
 
                 #dividing Counts of Median by Annulus Area
-                for p in patches_med: p.set_height(p.get_height() / annul_area)
+                for p in patches_med: 
+                    p.set_height(p.get_height() / annul_area) #Crucial for accurate diviiding counts by area
+                    p.set_width(p.get_width() * 0.4) #Decreasing width of bars
                 counts /= annul_area
 
                 if args.overplot: 
@@ -441,15 +445,15 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
     # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
     else: 
         D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
+
         if args.m31_annuli_anal:
             Avg_Means = [avg_mean for avg_mean in bin_means_m31] 
             Avg_Medians = [avg_med for avg_med in bin_med_m31]
-            construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
-            
-        else:
+        else: #For random patches in the sky
             Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
             Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
-            construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+
+        construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
         
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
