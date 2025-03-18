@@ -241,7 +241,8 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
     stack_indiv_patch - Taking all patches of the sky and stacking them on top of each other
                         to analyse the ultimate change in RM over a given annulus; along the stack
     """
-    
+    string_inpt = "_m31_" if args.m31_annuli_anal else "" #for plot images file name saving purposes 
+        
     print("Annuli Histogram analysis and plotting have begun")
     
     def construct_and_plot_annuli(distance_flat, rm_vals_flat_mean, rm_vals_flat_median, save_plot=save_plot):
@@ -368,7 +369,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                     #Saving or displaying
                     if save_plot:
                         path = curr_dir_path() + "Results/"
-                        plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                        plt.savefig(f"{path}{string_inpt}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
                         plt.clf()  # clearing the figure (not deleting it)
                     else:
                         plt.show()
@@ -383,7 +384,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
 
             if save_plot:#Finally Saving the overplots
                 path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+                plt.savefig(f"{path}{string_inpt}annuli_overplot.png", dpi=600, bbox_inches="tight")
             else:
                 plt.show() #Otherwise show the overplot
 
@@ -392,7 +393,7 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
             print(f"All images saved to {path}")
     
         if args.annuli_video: #Saving a video if needbe
-            image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
+            image_files = sorted(glob.glob(f"{path}{string_inpt}annuli_plot_*.png"))
 
             fig, ax = plt.subplots(figsize=(5.3,3.2))
 
@@ -407,12 +408,12 @@ def annuli_analysis(all_means_1, all_medians_1, save_plot=False, stack_indiv_pat
                 img.set_array(plt.imread(image_files[frame]))
                 return [img]
 
-            print(f"Saving of annuli_video.mp4 in {path} ...")
+            print(f"Saving of {string_inpt}annuli_video.mp4 in {path} ...")
 
             ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
-            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
+            ani.save(f"{path}{string_inpt}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
             
-            print(f"Video saved to {path}annuli_video.mp4")
+            print(f"Video saved to {path}{string_inpt}annuli_video.mp4")
 
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
