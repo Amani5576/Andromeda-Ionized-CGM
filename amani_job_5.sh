@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="m31_histogram_annuli_analysis-overplotting-%j"
-#SBATCH --output=log_stash/m31_histogram_annuli_analysis-overplotting-%j.log
-#SBATCH --error=log_stash/m31_histogram_annuli_analysis-overplotting-%j-error.log
+#SBATCH --job-name="m31_histogram_annuli_analysis-COMBINED-%j"
+#SBATCH --output=log_stash/m31_histogram_annuli_analysis-COMBINED-%j.log
+#SBATCH --error=log_stash/m31_histogram_annuli_analysis-COMBINED-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=50G
