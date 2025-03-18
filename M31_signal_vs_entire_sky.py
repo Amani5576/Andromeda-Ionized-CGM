@@ -24,7 +24,7 @@ if not args.annuli_anal and not args.m31_annuli_anal:
 elif args.overplot and args.annuli_video: #Only make a video if not overplotting (or superimposing plots)
     parser.error("--overplot cannot be done with --annuli-video")
 
-if not args.annuli_anal and args.m31_annuli_anal:
+if args.annuli_anal and args.m31_annuli_anal:
     parser.error("To lessen confusion please either use --annuli_anal or --m31-annuli-anal. Not Both")
 
 from main import (
