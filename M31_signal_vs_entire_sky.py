@@ -20,6 +20,8 @@ if not args.annuli_anal:
         parser.error("--overplot requires --annuli-anal to be set.")
     if args.annuli_video:
         parser.error("--annuli-video requires --annuli-anal to be set.")
+elif args.overplot and args.annuli_video: #Only make a video if not overplotting (or superimposing plots)
+    parser.error("--overplot cannot be done with --annuli-video")
 
 from main import (
 #Importing alias'
@@ -270,7 +272,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
         if args.overplot:
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
         
-        #Looping through the annuli
+        #Looping through annuli
         for bin_idx in annuli_to_plot:
 
             if ~args.overplot: #Then plot individually
@@ -335,42 +337,50 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
                 axes[0].legend(); axes[1].legend()
                 fig.suptitle(f" ({bin_edges[bin_idx-1]:.2f}" + r" $< r_{proj} <$ " + f"{bin_edges[bin_idx]:.2f}) {annul_dist_type}" + r"  |  Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
                 
-                #Saving or displaying
-                if save_plot:
-                    path = curr_dir_path() + "Results/"
-                    plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
-                    plt.clf()  # clearing the figure (not deleting it)
-                else:
-                    plt.show()
+                if ~args.overplot: #Then plot individually
+                    #Saving or displaying
+                    if save_plot:
+                        path = curr_dir_path() + "Results/"
+                        plt.savefig(f"{path}annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                        plt.clf()  # clearing the figure (not deleting it)
+                    else:
+                        plt.show()
 
-                # break #Testing out one plot
+                if bin_idx == 3: break #Testing out one (or a few) plots
 
-        if save_plot: 
+        if args.overplot:
+            if save_plot:#Finally Saving the overplots:
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+            else:
+                plt.show() #Otherwise show the overplot
+
+        if save_plot: #Since its not easy to make plots interactively on ilifu
             plt.close()  #Deleting the figure to clear memory
             print(f"All images saved to {path}")
     
-            if args.annuli_video: #Saving a video if needbe
-                image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
+        if args.annuli_video: #Saving a video if needbe
+            image_files = sorted(glob.glob(f"{path}annuli_plot_*.png"))
 
-                fig, ax = plt.subplots(figsize=(5.3,3.2))
+            fig, ax = plt.subplots(figsize=(5.3,3.2))
 
-                #Removing everything unnecessary from outer figure
-                ax.set_xticks([])  
-                ax.set_yticks([])  
-                ax.set_frame_on(False) #Including boarders.
+            #Removing everything unnecessary from outer figure
+            ax.set_xticks([])  
+            ax.set_yticks([])  
+            ax.set_frame_on(False) #Including boarders.
 
-                img = plt.imshow(plt.imread(image_files[0]))
+            img = plt.imshow(plt.imread(image_files[0]))
 
-                def update(frame):
-                    img.set_array(plt.imread(image_files[frame]))
-                    return [img]
+            def update(frame):
+                img.set_array(plt.imread(image_files[frame]))
+                return [img]
 
-                print(f"Saving of annuli_video.mp4 in {path} ...")
+            print(f"Saving of annuli_video.mp4 in {path} ...")
 
-                ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
-                ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
-                
-                print(f"Video saved to {path}annuli_video.mp4")
+            ani = animation.FuncAnimation(fig, update, frames=len(image_files), interval=500)
+            ani.save(f"{path}annuli_video.mp4", fps=2, writer="ffmpeg", dpi=400)
+            
+            print(f"Video saved to {path}annuli_video.mp4")
 
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
@@ -642,7 +652,7 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = 50
