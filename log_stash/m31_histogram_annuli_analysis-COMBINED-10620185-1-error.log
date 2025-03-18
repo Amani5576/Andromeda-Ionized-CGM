@@ -1,0 +1,5 @@
+usage: M31_signal_vs_entire_sky.py [-h] [--test-patches] [--show-dispersion]
+                                   [--rm-vs-proj-dist] [--annuli-anal]
+                                   [--annuli-video] [--m31-annuli-anal]
+                                   [--overplot]
+M31_signal_vs_entire_sky.py: error: To lessen confusion please either use --annuli_anal or --m31-annuli-anal. Not Both
