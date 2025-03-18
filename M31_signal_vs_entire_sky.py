@@ -291,7 +291,7 @@ def annuli_analysis(save_plot=False, stack_indiv_patch=False):
 
                 xlim, ylim = (-100, 200), (0, 17)
                 #Plotting for "Mean" subplot (left side)
-                counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.5)
+                counts, _, patches_mean = axes[0].hist(rm_per_annulus_mean[bin_idx], bins=histbin, alpha=0.2, color="k")
                 axes[0].set_title("Mean")
                 axes[0].set_xlabel("RM " +  x_axis_label)
                 axes[0].set_ylabel("Counts" + r"/$\xi$" + f" [{annul_dist_type}"+ r"$^{-2}$]")
