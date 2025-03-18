@@ -1,0 +1,28 @@
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:156: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:165: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:156: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:165: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 862, in <module>
+    annuli_analysis(bin_means_m31, bin_med_m31, save_plot=True)
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 458, in annuli_analysis
+    construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 263, in construct_and_plot_annuli
+    rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i])  # Append RM values for mean to corresponding bin
+IndexError: index 80 is out of bounds for axis 0 with size 80
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:156: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py:165: SmallSampleWarning: One or more sample arguments is too small; all returned values will be NaN. See documentation for sample size requirements.
+  statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 862, in <module>
+    annuli_analysis(bin_means_m31, bin_med_m31, save_plot=True)
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 458, in annuli_analysis
+    construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 263, in construct_and_plot_annuli
+    rm_per_annulus_mean[bin_idx].append(rm_vals_flat_mean[i])  # Append RM values for mean to corresponding bin
+IndexError: index 80 is out of bounds for axis 0 with size 80
