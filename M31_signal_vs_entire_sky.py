@@ -4,6 +4,8 @@ import os
 import argparse
 import matplotlib.animation as animation
 import glob
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
@@ -13,16 +15,19 @@ parser.add_argument('--annuli-anal', action='store_true', help='Conducting annul
 parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
 parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
 parser.add_argument('--overplot', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
+parser.add_argument('--seaborn-hist', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
 args = parser.parse_args()
 
 #Ensuring some arguments are only used when --annuli-anal is enabled
 if not args.annuli_anal and not args.m31_annuli_anal:
     if args.overplot:
-        parser.error("--overplot requires --annuli-anal to be set.")
+        parser.error("--overplot requires --annuli-anal or --m31-annuli-anal to be set.")
     if args.annuli_video:
         parser.error("--annuli-video requires --annuli-anal to be set.") #At leas tfor now it does... could expand to m31_annuli_anal....
 elif args.overplot and args.annuli_video: #Only make a video if not overplotting (or superimposing plots)
     parser.error("--overplot cannot be done with --annuli-video")
+if args.seaborn_hist and not args.overplot:
+    parser.error("--seaborn-hist can only be used with --m31-annuli-anal")
 
 if args.annuli_anal and args.m31_annuli_anal:
     parser.error("To lessen confusion please either use --annuli_anal or --m31-annuli-anal. Not Both")
@@ -37,16 +42,18 @@ bin_means as bin_means_m31,
 bin_med as bin_med_m31,
 bin_std as bin_std_m31,
 rm, rm_err, eq_pos,
-m31_sep_Rvir, rm_m31,
+m31_sep_Rvir, rm_m31, err_m31,
+m31_sep_bg, rm_bg, err_bg,
 bin_num as bin_num_from_main,
 bin_std_past_rvir, L_m31, cutoff,
+bin_num as bin_num_main,
+R_vir, d_m31,
 
 #These are statisics for the entire sepration from m31 center to all 
 bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
-get_projected_d_old,
-# get_projected_d_old_2,
+get_projected_d,
  confining_circle, get_wcs
 )
 
@@ -229,7 +236,7 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
     bin_centers = bin_edges[1:] - bin_width / 2
     
     #Converting to projected distance away from center of m31(in kpc)
-    d_bin_centers = get_projected_d_old(bin_centers).value
+    d_bin_centers = get_projected_d(bin_centers*u.deg, d_m31).value
     
     #Standard error of the mean for error bars
     bin_std, bin_edges, binnumber = stats.binned_statistic(
@@ -239,70 +246,220 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std, bin_edges
 
-def annuli_analysis_m31(rm_m31=rm_m31, save_plot=False):
-    print("Annuli Histogram analysis and plotting have begun for M31 Halo")
+def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
+    print("M31 Halo Annuli Histogram analysis and plotting have begun")
 
-    def construct_and_plot_annuli(distance_flat, rm_vals_flat, save_plot=save_plot):
-        distance_flat = np.asarray(distance_flat)
-        rm_vals_flat = np.asarray(rm_vals_flat)
+    def construct_and_plot_annuli(distance_flat, rm_vals_flat, rm_errs_flat, 
+                                distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg, 
+                                  save_plot=save_plot):
+
+        # Converting all to numpy lists if needbe
+        L = (distance_flat, rm_vals_flat, rm_errs_flat,
+            distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg)
+        (distance_flat, rm_vals_flat, rm_errs_flat,
+            distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg) = map(np.asarray, L)
+
+        #Adding in background region (Which has also been background subtracted)
+        distance_flat = np.concatenate([distance_flat,distance_flat_bg])
+        rm_vals_flat = np.concatenate([rm_vals_flat, rm_vals_flat_bg])
+        rm_errs_flat = np.concatenate([rm_errs_flat, rm_errs_flat_bg])
+        
+        def bin_and_store_values(distance_flat, rm_vals_flat, rm_errs_flat, bin_num):
+            """Bins distance data, assigns RM values/errors to annuli, and returns structured dictionaries."""
+            
+            # Binning edges and indices
+            bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num)
+            bin_indices = np.digitize(distance_flat, bins=bin_edges)
+            
+            # Assume uniform annuli area
+            annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2)  
+
+            # Initialize storage dictionaries
+            rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}
+            rm_err_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}
+
+            #Assigning values to bins
+            for i, bin_idx in enumerate(bin_indices):
+                rm_per_annulus[bin_idx].append(rm_vals_flat[i])
+                rm_err_per_annulus[bin_idx].append(rm_errs_flat[i])
+
+            #Converting lists to numpy arrays (filtering out empty bins)
+            rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if v}
+            rm_err_per_annulus_filtered = {k: np.array(rm_err_per_annulus[k]) for k in rm_per_annulus if k in rm_err_per_annulus}
+
+            return rm_per_annulus, rm_err_per_annulus_filtered, annul_area
+
+        def add_colorbar(ax, data, colormap, label, num_ticks=10):
+            """
+            Adds a colorbar to the given axis.
+            
+            Parameters:
+            - ax: Matplotlib axis to attach the colorbar to.
+            - data: Data for normalization (e.g., distances or annulus indices).
+            - colormap: The colormap to use.
+            - label: Label for the colorbar.
+            - num_ticks: Number of ticks to generate for the colorbar.
+            """
+            norm = mcolors.Normalize(vmin=np.min(data), vmax=np.max(data))
+            sm = cm.ScalarMappable(cmap=colormap, norm=norm)
+            sm.set_array([])  # Required for colorbar
+
+            cbar = plt.colorbar(sm, ax=ax)
+            cbar.set_label(label, rotation=-90, labelpad=20)
+            
+            # Generate evenly spaced ticks
+            custom_ticks = sorted(np.floor(np.linspace(np.min(data), np.max(data), num_ticks)))
+            cbar.set_ticks(custom_ticks)
+            cbar.ax.tick_params(labelsize=7)
+
+            return cbar
+        
+        def plot_seaborn_hist(ax, rm_per_annulus, histbin, cmap_name, d_flat, annul_area):
+            """
+            Plots a stacked histogram using Seaborn with a colorbar indicating radial distance.
+
+            Parameters:
+            - ax: Matplotlib axis to plot on.
+            - rm_per_annulus: Dictionary containing RM values per annulus.
+            - histbin: Number of bins for histogram.
+            - cmap_name: Colormap name for seaborn histogram.
+            - d_flat: Array of radial distances.
+            - annul_area: Area of discrete annulus (Should be of equal area)
+            """
+
+            ax.set_title(r"Discrete Annulus Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+            
+            #Flattenning rm data
+            all_rm_values = np.concatenate(list(rm_per_annulus.values()))
+
+            #Array of annulus indices for hue
+            annulus_indices = np.concatenate([[idx] * len(v) for idx, v in enumerate(rm_per_annulus.values())])
+
+            #Normalizing weights by the annulus area
+            weights = np.concatenate([np.full(len(v), 1 / annul_area) for v in rm_per_annulus.values()])
+
+            #Colormap object
+            colormap = plt.get_cmap(cmap_name, len(rm_per_annulus))
+
+            # Plot histogram
+            sns.histplot(
+                x = all_rm_values,
+                hue=annulus_indices,
+                bins=histbin,
+                palette=colormap,
+                element="step",      # Outline-only histogram (no fill)
+                color="none",        # Ensure bars are fully transparent
+                linewidth=0.04,      # Set edge thickness
+                edgecolor="k",
+                multiple="layer",
+                weights=weights,
+                ax=ax
+            )
+
+            add_colorbar(ax, data=d_flat, colormap=colormap, label="Radial Distance [kpc]", num_ticks=10)
+            add_colorbar(ax, data=annulus_indices, colormap=colormap, label="Annulus Index", num_ticks=10)
+            
+            if ax.get_legend(): ax.get_legend().remove()
+            ax.minorticks_on()
+
+        def set_figure():
+            fig, ax = plt.subplots(1, 1, figsize=(12, 6))  #1x1 subplot grid
+            ax.set_xlim(-150, 150)
+            ax.set_xlabel("RM [rad m$^{-2}$]")
+            ax.set_ylabel("Counts / " + r"$\xi$" + f" [{annul_dist_type}" + r"$^{-2}$]")
+            return fig, ax 
 
         #Binning edges based on distances
         bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num_from_main + 1)
-        bin_indices = np.digitize(distance_flat, bins=bin_edges)
 
-        annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2)  # Assume uniform annuli area
-        scale = 100/annul_area
-
-        # Store RM values per annulus
-        rm_per_annulus = {i: [] for i in range(1, len(bin_edges) + 1)}
-
-        for i, bin_idx in enumerate(bin_indices):
-            rm_per_annulus[bin_idx].append(rm_vals_flat[i])
-
-        # Convert lists to numpy arrays
-        rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if len(v) > 0}
+        rm_per_annulus, _, annul_area = bin_and_store_values(distance_flat, rm_vals_flat, rm_errs_flat, bin_num_from_main)
+        rm_per_annulus_bg, _, annul_area_bg = bin_and_store_values(distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg, bin_num_from_main)
 
         annuli_to_plot = np.arange(0, bin_num_from_main + 1)
         annul_dist_type = "kpc"
 
-        b_width = 4  # Width of histogram bars
+        b_width = 8  # Width of histogram bars
         if args.overplot:
-            fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
+            fig, ax = set_figure()
 
         Counts = []
+        histbin = 60  # Number of bins for a single histogram
+
         for bin_idx in annuli_to_plot:
             
-            if not args.overplot: #Then plot individually
-                fig, ax = plt.subplots(1, 2, figsize=(6, 5))  #1x2 subplot grid
-
-            histbin = 50  # Number of bins for histogram
+            if not args.overplot: 
+                fig, ax = set_figure() #Then plot individually
 
             if bin_idx in rm_per_annulus:
+                if args.overplot: #Will be run only once then broken of the loop
+                    if args.seaborn_hist:
+                        plot_seaborn_hist(
+                            ax=ax,
+                            rm_per_annulus=rm_per_annulus, #Halo + BG
+                            histbin=histbin,
+                            cmap_name="viridis_r",
+                            d_flat=distance_flat,
+                            annul_area=annul_area
+                        )
+
+
+                        # plot_seaborn_hist(
+                        #     ax=ax,
+                        #     rm_per_annulus=rm_per_annulus_bg, #BG ontop of previous seaborn hist
+                        #     histbin=histbin,
+                        #     cmap_name="magma",
+                        #     d_flat=distance_flat_bg,
+                        #     annul_area=annul_area_bg
+                        # )
+
+                        break #Seaborn can plot everything all at once
+                    else: #USING BASIC MATPLOTLIB X(
+
+                        # Flatten data
+                        all_rm_values = np.concatenate(list(rm_per_annulus.values()))
+                        # weights = np.concatenate([np.full(len(v), 1 / annul_area) for v in rm_per_annulus.values()])
+
+                        # Define bins
+                        bins = np.linspace(np.min(all_rm_values), np.max(all_rm_values), histbin)
+
+                        #Colormap normalization
+                        cmap = cm.get_cmap("tab20_r", len(rm_per_annulus))
+                        norm = mcolors.Normalize(vmin=0, vmax=len(rm_per_annulus) - 1)
+                        # hatch_patterns = ["//", "\\\\","--"]# "xx"]#, "--", "oo", "OO", "**", "..", "||", "++"]
+
+                        # Plot histograms with "step" type for outlines
+                        for idx, (label, values) in enumerate(rm_per_annulus.items()):
+
+                            color = cmap(norm(idx))  # Get color from viridis colormap
+                            # hatch = hatch_patterns[idx % len(hatch_patterns)]  # Cycle through hatching styles
+                            
+                            plt.hist(values, 
+                                    bins=bins, 
+                                    weights=np.full(len(values), 1 / annul_area),
+                                    histtype="step", 
+                                    color=color,
+                                    facecolor="none",
+                                    # hatch=hatch,
+                                    label=f"{idx} - {idx+1}")
+                            
+                            plt.title(r"|Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
+                            plt.legend(loc="upper center", ncol=7, framealpha=0, bbox_to_anchor = (0.5, 1.25))
+
+                        break #For the outer loop alone.
+
+                scale = 1/annul_area
                 counts, _, patches = ax.hist(rm_per_annulus[bin_idx], bins=histbin, alpha=0.1, color="k")
 
                 for p in patches:
                     p.set_height(p.get_height() *scale)
                     p.set_width(b_width)
+                    ax.set_ylim(0, np.max(counts) * 1.05) #ylimit for mean subplot
 
-                if args.overplot: 
-                    Counts.append(np.max(counts))
-                else: 
-                    axes[0].set_ylim(0, np.max(counts) * 1.1)
-
-
-                if not args.overplot: #Add vertical line (and std) to individual histogram
-                    mark_m31_sem_vals_on_annulus_hist(ax, bin_means_past_rvir, bin_idx, bin_std_past_rvir, label_prefix="m31")
+                mark_m31_sem_vals_on_annulus_hist(ax, bin_means_past_rvir, bin_idx, bin_std_past_rvir, label_prefix="m31")
                 
-                if args.overplot:
-                    fig.suptitle(r"Discrete Annulus Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
-                else:
-                    fig.suptitle(f"Annulus ({bin_edges[bin_idx-1]:.2f} < r < {bin_edges[bin_idx]:.2f}) {annul_dist_type}")
+                fig.suptitle(f"Annulus ({bin_edges[bin_idx-1]:.2f} < r < {bin_edges[bin_idx]:.2f}) {annul_dist_type}")
 
-                ax.set_xlim(-150, 150)
-                ax.set_xlabel("RM [rad m$^{-2}$]")
-                ax.set_ylabel("Counts" + r" $\times \frac{100}{\xi}$" + f" [{annul_dist_type}" + r"$^{-2}$]")
-
-                if save_plot:
+                if save_plot: #Save individual plots
                     path = curr_dir_path() + "Results/"
                     plt.savefig(f"{path}m31_annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
                     plt.clf()
@@ -310,28 +467,31 @@ def annuli_analysis_m31(rm_m31=rm_m31, save_plot=False):
                     plt.show()
 
         if save_plot:
-            plt.close()
-            print(f"All images saved to {path}")
-
-        if args.overplot:
-
-            #Give correct y-axis limits from maximum annulus-histogram
-            ax.set_ylim(0, max(Counts)* 1.1)
-
-            if save_plot:#Finally Saving the overplots
-                path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}annuli_overplot.png", dpi=600, bbox_inches="tight")
+            if not args.m31_annuli_anal:
+                plt.close()  #Deleting figure
+                print(f"All images saved to {path}")
             else:
-                plt.show() #Otherwise show the overplot
+                # ax.set_ylim(0, max(Counts) * 1.1)
+                plt.xlim(-350, 200)
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}m31_annuli_overplot.png", dpi=600, bbox_inches="tight")
+                print(f"M31 Overplot has been saved to {path}")
+        else:
+            ax.set_ylim(0, max(Counts) * 1.1)
+            plt.show()
 
     #Running annuli analysis just for M31 Halo
-    m31_distances = tuple(map(get_projected_d_old, m31_sep_Rvir.value)) #from seprated distance in degrees - within CGM of M31 - to kpc
+    m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - within CGM of M31 - to kpc
     m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
-    construct_and_plot_annuli(m31_distances, rm_m31)
+    m31_distances_bg = tuple(map(get_projected_d, m31_sep_bg, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - of the CGM Background of M31 - to kpc
+    m31_distances_bg = list(map(lambda m31_d: m31_d.value, m31_distances_bg))
+    construct_and_plot_annuli(m31_distances, rm_m31, err_m31,
+                            m31_distances_bg, rm_bg, err_bg)
+    # print(m31_distances_bg); import sys ; sys.exit
 
 def mark_m31_sem_vals_on_annulus_hist(ax, b_m, bin_idx, std, label_prefix="m31"):
     """Marks M31-related values and fills +-1 sigma region on a histogram axis."""
-    
+
     ax.axvline(x=b_m[bin_idx-1], 
                label=f"{label_prefix} = {b_m[bin_idx-1]:.2f}", 
                color='k', linestyle='--', linewidth=.8)
@@ -347,6 +507,9 @@ def mark_m31_sem_vals_on_annulus_hist(ax, b_m, bin_idx, std, label_prefix="m31")
 def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
 
     """
+    This function conducts the annulus analysis of all the random patches in the sky.
+    For assessment done for M31 see the function "annuli_analysis_m31".
+
     stack_indiv_patch - Taking all patches of the sky and stacking them on top of each other
                         to analyse the ultimate change in RM over a given annulus; along the stack
     """
@@ -390,14 +553,14 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
             fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
             Counts = {"mean":[], "med":[]} #To be able to retirve highest count value for histograms
 
+        x_axis_label = r" [rad m$^{-2}$]"
+        histbin = 50 #number of bins per histogram's RM-axis (x-axis)
         #Looping through annuli
         for bin_idx in annuli_to_plot:
 
             if not args.overplot: #Then plot individually
                 fig, axes = plt.subplots(1, 2, figsize=(12, 6))  #1x2 subplot grid
                 
-            x_axis_label = r" [rad m$^{-2}$]"
-            histbin = 50 #number of beans per histogram's RM-axis (x-axis)
             if bin_idx in rm_per_annulus_mean and bin_idx in rm_per_annulus_median:
 
                 xlim, ylim = (-100, 200), (0, 17)
@@ -506,7 +669,7 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
 
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
-            [get_projected_d_old(val) for val in sublist.value] 
+            [get_projected_d(val, d_m31) for val in sublist.value] 
             for sublist in RM_coords_sep
         ]
         
@@ -766,15 +929,17 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 
     return np.abs(arr - BG) if absol else arr - BG
 
-#Note that it might take too long to fit patches that dont overlap each other 
-#If the number of patches are too many and/or the size of the patches are too big
+"""
+Note that it might take too long to fit patches that dont overlap each other 
+if the number of patches are too many and/or the size of the patches are too big
+"""
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
-BINS = 50
+BINS = bin_num_main #Currrently 80
 rm_s, rm_errs = get_real_rm_data()
 
 patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 

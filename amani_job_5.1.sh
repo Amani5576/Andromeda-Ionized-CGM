@@ -17,10 +17,16 @@ SINGULARITY_CMD="singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10
 # Run different tasks based on Slurm array ID
 case $SLURM_ARRAY_TASK_ID in
     1)
+        echo "Submitting Slurm Job for plotting Histograms of random patches of the sky, with superimposed histograms"
+        $SINGULARITY_CMD --annuli-anal --overplot
+        ;;
+
+    2)
         echo "Submitting Slurm Job for plotting Histograms just for M31 alone, per individual annulus"
         $SINGULARITY_CMD --m31-annuli-anal
         ;;
-    2)
+        
+    3)
         echo "Submitting Slurm Job for plotting Histograms just for M31 alone, with an Overplot of all annuli"
         $SINGULARITY_CMD --m31-annuli-anal --overplot
         ;;

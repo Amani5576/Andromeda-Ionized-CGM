@@ -102,14 +102,14 @@ m31_sep_Rvir = (m31_sep.deg[m31_condition])*u.deg #Record m31's RM separated val
 err_m31 = rm_err[m31_condition] #Record m31's RM errors
 
 # #Subtracting mean RM outside of Rvir (backgorund) from all RM belonging to m31's CGM.  
-rm_m31-= np.average(rm_bg)
-rm_bg-= np.average(rm_bg) #Doing same forbackground itself
+rm_m31 -= np.average(rm_bg)
+rm_bg -= np.average(rm_bg) #Doing same for background itself
 rm -= np.average(rm_bg) #for all rm readings
 
 #Validation/Sanity Check
 # print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
-bin_num = 80
+bin_num = 22
 #Calculate mean of RM values within Rvir of M31
 bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
 
@@ -136,7 +136,7 @@ bin_centers = bin_edges[1:] - bin_width/2
 
 #Convert angles to linear projected distances (No longer takes to account small angle approximation)
 get_projected_d = lambda ang, d: (d * np.tan(ang.to(u.rad))).to(u.kpc)
-get_projected_d_old = lambda pos: d_m31*np.arctan(np.radians(pos)) #specifically used for M31
+get_projected_d_old = lambda pos: d_m31*np.arctan(np.radians(pos)) #specifically used for M31 (not RM)
 
 #Convert projected radial distance (in kpc) and known distance to object (in kpc)
 #to angular separation (in degrees)
