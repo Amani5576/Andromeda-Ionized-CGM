@@ -6,6 +6,8 @@ import matplotlib.animation as animation
 import glob
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+from scipy.optimize import curve_fit
+from numpy.polynomial.polynomial import Polynomial
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
@@ -16,6 +18,8 @@ parser.add_argument('--annuli-video', action='store_true', help='Creating video 
 parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
 parser.add_argument('--overplot', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
 parser.add_argument('--seaborn-hist', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
+parser.add_argument('--rm-vs-azimuth', action='store_true', help='plot RM as a function of polar/azimuthal angle in the anticlockwise direction with M31 as the reference frame')
+parser.add_argument('--m31-ks-test', action='store_true', help='Perform KS-Test Between random regions in the sky and that of M31')
 args = parser.parse_args()
 
 #Ensuring some arguments are only used when --annuli-anal is enabled
@@ -47,13 +51,18 @@ m31_sep_bg, rm_bg, err_bg,
 bin_num as bin_num_from_main,
 bin_std_past_rvir, L_m31, cutoff,
 bin_num as bin_num_main,
-R_vir, d_m31,
+m31_theta, #Polar angle of M31
+PA_rm as PA_rm_rad,
+R_vir, #Virial radius of M31 in astropyu.units of kpc
+d_m31, #Distance to Andormeda in kpc
+L_m31, #Rvir in degrees
+cutoff, #Cutoff value for background region limit in degrees
 
 #These are statisics for the entire sepration from m31 center to all 
 bin_means_past_rvir, bin_meds_past_rvir,
 
 #importing functions
-get_projected_d,
+get_projected_d, get_sep_angle,
  confining_circle, get_wcs
 )
 
@@ -246,6 +255,54 @@ def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
 
     return d_bin_centers, bin_means, bin_med, bin_std, bin_edges
 
+
+def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None):
+    """
+    Bins x data, assigns y values/errors to bins, 
+    and returns structured dictionaries. 
+    Very useful for Annulus analysis.
+    """
+    
+    # bin_data = np.asarray(bin_data) #making sure its numpy
+
+    # Binning edges and indices for annuli
+    bin_edges = np.linspace(min(bin_data), max(bin_data), bin_num)
+    bin_indices = np.digitize(bin_data, bins=bin_edges)  # Bins indexed from 1 to bin_num-1
+
+    # Compute bin areas
+    annul_area = np.pi * (bin_edges[1:]**2 - bin_edges[:-1]**2)  # Now a NumPy array
+    bin_edges = bin_edges[:-1]  # Maintaining same number of elements as area
+
+    # Initialize storage dictionaries
+    Dicts = []
+    for j in range(len(data)):  # In case it's for x and y axis for non-histogram/bar plots
+        y_per_bin = {i: [] for i in range(0, bin_num)}  # Bin indices go from 1 to bin_num-1
+        if data_errs is not None:
+            y_err_per_bin = {i: [] for i in range(0, bin_num)}
+            Dicts.append([y_per_bin, y_err_per_bin])
+        else:
+            Dicts.append([y_per_bin,])
+
+    # Assigning values to bins
+    for i, bin_idx in enumerate(bin_indices):
+        if bin_idx < bin_num:  # Ensure no out-of-range errors
+            for idx, dicts in enumerate(Dicts):
+                dicts[0][bin_idx].append(data[idx][i])
+                if data_errs is not None:
+                    dicts[1][bin_idx].append(data_errs[idx][i])
+
+    # Convert lists to NumPy arrays (filtering out empty bins)
+    for dicts in Dicts:
+        dicts[0] = {k: np.array([val.value if hasattr(val, "unit") else val for val in v]) for k, v in dicts[0].items() if len(v) > 0}
+        if len(dicts) > 1:
+            dicts[1] = {k: np.array([val.value if hasattr(val, "unit") else val for val in dicts[1][k]]) for k in dicts[0]}
+
+
+    if data_errs is not None:
+        return [dicts for dicts in Dicts], annul_area, bin_edges
+    return [dicts[0] for dicts in Dicts], annul_area, bin_edges
+
+
 def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
     print("M31 Halo Annuli Histogram analysis and plotting have begun")
 
@@ -259,35 +316,11 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
         (distance_flat, rm_vals_flat, rm_errs_flat,
             distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg) = map(np.asarray, L)
 
-        #Adding in background region (Which has also been background subtracted)
-        distance_flat = np.concatenate([distance_flat,distance_flat_bg])
-        rm_vals_flat = np.concatenate([rm_vals_flat, rm_vals_flat_bg])
-        rm_errs_flat = np.concatenate([rm_errs_flat, rm_errs_flat_bg])
+        # #Adding in background region (Which has also been background subtracted)
+        # distance_flat = np.concatenate([distance_flat,distance_flat_bg])
+        # rm_vals_flat = np.concatenate([rm_vals_flat, rm_vals_flat_bg])
+        # rm_errs_flat = np.concatenate([rm_errs_flat, rm_errs_flat_bg])
         
-        def bin_and_store_values(distance_flat, rm_vals_flat, rm_errs_flat, bin_num):
-            """Bins distance data, assigns RM values/errors to annuli, and returns structured dictionaries."""
-            
-            # Binning edges and indices
-            bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num)
-            bin_indices = np.digitize(distance_flat, bins=bin_edges)
-            
-            # Assume uniform annuli area
-            annul_area = np.pi * (bin_edges[1]**2 - bin_edges[0]**2)  
-
-            # Initialize storage dictionaries
-            rm_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}
-            rm_err_per_annulus = {i: [] for i in range(1, len(bin_edges)+1)}
-
-            #Assigning values to bins
-            for i, bin_idx in enumerate(bin_indices):
-                rm_per_annulus[bin_idx].append(rm_vals_flat[i])
-                rm_err_per_annulus[bin_idx].append(rm_errs_flat[i])
-
-            #Converting lists to numpy arrays (filtering out empty bins)
-            rm_per_annulus = {k: np.array(v) for k, v in rm_per_annulus.items() if v}
-            rm_err_per_annulus_filtered = {k: np.array(rm_err_per_annulus[k]) for k in rm_per_annulus if k in rm_err_per_annulus}
-
-            return rm_per_annulus, rm_err_per_annulus_filtered, annul_area
 
         def add_colorbar(ax, data, colormap, label, num_ticks=10):
             """
@@ -306,14 +339,14 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
 
             cbar = plt.colorbar(sm, ax=ax)
             cbar.set_label(label, rotation=-90, labelpad=20)
-            
+
             # Generate evenly spaced ticks
             custom_ticks = sorted(np.floor(np.linspace(np.min(data), np.max(data), num_ticks)))
             cbar.set_ticks(custom_ticks)
             cbar.ax.tick_params(labelsize=7)
 
             return cbar
-        
+
         def plot_seaborn_hist(ax, rm_per_annulus, histbin, cmap_name, d_flat, annul_area):
             """
             Plots a stacked histogram using Seaborn with a colorbar indicating radial distance.
@@ -372,8 +405,9 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
         #Binning edges based on distances
         bin_edges = np.linspace(distance_flat.min(), distance_flat.max(), bin_num_from_main + 1)
 
-        rm_per_annulus, _, annul_area = bin_and_store_values(distance_flat, rm_vals_flat, rm_errs_flat, bin_num_from_main)
-        rm_per_annulus_bg, _, annul_area_bg = bin_and_store_values(distance_flat_bg, rm_vals_flat_bg, rm_errs_flat_bg, bin_num_from_main)
+        # Updated function calls with correct arguments
+        [rm_per_annulus, _], annul_area, bin_edges = create_annuli_binning_structure(distance_flat, [rm_vals_flat], [rm_errs_flat], bin_num_from_main+1)
+        [rm_per_annulus_bg, _], annul_area_bg, _ = create_annuli_binning_structure(distance_flat_bg, [rm_vals_flat_bg], [rm_errs_flat_bg], bin_num_from_main+1)
 
         annuli_to_plot = np.arange(0, bin_num_from_main + 1)
         annul_dist_type = "kpc"
@@ -399,7 +433,7 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
                             histbin=histbin,
                             cmap_name="viridis_r",
                             d_flat=distance_flat,
-                            annul_area=annul_area
+                            annul_area=annul_area[0] #Assuming all area is the same
                         )
 
 
@@ -413,40 +447,130 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
                         # )
 
                         break #Seaborn can plot everything all at once
-                    else: #USING BASIC MATPLOTLIB X(
+                    else: #USING BASIC MATPLOTLIB
 
                         # Flatten data
                         all_rm_values = np.concatenate(list(rm_per_annulus.values()))
+                        all_rm_values_bg = np.concatenate(list(rm_per_annulus_bg.values()))
                         # weights = np.concatenate([np.full(len(v), 1 / annul_area) for v in rm_per_annulus.values()])
 
-                        # Define bins
-                        bins = np.linspace(np.min(all_rm_values), np.max(all_rm_values), histbin)
+                        #Making one single annulus for BG region
+                        all_rm_values_bg_flat = all_rm_values_bg
+                        all_rm_values_bg_flat.flatten()
+
+                        #Defining bins
+                        bins = np.linspace(np.min(all_rm_values), np.max(all_rm_values), histbin-1)
+                        # bins_bg = np.linspace(np.min(all_rm_values_bg), np.max(all_rm_values_bg), histbin-1)
 
                         #Colormap normalization
                         cmap = cm.get_cmap("tab20_r", len(rm_per_annulus))
                         norm = mcolors.Normalize(vmin=0, vmax=len(rm_per_annulus) - 1)
                         # hatch_patterns = ["//", "\\\\","--"]# "xx"]#, "--", "oo", "OO", "**", "..", "||", "++"]
 
+                        def convert_kpc2_to_deg2(bin_edges, d_m31):
+
+                            bin_edges = np.asarray(bin_edges)
+
+                            # **Ensure bin_edges has an even number of elements**
+                            if len(bin_edges) % 2 != 0:
+                                bin_edges = np.insert(bin_edges, 0, 0)  # Insert 0 at the start to keep all data
+
+                            # Compute angular separations
+                            theta_1 = np.arctan(bin_edges[:-1] / d_m31.value)  # Inner radii
+                            theta_2 = np.arctan(bin_edges[1:] / d_m31.value)   # Outer radii
+
+                            # Compute area in deg²
+                            area_deg2 = np.pi * (theta_2**2 - theta_1**2)
+
+                            # Ensure output remains a Quantity with units
+                            return area_deg2.to(u.deg**2) if hasattr(area_deg2, 'to') else area_deg2 * u.deg**2
+
+                        #Annulus areas within CGM in degrees
+                        # annul_area_deg = convert_kpc2_to_deg2(bin_edges, d_m31) 
+                        
+                        # # Ensure rm_per_annulus keys match the expected number of bins
+                        # if len(rm_per_annulus) > len(annul_area_deg):
+                        #     print("Warning: rm_per_annulus has extra bins, adjusting...")
+                        #     rm_per_annulus = {k: v for k, v in list(rm_per_annulus.items())[:len(annul_area_deg)]}
+
                         # Plot histograms with "step" type for outlines
                         for idx, (label, values) in enumerate(rm_per_annulus.items()):
 
                             color = cmap(norm(idx))  # Get color from viridis colormap
                             # hatch = hatch_patterns[idx % len(hatch_patterns)]  # Cycle through hatching styles
-                            
+
                             plt.hist(values, 
                                     bins=bins, 
-                                    weights=np.full(len(values), 1 / annul_area),
+                                    weights=np.full(len(values), 1 / annul_area[idx-1]),
                                     histtype="step", 
                                     color=color,
                                     facecolor="none",
                                     # hatch=hatch,
-                                    label=f"{idx} - {idx+1}")
+                                    label=f"{label}")
                             
-                            plt.title(r"|Area $\xi$" + f" = {annul_area:.2f} " + f"{annul_dist_type}" r"$^2$")
-                            plt.legend(loc="upper center", ncol=7, framealpha=0, bbox_to_anchor = (0.5, 1.25))
+                            # plt.title(r"Halo of M31 | Annuli Area $\xi$" + f" = {annul_area_deg.value:.2f} " + r"$[\circ]^{2}$")
 
-                        break #For the outer loop alone.
+                        annul_area_entire_bg = np.pi * (get_projected_d(cutoff, d_m31).value **2 - R_vir.value **2)
+                        # annul_area_entire_bg_deg = np.pi * (cutoff.value**2 - L_m31**2) #Annuli of Backgorund in degrees
 
+                        # plt.hist(all_rm_values_bg_flat, 
+                        #         bins=bins_bg, 
+                        #         weights=np.full(len(all_rm_values_bg_flat), 1 / annul_area_entire_bg),
+                        #         histtype="step", 
+                        #         linestyle="--",
+                        #         facecolor="none",
+                        #         hatch="value",
+                        #         label="Background (Area = " f"{annul_area_entire_bg:.2f} " + r"$kpc^{2}$)",
+                        #         color="k")
+                            
+                        plt.legend(loc="upper center", ncol=7, framealpha=0, bbox_to_anchor = (0.5, 1.25))
+                        
+                        if save_plot: #Save individual plots
+                            path = curr_dir_path() + "Results/"
+                            plt.savefig(f"{path}m31_annuli_plot_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                            plt.close()
+                    
+                        # Create side-by-side subplots
+                        fig, ax = plt.subplots(1, 3, figsize=(12, 5))
+
+                        # Plot 1: Total counts of RM values per annulus index
+                        # rm_per_annulus["BG"] = all_rm_values_bg_flat #Including the background
+                        ax[0].plot(rm_per_annulus.keys(), [len(v) for v in rm_per_annulus.values()], 
+                                   marker=".", linestyle="", color="b")
+                        ax[0].set_xlabel("Annulus Index")
+                        ax[0].set_ylabel("Total Count of RM Values")
+                        ax[0].grid(True)
+
+                        annul_area = np.concatenate([annul_area, [annul_area_entire_bg]])
+                        bin_edges = np.concatenate([bin_edges, [get_projected_d(cutoff, d_m31).value]])
+
+                        # Plot 2: Annulus area vs. radius
+                        print(f"{bin_edges=}")
+                        print(f"{annul_area=}")
+                        # print(f"{rm_per_annulus=}")
+                        ax[1].plot(bin_edges, annul_area, marker=".", linestyle="", color="r")
+                        # ax[1].plot(bin_edges[2:], annul_area_deg, marker="*", linestyle="--", color="g", label="upper bound")
+                        ax[1].set_xlabel("Radius (kpc)")
+                        ax[1].set_ylabel(r"Annulus Area [$kpc^2$]")
+                        ax[1].grid(True)
+
+                        # Plot 2:  Total counts of RM values vs. radius
+                        ax[2].plot(bin_edges[1:], [len(v) for v in rm_per_annulus.values()], marker=".", linestyle="", color="g")
+                        ax[2].set_xlabel("Radius (kpc)")
+                        ax[2].set_ylabel("Total Count of RM Values")
+                        ax[2].grid(True)
+
+                        # Adjust layout
+                        plt.tight_layout()
+
+                        # Save figure
+                        plt.savefig(f"{curr_dir_path()}Results/combined_annuli_plots.png", dpi=600, bbox_inches="tight")
+                        plt.close()
+
+                        break
+
+
+                
                 scale = 1/annul_area
                 counts, _, patches = ax.hist(rm_per_annulus[bin_idx], bins=histbin, alpha=0.1, color="k")
 
@@ -466,6 +590,7 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
                 else:
                     plt.show()
 
+        
         if save_plot:
             if not args.m31_annuli_anal:
                 plt.close()  #Deleting figure
@@ -485,9 +610,9 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
     m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
     m31_distances_bg = tuple(map(get_projected_d, m31_sep_bg, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - of the CGM Background of M31 - to kpc
     m31_distances_bg = list(map(lambda m31_d: m31_d.value, m31_distances_bg))
+
     construct_and_plot_annuli(m31_distances, rm_m31, err_m31,
                             m31_distances_bg, rm_bg, err_bg)
-    # print(m31_distances_bg); import sys ; sys.exit
 
 def mark_m31_sem_vals_on_annulus_hist(ax, b_m, bin_idx, std, label_prefix="m31"):
     """Marks M31-related values and fills +-1 sigma region on a histogram axis."""
@@ -674,7 +799,7 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
         ]
         
         RM_values_per_patch_corr = [
-            [indiv_bg_corr(RM_val, bin_cent=proj_d_val, absol=False) for RM_val, proj_d_val in zip(RM_patch, proj_d_patch)]
+            indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
@@ -690,6 +815,43 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
         Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
         Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
         construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
+
+
+def plot_rm_vs_polar_angle(PA, rm, bin_edges, save_plot=False, poly_order=6):
+    """
+    Plots Rotation Measure (RM) as a function of polar angle (degrees) in the anticlockwise direction.
+    Also fits a sine wave to the data to show the trend.
+    """
+    
+    for bin_idx in range(len(rm)):
+        if bin_idx in rm:
+            plt.figure(figsize=(8, 5))
+            plt.scatter(PA[bin_idx], rm[bin_idx], marker=".", alpha=0.7, label="Data")
+
+            # Fit a polynomial to the data
+            try:
+                coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
+                poly_func = np.poly1d(coeffs)
+
+                x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
+                y_fit = poly_func(x_fit)
+
+                plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
+            except np.linalg.LinAlgError:
+                print(f"Polynomial fitting failed for bin {bin_idx}")
+
+            # Labels and formatting
+            plt.xlabel("Polar Angle " r"$(\theta)$ [$\circ$] " + "(Anticlockwise from North)")
+            plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
+            plt.legend()
+            plt.grid(True, linestyle='--', alpha=0.5)
+
+            if save_plot:
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}PA_vs_RM_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                plt.close()
+            else:
+                plt.show()
 
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
@@ -929,6 +1091,53 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 
     return np.abs(arr - BG) if absol else arr - BG
 
+
+import numpy as np
+from scipy import stats
+
+def ks_test_random_vs_region(random_samples, region_sample):
+    """
+    Perform the Kolmogorov-Smirnov test between a list of random sky samples (sublists) 
+    and a specific region sample, ensuring both are 1D before testing.
+
+    Parameters:
+    - random_samples (list of lists or 2D array): Multiple sublists of random sky samples.
+    - region_sample (list or 1D array): Data from the specific region of interest.
+
+    Output:
+    Prints the KS statistic and p-value in a readable format.
+    """
+
+    #Converting to 1D
+    combined_random_samples = np.concatenate(random_samples)#Falttening Sublists
+    region_sample = np.array(region_sample).flatten()#Ensuring its 1D.
+
+    #Checking shapes (making sure theyre all 1D)
+    print(f"\nChecking Data Shapes:")
+    print(f"  - Combined Random Samples: {combined_random_samples.shape}")
+    print(f"  - Specific Region Sample: {region_sample.shape}\n")
+
+    #Performing the TEst
+    ks_stat, p_value = stats.ks_2samp(combined_random_samples, region_sample)
+
+    #Giving results in a clean format
+    print("=" * 50)
+    print(f"  Kolmogorov-Smirnov Test Results")
+    print("=" * 50)
+    print(f"  KS Statistic (K): {ks_stat:.4f}")
+    print(f"  P-value: {p_value:.4f}")
+    
+    #Interpreting the p-value
+    if p_value > 0.05:
+        print("The two datasets could come from the same distribution.")
+        print("   → Your specific region is NOT significantly different from random sky samples.")
+    else:
+        print("The two datasets are likely different.")
+        print("   → Your specific region is statistically distinct from random sky samples.")
+
+    print("=" * 50)
+
+
 """
 Note that it might take too long to fit patches that dont overlap each other 
 if the number of patches are too many and/or the size of the patches are too big
@@ -1095,10 +1304,34 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         plot_m31_dispersion(bin_num_from_main)
 
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False)
-    all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)
+    all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False) #Ensuring proper background correction on means of each random patch
+    all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)  #Ensuring proper background correction on medians of each random patch
     if args.annuli_anal: 
         annuli_analysis_random(all_means_1, all_medians_1, save_plot=True)
     elif args.m31_annuli_anal:
         annuli_analysis_m31(save_plot=True)
+    
+    if args.rm_vs_azimuth: 
+        m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - within CGM of M31 - to kpc
+        m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
+        PA_rm_deg = PA_rm_rad.to(u.deg).value %360 #Converting from radians to degrees
+        [PA_per_annulus, rm_per_annulus], annul_area, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, data=(PA_rm_deg, rm_m31), bin_num=bin_num_from_main+1)
+        plot_rm_vs_polar_angle(PA_per_annulus, rm_per_annulus, bin_edges, save_plot=True)
+
+    if args.m31_ks_test:
+
+        # Converting Radial separation from relative patch to projected distance to be used for BG correction
+        projected_distances = [
+            [get_projected_d(val, d_m31) for val in sublist] 
+            for sublist in RM_coords_sep
+        ]
+        
+        RM_values_per_patch_corr = [ #Correcting all Rotation Measures based on their random patch's background region.
+            indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
+            for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
+        ]
+
+        ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
+
+
 

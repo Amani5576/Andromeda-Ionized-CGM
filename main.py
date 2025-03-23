@@ -138,6 +138,8 @@ bin_centers = bin_edges[1:] - bin_width/2
 get_projected_d = lambda ang, d: (d * np.tan(ang.to(u.rad))).to(u.kpc)
 get_projected_d_old = lambda pos: d_m31*np.arctan(np.radians(pos)) #specifically used for M31 (not RM)
 
+get_sep_angle = lambda d_proj, d: np.arctan((d_proj / d).to(u.dimensionless_unscaled)).to(u.deg)
+
 #Convert projected radial distance (in kpc) and known distance to object (in kpc)
 #to angular separation (in degrees)
 get_angle_sep_from_distance = lambda R_proj, d: np.degrees(np.arctan(R_proj.to(u.kpc)/d.to(u.kpc)))
