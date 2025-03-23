@@ -1147,14 +1147,16 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
         fig, axes = plt.subplots(2, 1, figsize=(12,6))  # Corrected plt.subplots()
 
         # Plotting the p-value
-        axes[0].plot([patch_idx+1 for patch_idx in range(len(random_samples))], p_value, marker=".", color="k", linestyle="")
+        axes[0].plot([patch_idx+1 for patch_idx in range(len(random_samples))], p_value, 
+                     marker=".", color="k", linestyle="", alpha=0.3)
         axes[0].axhline(y=0.05, linestyle="--", color="red")
         axes[0].set_ylabel("P-value")
         axes[0].set_title(f"{name}")
         axes[0].minorticks_on()
         
         # Plotting the K difference
-        axes[1].plot([patch_idx+1 for patch_idx in range(len(random_samples))], ks_stat, marker=".", color="k", linestyle="")
+        axes[1].plot([patch_idx+1 for patch_idx in range(len(random_samples))], ks_stat, 
+                     marker=".", color="k", linestyle="", alpha=0.3)
         axes[1].set_xlabel("Patch index")
         axes[1].set_ylabel("K difference")
         axes[1].minorticks_on()
