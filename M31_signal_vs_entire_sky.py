@@ -1332,16 +1332,16 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         print("=" * 50)
         print(f"  Kolmogorov-Smirnov Test Results")
         print("=" * 50)
-        
+
         print("-" * 50)
         print("Raw RM values")
         ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
 
         print("-" * 50)
-        print(f"Mean RM from {BINS} Patches")
+        print(f"Mean RM from {number_of_patches} Patches")
         ks_test_random_vs_region(all_means_corr, rm_m31)
 
-        print(f"Median RM from {BINS} Patches")
+        print(f"Median RM from {number_of_patches} Patches")
         ks_test_random_vs_region(all_medians_corr, rm_m31)
         print("-" * 50)
 
