@@ -1,0 +1,47 @@
+Submitting Slurm Job for KS Testing of M31 vs 10 thousand Virial Radii analogous to M31. For both Mean and Median.
+Note: BG correction in each patch has been acheived for all raw RM, from patch to patch
+Saved random points as SkyCoord
+(No longer plotting) but collecting of points from each circular patch has begun...
+Collection of points by each circular patch on WCS sphere is complete
+Getting separation of RM from center of relative patch
+Mean and Median calculations have begun
+Mean and Median calculations have ended
+==================================================
+  Kolmogorov-Smirnov Test Results
+==================================================
+--------------------------------------------------
+Raw RM values
+
+Checking Data Shapes:
+  - Combined Random Samples: (27493936,)
+  - Specific Region Sample: (1687,)
+
+  KS Statistic (K): 0.3090
+  P-value: 0.0000
+The two datasets are likely different.
+   → Your specific region is statistically distinct from random sky samples.
+==================================================
+--------------------------------------------------
+Mean RM from 10000 Patches
+
+Checking Data Shapes:
+  - Combined Random Samples: (220000,)
+  - Specific Region Sample: (1687,)
+
+  KS Statistic (K): 0.2735
+  P-value: 0.0000
+The two datasets are likely different.
+   → Your specific region is statistically distinct from random sky samples.
+==================================================
+Median RM from 10000 Patches
+
+Checking Data Shapes:
+  - Combined Random Samples: (220000,)
+  - Specific Region Sample: (1687,)
+
+  KS Statistic (K): 0.3437
+  P-value: 0.0000
+The two datasets are likely different.
+   → Your specific region is statistically distinct from random sky samples.
+==================================================
+--------------------------------------------------
