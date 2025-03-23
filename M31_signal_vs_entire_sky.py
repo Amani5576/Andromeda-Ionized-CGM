@@ -629,7 +629,7 @@ def mark_m31_sem_vals_on_annulus_hist(ax, b_m, bin_idx, std, label_prefix="m31")
 
     ax.legend()
 
-def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_indiv_patch=False): 
+def annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=False, stack_indiv_patch=False): 
 
     """
     This function conducts the annulus analysis of all the random patches in the sky.
@@ -812,8 +812,8 @@ def annuli_analysis_random(all_means_1, all_medians_1, save_plot=False, stack_in
     # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
     else:
         D_Bin_centers = np.concatenate([bin_centers for bin_centers in all_d_bin_centers])
-        Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_1]) 
-        Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_1]) 
+        Avg_Means = np.concatenate([avg_mean for avg_mean in all_means_corr]) 
+        Avg_Medians = np.concatenate([avg_med for avg_med in all_medians_corr]) 
         construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
 
@@ -1121,9 +1121,6 @@ def ks_test_random_vs_region(random_samples, region_sample):
     ks_stat, p_value = stats.ks_2samp(combined_random_samples, region_sample)
 
     #Giving results in a clean format
-    print("=" * 50)
-    print(f"  Kolmogorov-Smirnov Test Results")
-    print("=" * 50)
     print(f"  KS Statistic (K): {ks_stat:.4f}")
     print(f"  P-value: {p_value:.4f}")
     
@@ -1304,10 +1301,10 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         plot_m31_dispersion(bin_num_from_main)
 
     #MASTERS addition to identifying significance in M31's halo compared to sky via annulus analysis
-    all_means_1 = indiv_bg_corr(all_means, all_d_bin_centers, absol=False) #Ensuring proper background correction on means of each random patch
-    all_medians_1 = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)  #Ensuring proper background correction on medians of each random patch
+    all_means_corr = indiv_bg_corr(all_means, all_d_bin_centers, absol=False) #Ensuring proper background correction on means of each random patch
+    all_medians_corr = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)  #Ensuring proper background correction on medians of each random patch
     if args.annuli_anal: 
-        annuli_analysis_random(all_means_1, all_medians_1, save_plot=True)
+        annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=True)
     elif args.m31_annuli_anal:
         annuli_analysis_m31(save_plot=True)
     
@@ -1331,7 +1328,22 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
+
+        print("=" * 50)
+        print(f"  Kolmogorov-Smirnov Test Results")
+        print("=" * 50)
+        
+        print("-" * 50)
+        print("Raw RM values")
         ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
+
+        print("-" * 50)
+        print(f"Mean RM from {BINS} Patches")
+        ks_test_random_vs_region(all_means_corr, rm_m31)
+
+        print(f"Median RM from {BINS} Patches")
+        ks_test_random_vs_region(all_medians_corr, rm_m31)
+        print("-" * 50)
 
 
 
