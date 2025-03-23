@@ -4,12 +4,12 @@
 #SBATCH --error=log_stash/m31-vs-10K-random-patches-KS-Test-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
-#SBATCH --mem=30G
-#SBATCH --time=1:00:00
+#SBATCH --mem=40G
+#SBATCH --time=1:30:00
 #SBATCH --partition=Main
 
 # Load required modules
-echo "Submitting Slurm Job for KS Testing of M31 vs 10 thousand Virial Radii analogous to M31"
+echo "Submitting Slurm Job for KS Testing of M31 vs 10 thousand Virial Radii analogous to M31. For both Mean and Median."
 echo "Note: BG correction in each patch has been acheived for all raw RM, from patch to patch"
 
 #Script of interest to be run in current job
