@@ -1095,7 +1095,8 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 import numpy as np
 from scipy import stats
 
-def ks_test_random_vs_region(random_samples, region_sample):
+def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save_plot=False, **kwargs):
+    
     """
     Perform the Kolmogorov-Smirnov test between a list of random sky samples (sublists) 
     and a specific region sample, ensuring both are 1D before testing.
@@ -1108,31 +1109,64 @@ def ks_test_random_vs_region(random_samples, region_sample):
     Prints the KS statistic and p-value in a readable format.
     """
 
+    name = kwargs["name" ]if "name" in kwargs else "" #Handling the names parametre
+
     #Converting to 1D
-    combined_random_samples = np.concatenate(random_samples)#Falttening Sublists
-    region_sample = np.array(region_sample).flatten()#Ensuring its 1D.
+    if one_dim:
+        random_samples = np.concatenate(random_samples)#Falttening Sublists
+    region_sample = np.array(region_sample).flatten()#Ensuring its 1D for single m31 region
 
     #Checking shapes (making sure theyre all 1D)
     print(f"\nChecking Data Shapes:")
-    print(f"  - Combined Random Samples: {combined_random_samples.shape}")
-    print(f"  - Specific Region Sample: {region_sample.shape}\n")
+    print(f"  - Combined Random Samples: {np.asarray(random_samples).shape}")
+    print(f"  - Specific Region Sample: {np.asarray(region_sample).shape}\n")
 
-    #Performing the TEst
-    ks_stat, p_value = stats.ks_2samp(combined_random_samples, region_sample)
-
-    #Giving results in a clean format
-    print(f"  KS Statistic (K): {ks_stat:.4f}")
-    print(f"  P-value: {p_value:.4f}")
-    
-    #Interpreting the p-value
-    if p_value > 0.05:
-        print("The two datasets could come from the same distribution.")
-        print("   → Your specific region is NOT significantly different from random sky samples.")
+    #Performing the Test
+    if one_dim:
+        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit')
     else:
-        print("The two datasets are likely different.")
-        print("   → Your specific region is statistically distinct from random sky samples.")
+        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit', 
+                                          axis=1 #broadcasting region_sample across all sublists of random_samples (or radnom patches) 
+                                          )
+        
+    if one_dim:
+        #Giving results in a clean format
+        print(f"  KS Statistic (K): {ks_stat:.4f}")
+        print(f"  P-value: {p_value:.4f}")
 
-    print("=" * 50)
+        #Interpreting the p-value
+        if p_value > 0.05:
+            print("The two datasets could come from the same distribution.")
+            print("   -> Your specific region is NOT significantly different from random sky samples.")
+        else:
+            print("The two datasets are likely different.")
+            print("   -> Your specific region is statistically distinct from random sky samples.")
+
+        print("=" * 50)
+    else:
+        fig, axes = plt.subplots(2, 1, figsize=(12,6))  # Corrected plt.subplots()
+
+        # Plotting the p-value
+        axes[0].plot([patch_idx+1 for patch_idx in range(len(random_samples))], p_value, marker=".", color="k", linestyle="")
+        axes[0].axhline(y=0.05, linestyle="--", color="red")
+        axes[0].set_ylabel("P-value")
+        axes[0].set_title(f"{name}")
+        axes[0].minorticks_on()
+        
+        # Plotting the K difference
+        axes[1].plot([patch_idx+1 for patch_idx in range(len(random_samples))], ks_stat, marker=".", color="k", linestyle="")
+        axes[1].set_xlabel("Patch index")
+        axes[1].set_ylabel("K difference")
+        axes[1].minorticks_on()
+
+        plt.tight_layout()
+
+        if save_plot:
+            path = curr_dir_path() + "Results/"
+            plt.savefig(f"{path}p_values_per_{name}_patch.png", dpi=600, bbox_inches="tight")
+            print(f"P_values per patch has been saved to {path}")
+        else:
+            plt.show()
 
 
 """
@@ -1334,15 +1368,15 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         print("=" * 50)
 
         print("-" * 50)
-        print("Raw RM values")
+        print(f"Raw RM values from all {number_of_patches} patches")
         ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
 
         print("-" * 50)
         print(f"Mean RM from {number_of_patches} Patches")
-        ks_test_random_vs_region(all_means_corr, rm_m31)
+        ks_test_random_vs_region(all_means_corr, rm_m31, save_plot=True, one_dim=False, name="mean")
 
         print(f"Median RM from {number_of_patches} Patches")
-        ks_test_random_vs_region(all_medians_corr, rm_m31)
+        ks_test_random_vs_region(all_medians_corr, rm_m31, save_plot=True, one_dim=False, name="median")
         print("-" * 50)
 
 
