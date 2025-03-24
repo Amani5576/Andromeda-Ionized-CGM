@@ -1265,6 +1265,7 @@ data_to_pickle = {
     "all_bin_stds": all_bin_stds,
     "all_bin_edges": all_bin_edges
 }
+
 with open("RM_stats.pkl", "wb") as f:
     pickle.dump(data_to_pickle, f)
 print("Mean and Median calculations have been pickled successfully!")
@@ -1399,6 +1400,24 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
             indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
+
+        data_to_pickle = {
+            "projected_distances": projected_distances,
+            "RM_values_per_patch_corr": RM_values_per_patch_corr
+        }
+
+        with open("RM_corrected.pkl", "wb") as f:
+            pickle.dump(data_to_pickle, f)
+
+        print("Projected distances and corrected RM values have been pickled successfully!")
+
+        with open("RM_corrected.pkl", "rb") as f:
+            loaded_data = pickle.load(f)
+
+            projected_distances = loaded_data["projected_distances"]
+            RM_values_per_patch_corr = loaded_data["RM_values_per_patch_corr"]
+
+        print("Pickled projected distances and corrected RM values have been loaded successfully!")
 
         # print("-" * 50)
         # print(f"Raw RM values from all {number_of_patches} patches")
