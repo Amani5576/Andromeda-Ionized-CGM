@@ -1259,6 +1259,7 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 print("Mean and Median calculations have ended")
 
 data_to_pickle = {
+    "RM_coords_sep": RM_coords_sep,
     "all_d_bin_centers": all_d_bin_centers,
     "all_means": all_means,
     "all_medians": all_medians,
@@ -1273,6 +1274,7 @@ print("Mean and Median calculations have been pickled successfully!")
 with open("RM_stats.pkl", "rb") as f:
     loaded_data = pickle.load(f)
 
+RM_coords_sep = loaded_data["RM_coords_sep"]
 all_d_bin_centers = loaded_data["all_d_bin_centers"]
 all_means = loaded_data["all_means"]
 all_medians = loaded_data["all_medians"]
