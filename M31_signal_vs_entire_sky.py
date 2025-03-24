@@ -1144,19 +1144,26 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
 
         print("=" * 50)
     else:
-        fig, axes = plt.subplots(2, 1, figsize=(12,6))  # Corrected plt.subplots()
+        num_above_thresh = np.sum(p_value > 0.05)
+        num_below_thresh = len(p_value) - num_above_thresh  # Total minus above threshold
+
+        colors = np.where(p_value < 0.05, "blue", "red")  # Blue for below, Red for above
+
+        fig, axes = plt.subplots(2, 1, figsize=(12, 6))
 
         # Plotting the p-value
-        axes[0].plot([patch_idx+1 for patch_idx in range(len(random_samples))], p_value, 
-                     marker=".", color="k", linestyle="", alpha=0.3)
+        scatter_p = axes[0].scatter(np.arange(1, len(random_samples) + 1), p_value, c=colors, marker=".")
         axes[0].axhline(y=0.05, linestyle="--", color="red")
         axes[0].set_ylabel("P-value")
         axes[0].set_title(f"{name}")
         axes[0].minorticks_on()
-        
+        axes[0].legend(handles=[
+            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor="blue", markersize=8, label=f"Below thresh = {num_below_thresh}"),
+            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor="red", markersize=8, label=f"Above thresh = {num_above_thresh}")
+        ])
+
         # Plotting the K difference
-        axes[1].plot([patch_idx+1 for patch_idx in range(len(random_samples))], ks_stat, 
-                     marker=".", color="k", linestyle="", alpha=0.3)
+        scatter_ks = axes[1].scatter(np.arange(1, len(random_samples) + 1), ks_stat, c=colors, marker=".")
         axes[1].set_xlabel("Patch index")
         axes[1].set_ylabel("K difference")
         axes[1].minorticks_on()
@@ -1178,7 +1185,7 @@ if the number of patches are too many and/or the size of the patches are too big
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = bin_num_main #Currrently 80
