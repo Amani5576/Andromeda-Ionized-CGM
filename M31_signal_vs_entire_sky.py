@@ -1215,74 +1215,74 @@ patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches,
 Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
 print("Saved random points as SkyCoord")
 
-# # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
-# # Same goes for RM_values_per_patch
-# RM_values_per_patch, RM_coords_per_patch = [], []
+# RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+# Same goes for RM_values_per_patch
+RM_values_per_patch, RM_coords_per_patch = [], []
 
-# #Creating axis that will be used when doing WCS axis point collections
-# fig1 = plt.figure(figsize=(6, 5))
-# ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-# fig1.clf() #No need to show figure. Only axis is needed
+#Creating axis that will be used when doing WCS axis point collections
+fig1 = plt.figure(figsize=(6, 5))
+ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+fig1.clf() #No need to show figure. Only axis is needed
 
-# print("(No longer plotting) but collecting of points from each circular patch has begun...")
-# collection_of_points_from_WCS_sphere() #IMPORTANT
-# print("Collection of points by each circular patch on WCS sphere is complete")
+print("(No longer plotting) but collecting of points from each circular patch has begun...")
+collection_of_points_from_WCS_sphere() #IMPORTANT
+print("Collection of points by each circular patch on WCS sphere is complete")
 
-# print("Getting separation of RM from center of relative patch")
-# #Get separation of RM from center of relative patch.
-# RM_coords_sep = [rm_coords.separation(patch_pos) 
-#                  for rm_coords, patch_pos in 
-#                  list(zip(RM_coords_per_patch, Patch_pos))]
+print("Getting separation of RM from center of relative patch")
+#Get separation of RM from center of relative patch.
+RM_coords_sep = [rm_coords.separation(patch_pos) 
+                 for rm_coords, patch_pos in 
+                 list(zip(RM_coords_per_patch, Patch_pos))]
 
-# all_d_bin_centers=[] #For x-axis
-# all_means = []
-# all_medians = []
-# all_bin_stds = []
-# all_bin_edges = ''
+all_d_bin_centers=[] #For x-axis
+all_means = []
+all_medians = []
+all_bin_stds = []
+all_bin_edges = ''
 
-# fig2 = plt.figure(figsize=(10, 5))
-# ax2 = fig2.add_subplot(111)
-# print("Mean and Median calculations have begun")
-# for i in range(len(RM_coords_sep)): #Searching through each patch
+fig2 = plt.figure(figsize=(10, 5))
+ax2 = fig2.add_subplot(111)
+print("Mean and Median calculations have begun")
+for i in range(len(RM_coords_sep)): #Searching through each patch
     
-#     if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
-#         if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-#             d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+        if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+            d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
             
-#             all_d_bin_centers.append(d_bin_centers) #For x axis
-#             all_means.append(bin_mean) #For y-axis
-#             all_medians.append(bin_med) #For y-axis
-#             all_bin_stds.append(bin_std)
+            all_d_bin_centers.append(d_bin_centers) #For x axis
+            all_means.append(bin_mean) #For y-axis
+            all_medians.append(bin_med) #For y-axis
+            all_bin_stds.append(bin_std)
 
-#             if i == 0 : #Only collect bin edges once
-#                 all_bin_edges = bin_edges
+            if i == 0 : #Only collect bin edges once
+                all_bin_edges = bin_edges
 
-#             #Background correction for the individual plots
-#             bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-#             bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+            #Background correction for the individual plots
+            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-#             #This has been commented out to remove clatter
-#             #The they are all being collected and will be averaged to make a final one
-#             # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            #This has been commented out to remove clatter
+            #The they are all being collected and will be averaged to make a final one
+            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
             
-# print("Mean and Median calculations have ended")
+print("Mean and Median calculations have ended")
 
-# data_to_pickle = {
-#     "ax2": ax2,
-#     "fig2": fig2,
-#     "RM_values_per_patch": RM_values_per_patch, 
-#     "RM_coords_per_patch": RM_coords_per_patch,
-#     "RM_coords_sep": RM_coords_sep,
-#     "all_d_bin_centers": all_d_bin_centers,
-#     "all_means": all_means,
-#     "all_medians": all_medians,
-#     "all_bin_stds": all_bin_stds,
-#     "all_bin_edges": all_bin_edges
-# }
+data_to_pickle = {
+    "ax2": ax2,
+    "fig2": fig2,
+    "RM_values_per_patch": RM_values_per_patch, 
+    "RM_coords_per_patch": RM_coords_per_patch,
+    "RM_coords_sep": RM_coords_sep,
+    "all_d_bin_centers": all_d_bin_centers,
+    "all_means": all_means,
+    "all_medians": all_medians,
+    "all_bin_stds": all_bin_stds,
+    "all_bin_edges": all_bin_edges
+}
 
-# with open("../RM_stats.pkl", "wb") as f:
-#     pickle.dump(data_to_pickle, f)
-# print("Mean and Median calculations have been pickled successfully!")
+with open("../RM_stats.pkl", "wb") as f:
+    pickle.dump(data_to_pickle, f)
+print("Mean and Median calculations have been pickled successfully!")
 
 with open("../RM_stats.pkl", "rb") as f:
     loaded_data = pickle.load(f)
@@ -1417,13 +1417,3 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         print(f"Median RM of M31 with median RM of sky relative to {BINS} bins")
         ks_test_random_vs_region(Avg_medians, bin_med_m31)
         
-        # print("-" * 50)
-        # print(f"Mean RM from {number_of_patches} Patches")
-        # ks_test_random_vs_region(all_means_corr, rm_m31, save_plot=True, one_dim=False, name="mean")
-
-        # print(f"Median RM from {number_of_patches} Patches")
-        # ks_test_random_vs_region(all_medians_corr, rm_m31, save_plot=True, one_dim=False, name="median")
-        # print("-" * 50)
-
-
-
