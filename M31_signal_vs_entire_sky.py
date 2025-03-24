@@ -828,17 +828,17 @@ def plot_rm_vs_polar_angle(PA, rm, bin_edges, save_plot=False, poly_order=6):
             plt.figure(figsize=(8, 5))
             plt.scatter(PA[bin_idx], rm[bin_idx], marker=".", alpha=0.7, label="Data")
 
-            # Fit a polynomial to the data
-            try:
-                coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
-                poly_func = np.poly1d(coeffs)
+            # # Fit a polynomial to the data
+            # try:
+            #     coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
+            #     poly_func = np.poly1d(coeffs)
 
-                x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
-                y_fit = poly_func(x_fit)
+            #     x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
+            #     y_fit = poly_func(x_fit)
 
-                plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
-            except np.linalg.LinAlgError:
-                print(f"Polynomial fitting failed for bin {bin_idx}")
+            #     plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
+            # except np.linalg.LinAlgError:
+            #     print(f"Polynomial fitting failed for bin {bin_idx}")
 
             # Labels and formatting
             plt.xlabel("Polar Angle " r"$(\theta)$ [$\circ$] " + "(Anticlockwise from North)")
@@ -1112,8 +1112,9 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
     name = kwargs["name" ]if "name" in kwargs else "" #Handling the names parametre
 
     #Converting to 1D
-    if one_dim:
-        random_samples = np.concatenate(random_samples)#Falttening Sublists
+    if len(np.asarray(random_samples).shape) > 1: #checking if its not already in one dimension
+        if one_dim:
+            random_samples = np.concatenate(random_samples)#Falttening Sublists
     region_sample = np.array(region_sample).flatten()#Ensuring its 1D for single m31 region
 
     #Checking shapes (making sure theyre all 1D)
@@ -1123,9 +1124,10 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
 
     #Performing the Test
     if one_dim:
-        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit')
+        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample)#, nan_policy='omit')
     else:
-        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit', 
+        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample,
+                                          #nan_policy='omit', 
                                           axis=1 #broadcasting region_sample across all sublists of random_samples (or radnom patches) 
                                           )
         
@@ -1176,7 +1178,6 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
             print(f"P_values per patch has been saved to {path}")
         else:
             plt.show()
-
 
 """
 Note that it might take too long to fit patches that dont overlap each other 
@@ -1355,11 +1356,15 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - within CGM of M31 - to kpc
         m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
         PA_rm_deg = PA_rm_rad.to(u.deg).value %360 #Converting from radians to degrees
-        [PA_per_annulus, rm_per_annulus], annul_area, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, data=(PA_rm_deg, rm_m31), bin_num=bin_num_from_main+1)
+        [PA_per_annulus, rm_per_annulus], annul_area, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, data=(PA_rm_deg, rm_m31), bin_num=bin_num_from_main+2)
         plot_rm_vs_polar_angle(PA_per_annulus, rm_per_annulus, bin_edges, save_plot=True)
 
     if args.m31_ks_test:
 
+        print("=" * 50)
+        print(f"  Kolmogorov-Smirnov Test Results")
+        print("=" * 50)
+ 
         # Converting Radial separation from relative patch to projected distance to be used for BG correction
         projected_distances = [
             [get_projected_d(val, d_m31) for val in sublist] 
@@ -1371,22 +1376,25 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
             for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
         ]
 
-
-        print("=" * 50)
-        print(f"  Kolmogorov-Smirnov Test Results")
-        print("=" * 50)
-
+        # print("-" * 50)
+        # print(f"Raw RM values from all {number_of_patches} patches")
+        # ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
+        
         print("-" * 50)
-        print(f"Raw RM values from all {number_of_patches} patches")
-        ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
-
+        print(f"Mean RM of M31 with mean RM of sky relative to {BINS} bins")
+        ks_test_random_vs_region(Avg_means, bin_means_m31)
+        
         print("-" * 50)
-        print(f"Mean RM from {number_of_patches} Patches")
-        ks_test_random_vs_region(all_means_corr, rm_m31, save_plot=True, one_dim=False, name="mean")
+        print(f"Median RM of M31 with median RM of sky relative to {BINS} bins")
+        ks_test_random_vs_region(Avg_medians, bin_med_m31)
+        
+        # print("-" * 50)
+        # print(f"Mean RM from {number_of_patches} Patches")
+        # ks_test_random_vs_region(all_means_corr, rm_m31, save_plot=True, one_dim=False, name="mean")
 
-        print(f"Median RM from {number_of_patches} Patches")
-        ks_test_random_vs_region(all_medians_corr, rm_m31, save_plot=True, one_dim=False, name="median")
-        print("-" * 50)
+        # print(f"Median RM from {number_of_patches} Patches")
+        # ks_test_random_vs_region(all_medians_corr, rm_m31, save_plot=True, one_dim=False, name="median")
+        # print("-" * 50)
 
 
 
