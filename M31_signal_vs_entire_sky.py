@@ -818,41 +818,50 @@ def annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=False, st
         construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
 
-def plot_rm_vs_polar_angle(PA, rm, bin_edges, save_plot=False, poly_order=6):
+def plot_binned_azimuth(dist, rm, bin_edges, save_plot=False, poly_order=6):
     """
-    Plots Rotation Measure (RM) as a function of polar angle (degrees) in the anticlockwise direction.
-    Also fits a sine wave to the data to show the trend.
+    Plots Rotation Measure (RM) as a function of distance according to binned azimuth (in the anticlockwise direction).
     """
-    
-    for bin_idx in range(len(rm)):
-        if bin_idx in rm:
-            plt.figure(figsize=(8, 5))
-            plt.scatter(PA[bin_idx], rm[bin_idx], marker=".", alpha=0.7, label="Data")
 
-            # # Fit a polynomial to the data
-            # try:
-            #     coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
-            #     poly_func = np.poly1d(coeffs)
+    plt.figure(figsize=(12, 6))
+    for bin_idx, bin_edge in enumerate(bin_edges):
 
-            #     x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
-            #     y_fit = poly_func(x_fit)
+        bin_idx +=1
+        #Sorting indices based on dist[bin_idx]
+        sorted_idx = np.argsort(dist[bin_idx])
+        sorted_dist = dist[bin_idx][sorted_idx]
+        sorted_rm = rm[bin_idx][sorted_idx]
 
-            #     plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
-            # except np.linalg.LinAlgError:
-            #     print(f"Polynomial fitting failed for bin {bin_idx}")
+        plt.plot(sorted_dist, sorted_rm, 
+                    marker="", alpha=0.7,
+                    label= r"$\bar{\theta}$ = " + f"{bin_edge:.2f} "+ r"$\circ$"
+                    )
 
-            # Labels and formatting
-            plt.xlabel("Polar Angle " r"$(\theta)$ [$\circ$] " + "(Anticlockwise from North)")
-            plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
-            plt.legend()
-            plt.grid(True, linestyle='--', alpha=0.5)
+        # # Fit a polynomial to the data
+        # try:
+        #     coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
+        #     poly_func = np.poly1d(coeffs)
 
-            if save_plot:
-                path = curr_dir_path() + "Results/"
-                plt.savefig(f"{path}PA_vs_RM_{bin_idx}.png", dpi=600, bbox_inches="tight")
-                plt.close()
-            else:
-                plt.show()
+        #     x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
+        #     y_fit = poly_func(x_fit)
+
+        #     plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
+        # except np.linalg.LinAlgError:
+        #     print(f"Polynomial fitting failed for bin {bin_idx}")
+
+        plt.xlabel("Projected Distance [kpc]")
+        plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
+        # plt.grid(True, linestyle='--', alpha=0.5)
+
+    if save_plot:
+        path = curr_dir_path() + "Results/"
+        plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
+                framealpha = 0, ncols = 6)
+        plt.minorticks_on()
+        plt.savefig(f"{path}Azimuthal_bin_plots.png", dpi=600, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
 
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
@@ -1076,13 +1085,17 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     if isinstance(arr, list) and isinstance(bin_cent, list):
         return [indiv_bg_corr(a, b, absol) for a, b in zip(arr, bin_cent)]
     
-    # Ensure bin_cent is an array and force it to have units
-    bin_cent = np.asarray(bin_cent) * u.kpc if not hasattr(bin_cent, "unit") else bin_cent
-    bin_cent = bin_cent.to_value()  # Convert to unitless
-    
+    if hasattr(bin_cent, "unit"):
+        bin_cent = bin_cent.value
+    # print(f"{np.asarray(bin_cent).shape=}")
     arr = np.asarray(arr)  # Ensure arr is also an array (important for indexing later)
     
-    arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
+    try:
+        arr_bg = np.where(bin_cent > 300, arr, 0)  # Fill all values within virial radius with 0
+    except TypeError:  #'>' not supported between instances of 'list' and 'int'
+        bin_cent = np.asarray(bin_cent)
+        print(f"{bin_cent[0]=}"); import sys; sys.exit()
+        arr_bg = np.where(np.array(bin_cent, dtype=float) > 300, arr, 0)
 
     # Ensure arr_bg is at least 1D
     arr_bg = np.atleast_1d(arr_bg)
@@ -1091,10 +1104,6 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
     BG = arr_bg_no_0.mean() if arr_bg_no_0.size > 0 else 0
 
     return np.abs(arr - BG) if absol else arr - BG
-
-
-import numpy as np
-from scipy import stats
 
 def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save_plot=False, **kwargs):
     
@@ -1125,10 +1134,10 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
 
     #Performing the Test
     if one_dim:
-        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample)#, nan_policy='omit')
+        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit')
     else:
         ks_stat, p_value = stats.ks_2samp(random_samples, region_sample,
-                                          #nan_policy='omit', 
+                                          nan_policy='omit', 
                                           axis=1 #broadcasting region_sample across all sublists of random_samples (or radnom patches) 
                                           )
         
@@ -1187,7 +1196,7 @@ if the number of patches are too many and/or the size of the patches are too big
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = int(6e1) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
 
 
 BINS = bin_num_main #Currrently 80
@@ -1206,74 +1215,82 @@ patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches,
 Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
 print("Saved random points as SkyCoord")
 
-# RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
-# Same goes for RM_values_per_patch
-RM_values_per_patch, RM_coords_per_patch = [], []
+# # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+# # Same goes for RM_values_per_patch
+# RM_values_per_patch, RM_coords_per_patch = [], []
 
-#Creating axis that will be used when doing WCS axis point collections
-fig1 = plt.figure(figsize=(6, 5))
-ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-fig1.clf() #No need to show figure. Only axis is needed
+# #Creating axis that will be used when doing WCS axis point collections
+# fig1 = plt.figure(figsize=(6, 5))
+# ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+# fig1.clf() #No need to show figure. Only axis is needed
 
-print("(No longer plotting) but collecting of points from each circular patch has begun...")
-collection_of_points_from_WCS_sphere() #IMPORTANT
-print("Collection of points by each circular patch on WCS sphere is complete")
+# print("(No longer plotting) but collecting of points from each circular patch has begun...")
+# collection_of_points_from_WCS_sphere() #IMPORTANT
+# print("Collection of points by each circular patch on WCS sphere is complete")
 
-print("Getting separation of RM from center of relative patch")
-#Get separation of RM from center of relative patch.
-RM_coords_sep = [rm_coords.separation(patch_pos) 
-                 for rm_coords, patch_pos in 
-                 list(zip(RM_coords_per_patch, Patch_pos))]
+# print("Getting separation of RM from center of relative patch")
+# #Get separation of RM from center of relative patch.
+# RM_coords_sep = [rm_coords.separation(patch_pos) 
+#                  for rm_coords, patch_pos in 
+#                  list(zip(RM_coords_per_patch, Patch_pos))]
 
-all_d_bin_centers=[] #For x-axis
-all_means = []
-all_medians = []
-all_bin_stds = []
-all_bin_edges = ''
+# all_d_bin_centers=[] #For x-axis
+# all_means = []
+# all_medians = []
+# all_bin_stds = []
+# all_bin_edges = ''
 
-fig2 = plt.figure(figsize=(10, 5))
-ax2 = fig2.add_subplot(111)
-print("Mean and Median calculations have begun")
-for i in range(len(RM_coords_sep)): #Searching through each patch
+# fig2 = plt.figure(figsize=(10, 5))
+# ax2 = fig2.add_subplot(111)
+# print("Mean and Median calculations have begun")
+# for i in range(len(RM_coords_sep)): #Searching through each patch
     
-    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
-        if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-            d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+#     if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+#         if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+#             d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
             
-            all_d_bin_centers.append(d_bin_centers) #For x axis
-            all_means.append(bin_mean) #For y-axis
-            all_medians.append(bin_med) #For y-axis
-            all_bin_stds.append(bin_std)
+#             all_d_bin_centers.append(d_bin_centers) #For x axis
+#             all_means.append(bin_mean) #For y-axis
+#             all_medians.append(bin_med) #For y-axis
+#             all_bin_stds.append(bin_std)
 
-            if i == 0 : #Only collect bin edges once
-                all_bin_edges = bin_edges
+#             if i == 0 : #Only collect bin edges once
+#                 all_bin_edges = bin_edges
 
-            #Background correction for the individual plots
-            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+#             #Background correction for the individual plots
+#             bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+#             bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-            #This has been commented out to remove clatter
-            #The they are all being collected and will be averaged to make a final one
-            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+#             #This has been commented out to remove clatter
+#             #The they are all being collected and will be averaged to make a final one
+#             # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
             
-print("Mean and Median calculations have ended")
+# print("Mean and Median calculations have ended")
 
-data_to_pickle = {
-    "RM_coords_sep": RM_coords_sep,
-    "all_d_bin_centers": all_d_bin_centers,
-    "all_means": all_means,
-    "all_medians": all_medians,
-    "all_bin_stds": all_bin_stds,
-    "all_bin_edges": all_bin_edges
-}
+# data_to_pickle = {
+#     "ax2": ax2,
+#     "fig2": fig2,
+#     "RM_values_per_patch": RM_values_per_patch, 
+#     "RM_coords_per_patch": RM_coords_per_patch,
+#     "RM_coords_sep": RM_coords_sep,
+#     "all_d_bin_centers": all_d_bin_centers,
+#     "all_means": all_means,
+#     "all_medians": all_medians,
+#     "all_bin_stds": all_bin_stds,
+#     "all_bin_edges": all_bin_edges
+# }
 
-with open("../RM_stats.pkl", "wb") as f:
-    pickle.dump(data_to_pickle, f)
-print("Mean and Median calculations have been pickled successfully!")
+# with open("../RM_stats.pkl", "wb") as f:
+#     pickle.dump(data_to_pickle, f)
+# print("Mean and Median calculations have been pickled successfully!")
 
 with open("../RM_stats.pkl", "rb") as f:
     loaded_data = pickle.load(f)
 
+fig2 = loaded_data["fig2"]
+ax2 = loaded_data["ax2"]
+RM_values_per_patch = ["RM_values_per_patch"] 
+RM_coords_per_patch = ["RM_coords_per_patch"]
 RM_coords_sep = loaded_data["RM_coords_sep"]
 all_d_bin_centers = loaded_data["all_d_bin_centers"]
 all_means = loaded_data["all_means"]
@@ -1383,8 +1400,8 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - within CGM of M31 - to kpc
         m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
         PA_rm_deg = PA_rm_rad.to(u.deg).value %360 #Converting from radians to degrees
-        [PA_per_annulus, rm_per_annulus], annul_area, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, data=(PA_rm_deg, rm_m31), bin_num=bin_num_from_main+2)
-        plot_rm_vs_polar_angle(PA_per_annulus, rm_per_annulus, bin_edges, save_plot=True)
+        [distance_per_PA_bin, rm_per_PA_bin], _, bin_edges = create_annuli_binning_structure(bin_data=PA_rm_deg, data=(m31_distances, rm_m31), bin_num=bin_num_from_main+2)
+        plot_binned_azimuth(distance_per_PA_bin, rm_per_PA_bin, bin_edges, save_plot=True)
 
     if args.m31_ks_test:
 
@@ -1392,39 +1409,6 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         print(f"  Kolmogorov-Smirnov Test Results")
         print("=" * 50)
  
-        # Converting Radial separation from relative patch to projected distance to be used for BG correction
-        projected_distances = [
-            [get_projected_d(val, d_m31) for val in sublist] 
-            for sublist in RM_coords_sep
-        ]
-        
-        RM_values_per_patch_corr = [ #Correcting all Rotation Measures based on their random patch's background region.
-            indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
-            for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
-        ]
-
-        data_to_pickle = {
-            "projected_distances": projected_distances,
-            "RM_values_per_patch_corr": RM_values_per_patch_corr
-        }
-
-        with open("../RM_corrected.pkl", "wb") as f:
-            pickle.dump(data_to_pickle, f)
-
-        print("Projected distances and corrected RM values have been pickled successfully!")
-
-        with open("../RM_corrected.pkl", "rb") as f:
-            loaded_data = pickle.load(f)
-
-            projected_distances = loaded_data["projected_distances"]
-            RM_values_per_patch_corr = loaded_data["RM_values_per_patch_corr"]
-
-        print("Pickled projected distances and corrected RM values have been loaded successfully!")
-
-        # print("-" * 50)
-        # print(f"Raw RM values from all {number_of_patches} patches")
-        # ks_test_random_vs_region(RM_values_per_patch_corr, rm_m31)
-        
         print("-" * 50)
         print(f"Mean RM of M31 with mean RM of sky relative to {BINS} bins")
         ks_test_random_vs_region(Avg_means, bin_means_m31)
