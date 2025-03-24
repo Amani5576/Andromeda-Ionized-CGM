@@ -1233,6 +1233,7 @@ all_bin_edges = ''
 
 fig2 = plt.figure(figsize=(10, 5))
 ax2 = fig2.add_subplot(111)
+
 print("Mean and Median calculations have begun")
 for i in range(len(RM_coords_sep)): #Searching through each patch
     
