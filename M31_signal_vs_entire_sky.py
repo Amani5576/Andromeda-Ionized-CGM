@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from scipy.optimize import curve_fit
 from numpy.polynomial.polynomial import Polynomial
+import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
@@ -1133,8 +1134,8 @@ def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save
         
     if one_dim:
         #Giving results in a clean format
-        print(f"  KS Statistic (K): {ks_stat:.4f}")
-        print(f"  P-value: {p_value:.4f}")
+        print(f"  KS Statistic (K): {ks_stat}")
+        print(f"  P-value: {p_value:}")
 
         #Interpreting the p-value
         if p_value > 0.05:
@@ -1253,8 +1254,31 @@ for i in range(len(RM_coords_sep)): #Searching through each patch
 
             #This has been commented out to remove clatter
             #The they are all being collected and will be averaged to make a final one
-            plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            
 print("Mean and Median calculations have ended")
+
+data_to_pickle = {
+    "all_d_bin_centers": all_d_bin_centers,
+    "all_means": all_means,
+    "all_medians": all_medians,
+    "all_bin_stds": all_bin_stds,
+    "all_bin_edges": all_bin_edges
+}
+with open("RM_stats.pkl", "wb") as f:
+    pickle.dump(data_to_pickle, f)
+print("Mean and Median calculations have been pickled successfully!")
+
+with open("RM_stats.pkl", "rb") as f:
+    loaded_data = pickle.load(f)
+
+all_d_bin_centers = loaded_data["all_d_bin_centers"]
+all_means = loaded_data["all_means"]
+all_medians = loaded_data["all_medians"]
+all_bin_stds = loaded_data["all_bin_stds"]
+all_bin_edges = loaded_data["all_bin_edges"]
+
+print("Pickled data has been loaded successfully!")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
 
