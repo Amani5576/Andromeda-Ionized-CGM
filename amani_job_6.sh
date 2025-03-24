@@ -4,8 +4,8 @@
 #SBATCH --error=log_stash/m31-vs-10K-random-patches-KS-Test-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=3
-#SBATCH --mem=30G
-#SBATCH --time=00:50:00
+#SBATCH --mem=50G
+#SBATCH --time=02:00:00
 #SBATCH --partition=Main
 
 # Load required modules
