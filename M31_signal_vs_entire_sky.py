@@ -845,45 +845,6 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False, poly_order=1):
     bin_width = bin_edges[1] - bin_edges[0]
     bin_centers = bin_edges - bin_width / 2
 
-    # plt.figure(figsize=(12, 6))
-    # for bin_idx, bin_cent in enumerate(bin_centers, 1):
-
-        # #Sorting indices based on dist[bin_idx]
-        # sorted_idx = np.argsort(dist[bin_idx])
-        # sorted_dist = dist[bin_idx][sorted_idx]
-        # sorted_rm = rm[bin_idx][sorted_idx]
-
-        # plt.plot(sorted_dist, sorted_rm, 
-        #             marker=".", alpha=0.7, linestyle="", markersize=0.4,
-        #             label= r"$\bar{\theta}$ = " + f"{bin_cent:.2f}"+ r"$^{\circ}$"
-        #             )
-
-        # # Fit a polynomial to the data
-        # try:
-        #     coeffs = np.polyfit(dist[bin_idx], rm[bin_idx], poly_order)
-        #     poly_func = np.poly1d(coeffs)
-
-        #     x_fit = np.linspace(min(dist[bin_idx]), max(dist[bin_idx]), 1000)
-        #     y_fit = poly_func(x_fit)
-
-        #     plt.plot(x_fit, y_fit, linestyle="--")#, label=f"Poly Fit (Order {poly_order})")
-        # except np.linalg.LinAlgError:
-        #     print(f"Polynomial fitting failed for bin {bin_idx}")
-
-        # plt.xlabel("Projected Distance [kpc]")
-        # plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
-        # # plt.grid(True, linestyle='--', alpha=0.5)
-
-    # if save_plot:
-    #     path = curr_dir_path() + "Results/"
-    #     plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
-    #             framealpha = 0, ncols = 6)
-        # plt.minorticks_on()
-    #     plt.savefig(f"{path}Azimuthal_bin_plots.png", dpi=600, bbox_inches="tight")
-    #     plt.close()
-    # else:
-    #     plt.show()
-
     bin_centers_mean_GMMStats = []
     bin_centers_med_GMMStats = []
     bin_means_GMMStats = []
