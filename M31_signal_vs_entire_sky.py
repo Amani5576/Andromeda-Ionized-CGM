@@ -236,28 +236,43 @@ def collection_of_points_from_WCS_sphere():#Placing patches on sphere with real 
     
         RM_coords_per_patch.append(RM_coords)
         
-def get_mean_and_med_stats(sep_vals, rm_vals, bin_num):
-    rm_vals = np.abs(rm_vals) # |RM|
+def get_mean_and_med_stats(x_vals, y_vals, bin_num, x_is_r_proj=True, absol=True):
+    
+    """
+    x vals: Polar Angle or Separation Distance measurements
+    y_vals: Usually going to be the Rotation Measures
+    bin_num: (Probably same as variable "bin_num_from_main" =22 )
+    """
+    if absol: y_vals = np.abs(y_vals)
+
+    # print(y_vals); 
+    # print(f"{len(x_vals)=}")
+    # print(f"{len(y_vals)=}")
+    # print(f"{bin_num=}")
     
     #Calculating mean and median of RM values within patch
-    bin_means, bin_edges, binnumber = stats.binned_statistic(sep_vals, rm_vals, statistic='mean', bins=bin_num)
-    bin_med, bin_edges, binnumber = stats.binned_statistic(sep_vals, rm_vals, statistic='median', bins=bin_num)
-    bin_width = (bin_edges[1] - bin_edges[0])
-    bin_centers = bin_edges[1:] - bin_width / 2
+    bin_means, bin_edges_mean, binnumber = stats.binned_statistic(x_vals, y_vals, statistic='mean', bins=bin_num)
+    bin_med, bin_edges_med, binnumber = stats.binned_statistic(x_vals, y_vals, statistic='median', bins=bin_num)
+    bin_width_mean, bin_width_med = (bin_edges_mean[1] - bin_edges_mean[0]) , (bin_edges_med[1] - bin_edges_med[0])
+    bin_centers_mean, bin_centers_med = bin_edges_mean[1:] - bin_width_mean / 2 , bin_edges_med[1:] - bin_width_med / 2
     
-    #Converting to projected distance away from center of m31(in kpc)
-    d_bin_centers = get_projected_d(bin_centers*u.deg, d_m31).value
-    
+
     #Standard error of the mean for error bars
     bin_std, bin_edges, binnumber = stats.binned_statistic(
-        sep_vals, rm_vals,
+        x_vals, y_vals,
         statistic=stats.sem,  # Standard Error of Mean
         bins=bin_num)
 
-    return d_bin_centers, bin_means, bin_med, bin_std, bin_edges
+    if x_is_r_proj: #previously only used edges from median.
+        #Converting to projected distance away from center of m31(in kpc)
+        d_bin_centers = get_projected_d(bin_centers_mean*u.deg, d_m31).value
+        return d_bin_centers, bin_means, bin_med, bin_std, bin_edges
+    
+    else:
+        return bin_centers_mean, bin_centers_med, bin_means, bin_med, bin_std, bin_edges
 
 
-def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None):
+def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None, for_azimuth_plot=False):
     """
     Bins x data, assigns y values/errors to bins, 
     and returns structured dictionaries. 
@@ -272,14 +287,14 @@ def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None):
 
     # Compute bin areas
     annul_area = np.pi * (bin_edges[1:]**2 - bin_edges[:-1]**2)  # Now a NumPy array
-    bin_edges = bin_edges[:-1]  # Maintaining same number of elements as area
+    if not for_azimuth_plot: bin_edges = bin_edges[:-1]  # Maintaining same number of elements as area
 
     # Initialize storage dictionaries
     Dicts = []
     for j in range(len(data)):  # In case it's for x and y axis for non-histogram/bar plots
-        y_per_bin = {i: [] for i in range(0, bin_num)}  # Bin indices go from 1 to bin_num-1
+        y_per_bin = {i: [] for i in range(0, bin_num+1)}  # Bin indices go from 1 to bin_num (instead of bin_num-1)
         if data_errs is not None:
-            y_err_per_bin = {i: [] for i in range(0, bin_num)}
+            y_err_per_bin = {i: [] for i in range(0, bin_num+1)}
             Dicts.append([y_per_bin, y_err_per_bin])
         else:
             Dicts.append([y_per_bin,])
@@ -818,46 +833,155 @@ def annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=False, st
         construct_and_plot_annuli(D_Bin_centers, Avg_Means, Avg_Medians)
 
 
-def plot_binned_azimuth(dist, rm, bin_edges, save_plot=False, poly_order=6):
+def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False, poly_order=1):
     """
-    Plots Rotation Measure (RM) as a function of distance according to binned azimuth (in the anticlockwise direction).
+    Plots Rotation Measure (RM) as a function of polar angle/Azimuth (in the anticlockwise direction) according to binned distance from center of m31
     """
+    # """
+    # Plots Rotation Measure (RM) as a function of distance according to binned azimuth (in the anticlockwise direction).
+    # """
 
-    plt.figure(figsize=(12, 6))
-    for bin_idx, bin_edge in enumerate(bin_edges):
+    #For distances
+    bin_width = bin_edges[1] - bin_edges[0]
+    bin_centers = bin_edges - bin_width / 2
 
-        bin_idx +=1
-        #Sorting indices based on dist[bin_idx]
-        sorted_idx = np.argsort(dist[bin_idx])
-        sorted_dist = dist[bin_idx][sorted_idx]
-        sorted_rm = rm[bin_idx][sorted_idx]
+    # plt.figure(figsize=(12, 6))
+    # for bin_idx, bin_cent in enumerate(bin_centers, 1):
 
-        plt.plot(sorted_dist, sorted_rm, 
-                    marker="", alpha=0.7,
-                    label= r"$\bar{\theta}$ = " + f"{bin_edge:.2f} "+ r"$\circ$"
-                    )
+        # #Sorting indices based on dist[bin_idx]
+        # sorted_idx = np.argsort(dist[bin_idx])
+        # sorted_dist = dist[bin_idx][sorted_idx]
+        # sorted_rm = rm[bin_idx][sorted_idx]
+
+        # plt.plot(sorted_dist, sorted_rm, 
+        #             marker=".", alpha=0.7, linestyle="", markersize=0.4,
+        #             label= r"$\bar{\theta}$ = " + f"{bin_cent:.2f}"+ r"$^{\circ}$"
+        #             )
 
         # # Fit a polynomial to the data
         # try:
-        #     coeffs = np.polyfit(PA[bin_idx], rm[bin_idx], poly_order)
+        #     coeffs = np.polyfit(dist[bin_idx], rm[bin_idx], poly_order)
         #     poly_func = np.poly1d(coeffs)
 
-        #     x_fit = np.linspace(min(PA[bin_idx]), max(PA[bin_idx]), 1000)
+        #     x_fit = np.linspace(min(dist[bin_idx]), max(dist[bin_idx]), 1000)
         #     y_fit = poly_func(x_fit)
 
-        #     plt.plot(x_fit, y_fit, color="red", linestyle="--", label=f"Poly Fit (Order {poly_order})")
+        #     plt.plot(x_fit, y_fit, linestyle="--")#, label=f"Poly Fit (Order {poly_order})")
         # except np.linalg.LinAlgError:
         #     print(f"Polynomial fitting failed for bin {bin_idx}")
 
-        plt.xlabel("Projected Distance [kpc]")
+        # plt.xlabel("Projected Distance [kpc]")
+        # plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
+        # # plt.grid(True, linestyle='--', alpha=0.5)
+
+    # if save_plot:
+    #     path = curr_dir_path() + "Results/"
+    #     plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
+    #             framealpha = 0, ncols = 6)
+        # plt.minorticks_on()
+    #     plt.savefig(f"{path}Azimuthal_bin_plots.png", dpi=600, bbox_inches="tight")
+    #     plt.close()
+    # else:
+    #     plt.show()
+
+    bin_centers_mean_GMMStats = []
+    bin_centers_med_GMMStats = []
+    bin_means_GMMStats = []
+    bin_med_GMMStats = []
+    bin_std_GMMStats = []
+    bin_edges_GMMStats = []
+    
+    #from Dictionaries to list of np.ndarray siblists (if need be)
+    RM_new = [rm for rm in RM.values()] if isinstance(RM, dict) else RM
+    PA_new = [pa for pa in PA.values()] if isinstance(PA, dict) else PA
+    
+    for i in range(len(RM_new)): #Assuming ranges of RA and PA are equivalent
+        
+        if not (RM_new[i].shape == ()):  #Checking if its not empty or filled with NaNs
+            if not (RM_new[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+                #Note , this inner binning is for a clean 30 bins due to 360 degrees azimuth
+                bin_cent_mean, bin_cent_med, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(PA_new[i],RM_new[i], bin_num=30, x_is_r_proj=False, absol=False)
+                bin_centers_mean_GMMStats.append(bin_cent_mean) #For x axis
+                bin_centers_med_GMMStats.append(bin_cent_med) #For x axis
+                bin_means_GMMStats.append(bin_mean) #For y-axis
+                bin_med_GMMStats.append(bin_med) #For y-axis
+                bin_std_GMMStats.append(bin_std)
+                bin_edges_GMMStats.append(bin_edges) #Havent been used for anything yet....
+
+    #This code below was hashed out since it doesnt make a difference in cleaning up the messy looking plot
+    # #sorting in terms of Polar angle (x-axis) (respectively for mean and median)
+    # sorted_idx_mean = [np.argsort(lst) for lst in bin_centers_mean_GMMStats]
+    # sorted_idx_med = [np.argsort(lst) for lst in bin_centers_med_GMMStats]
+    # bin_centers_mean_GMMStats = [lst[idx] for lst, idx in zip(bin_centers_mean_GMMStats,sorted_idx_mean)]
+    # bin_centers_med_GMMStats = [lst[idx] for lst, idx in zip(bin_centers_med_GMMStats,sorted_idx_med)]
+    # bin_means_GMMStats = [lst[idx] for lst, idx in zip(bin_means_GMMStats, sorted_idx_mean)]
+    # bin_med_GMMStats = [lst[idx] for lst, idx in zip(bin_med_GMMStats, sorted_idx_med)]
+
+    L = (bin_centers_mean_GMMStats, bin_centers_med_GMMStats, 
+         bin_means_GMMStats, bin_med_GMMStats, 
+         bin_std_GMMStats, bin_edges_GMMStats)
+    
+    (bin_centers_mean_GMMStats, bin_centers_med_GMMStats,
+     bin_means_GMMStats, bin_med_GMMStats, 
+     bin_std_GMMStats, bin_edges_GMMStats) = map(np.asarray, L)
+
+    def apply_plot_attributes(push_title_up = 1.3, leg=True):
+        plt.xlabel("Polar Angle " r"$(\theta)$ [$\circ$] " + "(Anticlockwise from North)")
         plt.ylabel("Rotation Measure (RM) " + r"[rad m$^{-2}$]")
-        # plt.grid(True, linestyle='--', alpha=0.5)
+        if leg:
+            plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, push_title_up),
+                        framealpha = 0, ncols = 6)
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.minorticks_on() 
+        plt.xlim(0,360)
+
+    plt.figure(figsize=(16,8))
+    
+
+    # plt.errorbar(bin_centers_mean_GMMStats.flatten(), bin_means_GMMStats.flatten(), yerr = bin_std_GMMStats.flatten(), 
+    #             color="blue", fmt = '.', alpha=.6, label="Mean")
+    plt.errorbar(bin_centers_med_GMMStats.flatten(), bin_med_GMMStats.flatten(), yerr=bin_std_GMMStats.flatten(), 
+                ecolor='r', marker="", linestyle="", capsize=0, alpha=.5, elinewidth=1)#, label="Median")
+    # print(f"{bin_std_GMMStats.flatten()}") #shows that there are a few nan vlaues for std
+    
+    # plt.scatter(bin_centers_mean_GMMStats, bin_means_GMMStats, label="Mean")
+    plt.scatter(bin_centers_med_GMMStats, bin_med_GMMStats, label="Median", marker="s", color="k", s=1)
+    
+    plt.title("Median")
+
+    apply_plot_attributes(push_title_up=1.1, leg=False)
 
     if save_plot:
         path = curr_dir_path() + "Results/"
-        plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
-                framealpha = 0, ncols = 6)
-        plt.minorticks_on()
+        plt.savefig(f"{path}Azimuthal_bin_plots_median.png", dpi=600, bbox_inches="tight")
+    else:
+        plt.show()
+    
+    #Normalizing bin_centers for colormap
+    norm = plt.Normalize(vmin=0, #min(bin_centers), 
+                         vmax=300) #max(bin_centers))
+    cmap = plt.cm.magma  # Using magma colormap
+
+    fig,ax = plt.subplots(1,1, figsize=(12, 6))
+    # print(f"{len(PA)=}")
+    # print(f"{len(bin_centers)=}") ; import sys ; sys.exit()
+
+    for bin_idx in range(len(RM)):
+         if bin_idx in RM:
+            ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=0.7, s=12,
+                        #label= f"{bin_centers[bin_idx]:.2f}"+ r"$[kpc]$",
+                        color=cmap(norm(bin_centers[bin_idx])))
+             
+    #Adding colorbar to indicate bin_centers values
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # Required for colorbar
+    cbar = plt.colorbar(sm, ax=ax)
+    cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
+
+    apply_plot_attributes(leg=False)
+
+    if save_plot:
+        path = curr_dir_path() + "Results/"
         plt.savefig(f"{path}Azimuthal_bin_plots.png", dpi=600, bbox_inches="tight")
         plt.close()
     else:
@@ -1215,74 +1339,74 @@ patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches,
 Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
 print("Saved random points as SkyCoord")
 
-# RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
-# Same goes for RM_values_per_patch
-RM_values_per_patch, RM_coords_per_patch = [], []
+# # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+# # Same goes for RM_values_per_patch
+# RM_values_per_patch, RM_coords_per_patch = [], []
 
-#Creating axis that will be used when doing WCS axis point collections
-fig1 = plt.figure(figsize=(6, 5))
-ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-fig1.clf() #No need to show figure. Only axis is needed
+# #Creating axis that will be used when doing WCS axis point collections
+# fig1 = plt.figure(figsize=(6, 5))
+# ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+# fig1.clf() #No need to show figure. Only axis is needed
 
-print("(No longer plotting) but collecting of points from each circular patch has begun...")
-collection_of_points_from_WCS_sphere() #IMPORTANT
-print("Collection of points by each circular patch on WCS sphere is complete")
+# print("(No longer plotting) but collecting of points from each circular patch has begun...")
+# collection_of_points_from_WCS_sphere() #IMPORTANT
+# print("Collection of points by each circular patch on WCS sphere is complete")
 
-print("Getting separation of RM from center of relative patch")
-#Get separation of RM from center of relative patch.
-RM_coords_sep = [rm_coords.separation(patch_pos) 
-                 for rm_coords, patch_pos in 
-                 list(zip(RM_coords_per_patch, Patch_pos))]
+# print("Getting separation of RM from center of relative patch")
+# #Get separation of RM from center of relative patch.
+# RM_coords_sep = [rm_coords.separation(patch_pos) 
+#                  for rm_coords, patch_pos in 
+#                  list(zip(RM_coords_per_patch, Patch_pos))]
 
-all_d_bin_centers=[] #For x-axis
-all_means = []
-all_medians = []
-all_bin_stds = []
-all_bin_edges = ''
+# all_d_bin_centers=[] #For x-axis
+# all_means = []
+# all_medians = []
+# all_bin_stds = []
+# all_bin_edges = ''
 
-fig2 = plt.figure(figsize=(10, 5))
-ax2 = fig2.add_subplot(111)
-print("Mean and Median calculations have begun")
-for i in range(len(RM_coords_sep)): #Searching through each patch
+# fig2 = plt.figure(figsize=(10, 5))
+# ax2 = fig2.add_subplot(111)
+# print("Mean and Median calculations have begun")
+# for i in range(len(RM_coords_sep)): #Searching through each patch
     
-    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
-        if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-            d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+#     if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+#         if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+#             d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
             
-            all_d_bin_centers.append(d_bin_centers) #For x axis
-            all_means.append(bin_mean) #For y-axis
-            all_medians.append(bin_med) #For y-axis
-            all_bin_stds.append(bin_std)
+#             all_d_bin_centers.append(d_bin_centers) #For x axis
+#             all_means.append(bin_mean) #For y-axis
+#             all_medians.append(bin_med) #For y-axis
+#             all_bin_stds.append(bin_std)
 
-            if i == 0 : #Only collect bin edges once
-                all_bin_edges = bin_edges
+#             if i == 0 : #Only collect bin edges once
+#                 all_bin_edges = bin_edges
 
-            #Background correction for the individual plots
-            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+#             #Background correction for the individual plots
+#             bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+#             bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-            #This has been commented out to remove clatter
-            #The they are all being collected and will be averaged to make a final one
-            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+#             #This has been commented out to remove clatter
+#             #The they are all being collected and will be averaged to make a final one
+#             # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
             
-print("Mean and Median calculations have ended")
+# print("Mean and Median calculations have ended")
 
-data_to_pickle = {
-    "ax2": ax2,
-    "fig2": fig2,
-    "RM_values_per_patch": RM_values_per_patch, 
-    "RM_coords_per_patch": RM_coords_per_patch,
-    "RM_coords_sep": RM_coords_sep,
-    "all_d_bin_centers": all_d_bin_centers,
-    "all_means": all_means,
-    "all_medians": all_medians,
-    "all_bin_stds": all_bin_stds,
-    "all_bin_edges": all_bin_edges
-}
+# data_to_pickle = {
+#     "ax2": ax2,
+#     "fig2": fig2,
+#     "RM_values_per_patch": RM_values_per_patch, 
+#     "RM_coords_per_patch": RM_coords_per_patch,
+#     "RM_coords_sep": RM_coords_sep,
+#     "all_d_bin_centers": all_d_bin_centers,
+#     "all_means": all_means,
+#     "all_medians": all_medians,
+#     "all_bin_stds": all_bin_stds,
+#     "all_bin_edges": all_bin_edges
+# }
 
-with open("../RM_stats.pkl", "wb") as f:
-    pickle.dump(data_to_pickle, f)
-print("Mean and Median calculations have been pickled successfully!")
+# with open("../RM_stats.pkl", "wb") as f:
+#     pickle.dump(data_to_pickle, f)
+# print("Mean and Median calculations have been pickled successfully!")
 
 with open("../RM_stats.pkl", "rb") as f:
     loaded_data = pickle.load(f)
@@ -1400,7 +1524,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from seprated distance in degrees - within CGM of M31 - to kpc
         m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
         PA_rm_deg = PA_rm_rad.to(u.deg).value %360 #Converting from radians to degrees
-        [distance_per_PA_bin, rm_per_PA_bin], _, bin_edges = create_annuli_binning_structure(bin_data=PA_rm_deg, data=(m31_distances, rm_m31), bin_num=bin_num_from_main+2)
+        [distance_per_PA_bin, rm_per_PA_bin], _, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, data=(PA_rm_deg, rm_m31), bin_num=bin_num_from_main+1, for_azimuth_plot=True)
         plot_binned_azimuth(distance_per_PA_bin, rm_per_PA_bin, bin_edges, save_plot=True)
 
     if args.m31_ks_test:
