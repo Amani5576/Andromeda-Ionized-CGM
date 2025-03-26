@@ -1019,44 +1019,44 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     #             ecolor='r', marker="", linestyle="-", capsize=0, alpha=.5, elinewidth=1)#, label="Median")
     # # print(f"{bin_centers_mean_GMMStats.flatten()}") #shows that there are a few nan vlaues for std
     # # plt.scatter(bin_centers_mean_GMMStats, bin_means_GMMStats, label="Mean")
-    # plt.plot(bin_centers_med_GMMStats.flatten(), bin_med_GMMStats.flatten(), linestyle="-")
+    plt.plot(bin_centers_med_GMMStats.flatten(), bin_med_GMMStats.flatten(), linestyle="-")
     
-    # plt.title("Median")
-    # apply_plot_attributes(push_title_up=1.1, leg=False, xlim=(0,360))
+    plt.title("Median")
+    apply_plot_attributes(push_title_up=1.1, leg=False, xlim=(0,360))
 
-    # if save_plot:
-    #     path = curr_dir_path() + "Results/"
-    #     plt.savefig(f"{path}Azimuthal_bin_plots_median.png", dpi=600, bbox_inches="tight")
-    # else:
-    #     plt.show()
+    if save_plot:
+        path = curr_dir_path() + "Results/"
+        plt.savefig(f"{path}Azimuthal_bin_plots_median.png", dpi=600, bbox_inches="tight")
+    else:
+        plt.show()
     
-    # #This section plots the Folded and fitted PA_vs + RM plot
-    # #_____________________________________________________________________________
-    # plt.figure(figsize=(16,8))
+    #This section plots the Folded and fitted PA_vs + RM plot
+    #_____________________________________________________________________________
+    plt.figure(figsize=(16,8))
 
     
-    # bin_centers_flat_folded = bin_centers_flat%180
-    # # print(bin_med_flat_folded); import sys; sys.exit()
-    # plt.scatter(bin_centers_flat_folded, bin_med_flat)
-    # # plt.errorbar(bin_centers_med_GMMStats.flatten()%180, bin_med_GMMStats.flatten(), yerr=bin_std_GMMStats.flatten(), 
-    # #             ecolor='r', marker="", linestyle="-", capsize=0, alpha=.5, elinewidth=1)#, label="Median")
+    bin_centers_flat_folded = bin_centers_flat%180
+    # print(bin_med_flat_folded); import sys; sys.exit()
+    plt.scatter(bin_centers_flat_folded, bin_med_flat)
+    # plt.errorbar(bin_centers_med_GMMStats.flatten()%180, bin_med_GMMStats.flatten(), yerr=bin_std_GMMStats.flatten(), 
+    #             ecolor='r', marker="", linestyle="-", capsize=0, alpha=.5, elinewidth=1)#, label="Median")
 
-    # fit_and_plot_cosine(x=bin_centers_flat_folded[no_nan_mask], 
-    #                     y=bin_med_flat[no_nan_mask], 
-    #                     guesses = (50, 
-    #                                3, 
-    #                                10, 
-    #                                np.mean(bin_med_flat[no_nan_mask])))
+    fit_and_plot_cosine(x=bin_centers_flat_folded[no_nan_mask], 
+                        y=bin_med_flat[no_nan_mask], 
+                        guesses = (50, 
+                                   3, 
+                                   10, 
+                                   np.mean(bin_med_flat[no_nan_mask])))
 
-    # plt.legend()
-    # plt.title(f"Median (bw_PA={azimuth_bin_width}" + r"$^{\circ}$" + f", bw_radial_proj = {radial_bin_width}"+r" $kpc$)")
-    # apply_plot_attributes(push_title_up=1.1, leg=False)
+    plt.legend()
+    plt.title(f"Median (bw_PA={azimuth_bin_width}" + r"$^{\circ}$" + f", bw_radial_proj = {radial_bin_width}"+r" $kpc$)")
+    apply_plot_attributes(push_title_up=1.1, leg=False)
     
-    # if save_plot:
-    #     path = curr_dir_path() + "Results/"
-    #     plt.savefig(f"{path}Azimuthal_bin_plots_median_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
-    # else:
-    #     plt.show()
+    if save_plot:
+        path = curr_dir_path() + "Results/"
+        plt.savefig(f"{path}Azimuthal_bin_plots_median_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
+    else:
+        plt.show()
     
     #This section just plots the Raw RM against Azimuth - with pretty colorbar :)
     #____________________________________________________________________________
@@ -1101,26 +1101,26 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     else:
         plt.show()
 
-    #this section plots as above but for individual subplots (of RM vs Azimuth) per radial bin
-    #_________________________________________________________________________________________
+    this section plots as above but for individual subplots (of RM vs Azimuth) per radial bin
+    _________________________________________________________________________________________
     
-    # for bin_idx in range(1,len(RM)+1):
-    #     fig, ax = plt.subplots(figsize=(12, 6))
+    for bin_idx in range(1,len(RM)+1):
+        fig, ax = plt.subplots(figsize=(12, 6))
 
-    #     if bin_idx in RM:
-    #         ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=0.7, s=12, color="k")
+        if bin_idx in RM:
+            ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=0.7, s=12, color="k")
 
-    #         apply_plot_attributes(ax, leg=False, xlim=None, ylim=None)  # Pass 'ax' to ensure correct application
+            apply_plot_attributes(ax, leg=False, xlim=None, ylim=None)  # Pass 'ax' to ensure correct application
 
-    #         if save_plot:
-    #             path = curr_dir_path() + "Results/"
-    #             plt.savefig(f"{path}Azimuthal_bin_plots_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc_{bin_idx}.png", dpi=600, bbox_inches="tight")
-    #             plt.close(fig)  # Close the figure after saving
-    #         else:
-    #             plt.show()
+            if save_plot:
+                path = curr_dir_path() + "Results/"
+                plt.savefig(f"{path}Azimuthal_bin_plots_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc_{bin_idx}.png", dpi=600, bbox_inches="tight")
+                plt.close(fig)  # Close the figure after saving
+            else:
+                plt.show()
 
-    # # Ensure all figures are closed after the loop
-    # plt.close("all")  
+    # Ensure all figures are closed after the loop
+    plt.close("all")  
 
 
 def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std):
