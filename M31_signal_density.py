@@ -1,22 +1,23 @@
 from scipy.stats import gaussian_kde
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--save-plot', action='store_true', help='Making sure to save plotting Density of RM from Random sources against that of M31')
+args_2 = parser.parse_args()
 
 from M31_signal_vs_entire_sky import(
 #importing alias'
-np, plt, argparse,
+np, plt,
 
 #Importing Variables
 all_d_bin_centers as bin_centers,
 all_means as mn,
 all_medians as md,
 all_bin_stds as std,
-args,
 
 #importing functions
 plot_m31_stats, indiv_bg_corr, curr_dir_path
 );
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--save-plot', action='store_true', help='Making sure to save plotting Density of RM from Random sources against that of M31')
 
 
 def fill_all_arrays_with_initial_0(arrays):
@@ -131,7 +132,7 @@ give_cbar_properties(cont_cbar_med)
 
 plt.tight_layout(w_pad=1)
 
-if args.save_plot:
+if args_2.save_plot:
     path = curr_dir_path() + "Results/"
     plt.savefig(f"RM_M31_vd_RM_PDF_of_Background.png", dpi=600, bbox_inches="tight")
     print(f"Density plot has been saved to {path}")

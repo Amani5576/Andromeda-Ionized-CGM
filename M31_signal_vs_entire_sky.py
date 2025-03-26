@@ -1598,7 +1598,7 @@ print("Pickled data has been loaded successfully!")
 #                                         #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
 #                                 )
 
-# pickle_filename = os.path.join("..", "saved_data.pkl")
+pickle_filename = os.path.join("..", "saved_data.pkl")
 
 # # Variables to pickle
 # data_to_save = {
