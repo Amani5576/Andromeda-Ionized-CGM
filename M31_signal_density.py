@@ -2,17 +2,22 @@ from scipy.stats import gaussian_kde
 
 from M31_signal_vs_entire_sky import(
 #importing alias'
-np, plt,
+np, plt, argparse,
 
 #Importing Variables
 all_d_bin_centers as bin_centers,
 all_means as mn,
 all_medians as md,
 all_bin_stds as std,
+args,
 
 #importing functions
-plot_m31_stats, indiv_bg_corr
+plot_m31_stats, indiv_bg_corr, curr_dir_path
 );
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--save-plot', action='store_true', help='Making sure to save plotting Density of RM from Random sources against that of M31')
+
 
 def fill_all_arrays_with_initial_0(arrays):
     arr_1 = arrays[0]
@@ -125,5 +130,11 @@ cont_cbar_med = fig.colorbar(im2, ax=axes[1], fraction=0.06, pad=0.01)
 give_cbar_properties(cont_cbar_med)
 
 plt.tight_layout(w_pad=1)
-plt.show()
+
+if args.save_plot:
+    path = curr_dir_path() + "Results/"
+    plt.savefig(f"RM_M31_vd_RM_PDF_of_Background.png", dpi=600, bbox_inches="tight")
+    print(f"P_values per patch has been saved to {path}")
+else:
+    plt.show()
 

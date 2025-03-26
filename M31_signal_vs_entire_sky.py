@@ -1101,8 +1101,8 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     else:
         plt.show()
 
-    this section plots as above but for individual subplots (of RM vs Azimuth) per radial bin
-    _________________________________________________________________________________________
+    #this section plots as above but for individual subplots (of RM vs Azimuth) per radial bin
+    #_________________________________________________________________________________________
     
     for bin_idx in range(1,len(RM)+1):
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -1559,46 +1559,96 @@ all_bin_edges = loaded_data["all_bin_edges"]
 
 print("Pickled data has been loaded successfully!")
 
+
+# D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+#                                 max([max(centers) for centers in all_d_bin_centers]), 
+#                                 num=BINS)
+
+# #getting mean of background
+# all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
+# all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
+# all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
+# all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
+# BG_mean = np.mean(all_means_bg)
+# BG_median = np.mean(all_medians_bg)
+
+# Avg_means = np.mean(all_means, axis=0) - BG_mean
+# Avg_medians = np.mean(all_medians, axis=0) - BG_median
+# Avg_means_std = np.std(all_means, axis=0)
+# Avg_medians_std= np.std(all_medians, axis=0)
+
+# #Interpolating all data to have 100 poitns for more smoothness
+# #Default type of smoothing is via quadratic interpolation
+# Tup = ()
+# for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
+#     Tup += (interpolate(data, num_points=100),)
+# int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
+
+# # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
+# D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+#                                 max([max(centers) for centers in all_d_bin_centers]), 
+#                                 num=BINS #BINS #Number of points for interpolation (smoothens it out)
+#                                         #Must be same as bin_num parameter in function "get_mean_and_med_stats"
+#                                 )
+
+# # Find a common range of D_bin_centers for interpolation
+# int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+#                                 max([max(centers) for centers in all_d_bin_centers]), 
+#                                 num=100 #BINS #Number of points for interpolation (smoothens it out)
+#                                         #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
+#                                 )
+
+# pickle_filename = os.path.join("..", "saved_data.pkl")
+
+# # Variables to pickle
+# data_to_save = {
+#     "D_bin_centers": D_bin_centers,
+#     "all_means_bg": all_means_bg,
+#     "all_medians_bg": all_medians_bg,
+#     "BG_mean": BG_mean,
+#     "BG_median": BG_median,
+#     "Avg_means": Avg_means,
+#     "Avg_medians": Avg_medians,
+#     "Avg_means_std": Avg_means_std,
+#     "Avg_medians_std": Avg_medians_std,
+#     "int_Avg_means": int_Avg_means,
+#     "int_Avg_medians": int_Avg_medians,
+#     "int_Avg_means_std": int_Avg_means_std,
+#     "int_Avg_medians_std": int_Avg_medians_std,
+#     "int_D_bin_centers": int_D_bin_centers
+# }
+
+# # Save data to pickle file
+# with open(pickle_filename, "wb") as f:
+#     pickle.dump(data_to_save, f)
+
+# print(f"Data for M31_vs_entire sky plotting saved to {pickle_filename}")
+
+# Load the data immediately
+with open(pickle_filename, "rb") as f:
+    loaded_data = pickle.load(f)
+
+# Unpack loaded data for continued use
+(
+    D_bin_centers,
+    all_means_bg,
+    all_medians_bg,
+    BG_mean,
+    BG_median,
+    Avg_means,
+    Avg_medians,
+    Avg_means_std,
+    Avg_medians_std,
+    int_Avg_means,
+    int_Avg_medians,
+    int_Avg_means_std,
+    int_Avg_medians_std,
+    int_D_bin_centers
+) = (loaded_data[key] for key in loaded_data)
+
+print("Data successfully reloaded and unpacked for M31_vs_entire sky plotting")
+
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
-
-    # D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-    #                                 max([max(centers) for centers in all_d_bin_centers]), 
-    #                                 num=BINS)
-    
-    # #getting mean of background
-    # all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
-    # all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
-    # all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
-    # all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
-    # BG_mean = np.mean(all_means_bg)
-    # BG_median = np.mean(all_medians_bg)
-
-    # Avg_means = np.mean(all_means, axis=0) - BG_mean
-    # Avg_medians = np.mean(all_medians, axis=0) - BG_median
-    # Avg_means_std = np.std(all_means, axis=0)
-    # Avg_medians_std= np.std(all_medians, axis=0)
-
-    # #Interpolating all data to have 100 poitns for more smoothness
-    # #Default type of smoothing is via quadratic interpolation
-    # Tup = ()
-    # for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
-    #     Tup += (interpolate(data, num_points=100),)
-    # int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
-
-    # # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
-    # D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-    #                                 max([max(centers) for centers in all_d_bin_centers]), 
-    #                                 num=BINS #BINS #Number of points for interpolation (smoothens it out)
-    #                                         #Must be same as bin_num parameter in function "get_mean_and_med_stats"
-    #                                 )
-    
-    # # Find a common range of D_bin_centers for interpolation
-    # int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-    #                                 max([max(centers) for centers in all_d_bin_centers]), 
-    #                                 num=100 #BINS #Number of points for interpolation (smoothens it out)
-    #                                         #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
-    #                                 )
-    
     # plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
 
     # ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
