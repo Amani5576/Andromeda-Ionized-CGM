@@ -55,6 +55,7 @@ m31_min = 45.*u.arcmin #Minor axis diameter from POSS in arcmin
 m31_pa = 37.7*u.deg #PA CCW from North from de Vaucouleurs et al. 1958.  
 
 position = SkyCoord(RM_lat, RM_lon, unit = "degree", frame = "galactic")
+
 eq_pos = position.transform_to('icrs') #Equitorial positions
 
 m31_pos = SkyCoord(ra = "00:42:44.35", dec = "+41:16:08.6", unit = (u.hourangle, u.deg), frame = 'icrs')
@@ -91,6 +92,11 @@ bg_pos = rm_m31_coord[bg_condition]
 bg_pos_icrs = bg_pos.transform_to("icrs") 
 rm_pos = rm_m31_coord[m31_condition]
 rm_pos_icrs = rm_pos.transform_to("icrs") 
+
+#Done in the year 2025 for plotting RM vs Galactic Azimuth
+rm_pos_gal_lat = position.b.deg[m31_condition]
+rm_pos_gal_lat_bg = position.b.deg[bg_condition]
+
 
 # #Applying conditions to filter RM values and their errors
 rm_bg = rm[bg_condition] #Record background RM
