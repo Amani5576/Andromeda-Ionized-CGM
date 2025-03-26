@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1610, in <module>
+    plt.plot([patch_num for patch_num in range(1,bin_num_from_main+1)],[len(rm) for rm in RM_values_per_patch])
+  File "/users/amani/.local/lib/python3.10/site-packages/matplotlib/pyplot.py", line 3827, in plot
+    return gca().plot(
+  File "/users/amani/.local/lib/python3.10/site-packages/matplotlib/axes/_axes.py", line 1777, in plot
+    lines = [*self._get_lines(self, *args, data=data, **kwargs)]
+  File "/users/amani/.local/lib/python3.10/site-packages/matplotlib/axes/_base.py", line 297, in __call__
+    yield from self._plot_args(
+  File "/users/amani/.local/lib/python3.10/site-packages/matplotlib/axes/_base.py", line 494, in _plot_args
+    raise ValueError(f"x and y must have same first dimension, but "
+ValueError: x and y must have same first dimension, but have shapes (22,) and (10000,)
