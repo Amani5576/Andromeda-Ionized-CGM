@@ -134,7 +134,7 @@ plt.tight_layout(w_pad=1)
 if args.save_plot:
     path = curr_dir_path() + "Results/"
     plt.savefig(f"RM_M31_vd_RM_PDF_of_Background.png", dpi=600, bbox_inches="tight")
-    print(f"P_values per patch has been saved to {path}")
+    print(f"Density plot has been saved to {path}")
 else:
     plt.show()
 
