@@ -1,1 +1,3 @@
-Note that these outputs have the same x axis limits for both the mean and median.
+python3 -m venv ccargo2
+source ccargo2/bin/activate
+sudo pip install --upgrade pip wheel 'setuptools[core]'
