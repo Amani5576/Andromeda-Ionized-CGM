@@ -12,7 +12,9 @@ import pickle
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--test-patches', action='store_true', help='testing by showing patches on sphere as they get smaller')
+    parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
+    parser.add_argument('--pickling', action='store_true', help='Overwrites the pickled data where new random patches are produced and processed. (Save manually from jupyter ilifu to local)')
+    parser.add_argument('--test-patches', action='store_true', help='Testing by showing patches on sphere as they get smaller')
     parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
     parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
     parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of RANDOM patches in the sky')
@@ -22,9 +24,9 @@ if __name__ == "__main__":
     parser.add_argument('--seaborn-hist', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
     parser.add_argument('--rm-vs-azimuth', action='store_true', help='plot RM as a function of polar/azimuthal angle in the anticlockwise direction with M31 as the reference frame')
     parser.add_argument('--m31-ks-test', action='store_true', help='Perform KS-Test Between random regions in the sky and that of M31')
-    parser.add_argument('--cdf-anal', action='store_true', help='Making a Cumulative Density Plot for Random RM sources in the sky and m31')
-    parser.add_argument('--rm-per-patch-hist', action='store_true', help='histogram of how many RM points landed in each Random Virial Radius')
     parser.add_argument('--rm-vs-gal-lat', action='store_true', help='Plotting RM against galactic latitude for M31 (inclusive of its background)')
+    parser.add_argument('--rm-per-patch-hist', action='store_true', help='Histogram of how many RM points landed in each Random Virial Radius')
+    parser.add_argument('--cdf-anal', action='store_true', help='Making a Cumulative Density Plot for Random RM sources in the sky and m31')
 
     args = parser.parse_args()
 
@@ -1467,94 +1469,96 @@ number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smalle
 
 
 BINS = bin_num_main
-rm_s, rm_errs = get_real_rm_data()
 
-patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
-                                                  ra_range=(min(eq_pos.ra.deg), 
-                                                            max(eq_pos.ra.deg)),
-                                                  dec_range=(min(eq_pos.dec.deg),
-                                                              max(eq_pos.dec.deg)),
-                                                  overlap=True, #Allowing circles to overlap
-                                                  radius = patch_size, #in degrees
-                                                  min_distance_deg = patch_size #minimum separation of points in degrees
-                                                  )
+if args.pickling: #Then overwrite then process and overwrite existing pickled data
+    rm_s, rm_errs = get_real_rm_data()
 
-Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
-print("Saved random points as SkyCoord")
+    patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
+                                                    ra_range=(min(eq_pos.ra.deg), 
+                                                                max(eq_pos.ra.deg)),
+                                                    dec_range=(min(eq_pos.dec.deg),
+                                                                max(eq_pos.dec.deg)),
+                                                    overlap=True, #Allowing circles to overlap
+                                                    radius = patch_size, #in degrees
+                                                    min_distance_deg = patch_size #minimum separation of points in degrees
+                                                    )
 
-# RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
-# Same goes for RM_values_per_patch
-RM_values_per_patch, RM_coords_per_patch = [], []
+    Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
+    print("Saved random points as SkyCoord")
 
-#Creating axis that will be used when doing WCS axis point collections
-fig1 = plt.figure(figsize=(6, 5))
-ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-fig1.clf() #No need to show figure. Only axis is needed
+    # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+    # Same goes for RM_values_per_patch
+    RM_values_per_patch, RM_coords_per_patch = [], []
 
-print("(No longer plotting) but collecting of points from each circular patch has begun...")
-collection_of_points_from_WCS_sphere() #IMPORTANT
-print("Collection of points by each circular patch on WCS sphere is complete")
+    #Creating axis that will be used when doing WCS axis point collections
+    fig1 = plt.figure(figsize=(6, 5))
+    ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+    fig1.clf() #No need to show figure. Only axis is needed
 
-print("Getting separation of RM from center of relative patch")
-#Get separation of RM from center of relative patch.
-RM_coords_sep = [rm_coords.separation(patch_pos) 
-                 for rm_coords, patch_pos in 
-                 list(zip(RM_coords_per_patch, Patch_pos))]
+    print("(No longer plotting) but collecting of points from each circular patch has begun...")
+    collection_of_points_from_WCS_sphere() #IMPORTANT
+    print("Collection of points by each circular patch on WCS sphere is complete")
 
-all_d_bin_centers=[] #For x-axis
-all_means = []
-all_medians = []
-all_bin_stds = []
-all_bin_edges = ''
+    print("Getting separation of RM from center of relative patch")
+    #Get separation of RM from center of relative patch.
+    RM_coords_sep = [rm_coords.separation(patch_pos) 
+                    for rm_coords, patch_pos in 
+                    list(zip(RM_coords_per_patch, Patch_pos))]
 
-fig2 = plt.figure(figsize=(10, 5))
-ax2 = fig2.add_subplot(111)
-print("Mean and Median calculations have begun")
-for i in range(len(RM_coords_sep)): #Searching through each patch
-    
-    if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
-        if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-            d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
-            
-            all_d_bin_centers.append(d_bin_centers) #For x axis
-            all_means.append(bin_mean) #For y-axis
-            all_medians.append(bin_med) #For y-axis
-            all_bin_stds.append(bin_std)
+    all_d_bin_centers=[] #For x-axis
+    all_means = []
+    all_medians = []
+    all_bin_stds = []
+    all_bin_edges = ''
 
-            if i == 0 : #Only collect bin edges once
-                all_bin_edges = bin_edges
+    fig2 = plt.figure(figsize=(10, 5))
+    ax2 = fig2.add_subplot(111)
+    print("Mean and Median calculations have begun")
+    for i in range(len(RM_coords_sep)): #Searching through each patch
+        
+        if not (RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+            if not (RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+                d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], RM_values_per_patch[i], bin_num=BINS)
+                
+                all_d_bin_centers.append(d_bin_centers) #For x axis
+                all_means.append(bin_mean) #For y-axis
+                all_medians.append(bin_med) #For y-axis
+                all_bin_stds.append(bin_std)
 
-            #Background correction for the individual plots
-            bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-            bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+                if i == 0 : #Only collect bin edges once
+                    all_bin_edges = bin_edges
 
-            #This has been commented out to remove clatter
-            #The they are all being collected and will be averaged to make a final one
-            # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
-            
-# Data to pickle
-data_to_pickle = {
-    "ax2": ax2,
-    "fig2": fig2,
-    "RM_values_per_patch": RM_values_per_patch, 
-    "RM_coords_per_patch": RM_coords_per_patch,
-    "RM_coords_sep": RM_coords_sep,
-    "all_d_bin_centers": all_d_bin_centers,
-    "all_means": all_means,
-    "all_medians": all_medians,
-    "all_bin_stds": all_bin_stds,
-    "all_bin_edges": all_bin_edges,
-    "rm_s": rm_s,
-    "rm_errs": rm_errs,
-    "patch_ra_points": patch_ra_points,
-    "patch_dec_points": patch_dec_points,
-    "Patch_pos": Patch_pos
-}
+                #Background correction for the individual plots
+                bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+                bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
 
-# Save to pickle file
-with open("../RM_stats.pkl", "wb") as f:
-    pickle.dump(data_to_pickle, f)
-print("Mean, Median calculations, and additional variables have been pickled successfully!")
+                #This has been commented out to remove clatter
+                #The they are all being collected and will be averaged to make a final one
+                # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+                
+    # Data to pickle
+    data_to_pickle = {
+        "ax2": ax2,
+        "fig2": fig2,
+        "RM_values_per_patch": RM_values_per_patch, 
+        "RM_coords_per_patch": RM_coords_per_patch,
+        "RM_coords_sep": RM_coords_sep,
+        "all_d_bin_centers": all_d_bin_centers,
+        "all_means": all_means,
+        "all_medians": all_medians,
+        "all_bin_stds": all_bin_stds,
+        "all_bin_edges": all_bin_edges,
+        "rm_s": rm_s,
+        "rm_errs": rm_errs,
+        "patch_ra_points": patch_ra_points,
+        "patch_dec_points": patch_dec_points,
+        "Patch_pos": Patch_pos
+    }
+
+    # Save to pickle file
+    with open("../RM_stats.pkl", "wb") as f:
+        pickle.dump(data_to_pickle, f)
+    print("Mean, Median calculations, and additional variables have been pickled successfully!")
 
 # Load from pickle file
 with open("../RM_stats.pkl", "rb") as f:
@@ -1579,71 +1583,69 @@ Patch_pos = loaded_data["Patch_pos"]
 
 print("Pickled data has been loaded successfully!")
 
-
-
-D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                max([max(centers) for centers in all_d_bin_centers]), 
-                                num=BINS)
-
-#getting mean of background
-all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
-all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
-all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
-all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
-BG_mean = np.mean(all_means_bg)
-BG_median = np.mean(all_medians_bg)
-
-Avg_means = np.mean(all_means, axis=0) - BG_mean
-Avg_medians = np.mean(all_medians, axis=0) - BG_median
-Avg_means_std = np.std(all_means, axis=0)
-Avg_medians_std= np.std(all_medians, axis=0)
-
-#Interpolating all data to have 100 poitns for more smoothness
-#Default type of smoothing is via quadratic interpolation
-Tup = ()
-for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
-    Tup += (interpolate(data, num_points=100),)
-int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
-
-# Find a common range of D_bin_centers for non-interpolated data (BINS =30)
-D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                max([max(centers) for centers in all_d_bin_centers]), 
-                                num=BINS #BINS #Number of points for interpolation (smoothens it out)
-                                        #Must be same as bin_num parameter in function "get_mean_and_med_stats"
-                                )
-
-# Find a common range of D_bin_centers for interpolation
-int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                max([max(centers) for centers in all_d_bin_centers]), 
-                                num=100 #BINS #Number of points for interpolation (smoothens it out)
-                                        #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
-                                )
-
 pickle_filename = os.path.join("..", "saved_data.pkl")
+if args.pickling:
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS)
 
-# Variables to pickle
-data_to_save = {
-    "D_bin_centers": D_bin_centers,
-    "all_means_bg": all_means_bg,
-    "all_medians_bg": all_medians_bg,
-    "BG_mean": BG_mean,
-    "BG_median": BG_median,
-    "Avg_means": Avg_means,
-    "Avg_medians": Avg_medians,
-    "Avg_means_std": Avg_means_std,
-    "Avg_medians_std": Avg_medians_std,
-    "int_Avg_means": int_Avg_means,
-    "int_Avg_medians": int_Avg_medians,
-    "int_Avg_means_std": int_Avg_means_std,
-    "int_Avg_medians_std": int_Avg_medians_std,
-    "int_D_bin_centers": int_D_bin_centers
-}
+    #getting mean of background
+    all_means_bg = np.where(D_bin_centers > 300, all_means, 0) #Fill all mean values within virial radius with 0
+    all_medians_bg = np.where(D_bin_centers > 300, all_medians, 0) #Fill all median values within virial radius with 0 
+    all_means_bg = [a[a != 0] for a in all_means_bg] #removing all the zeros to only focus on mean of backgrounds 
+    all_medians_bg = [a[a != 0] for a in all_medians_bg]  #removing all the zeros to only focus on median of backgrounds
+    BG_mean = np.mean(all_means_bg)
+    BG_median = np.mean(all_medians_bg)
 
-# Save data to pickle file
-with open(pickle_filename, "wb") as f:
-    pickle.dump(data_to_save, f)
+    Avg_means = np.mean(all_means, axis=0) - BG_mean
+    Avg_medians = np.mean(all_medians, axis=0) - BG_median
+    Avg_means_std = np.std(all_means, axis=0)
+    Avg_medians_std= np.std(all_medians, axis=0)
 
-print(f"Data for M31_vs_entire sky plotting saved to {pickle_filename}")
+    #Interpolating all data to have 100 poitns for more smoothness
+    #Default type of smoothing is via quadratic interpolation
+    Tup = ()
+    for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
+        Tup += (interpolate(data, num_points=100),)
+    int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
+
+    # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS #BINS #Number of points for interpolation (smoothens it out)
+                                            #Must be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
+
+    # Find a common range of D_bin_centers for interpolation
+    int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=100 #BINS #Number of points for interpolation (smoothens it out)
+                                            #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
+
+    # Variables to pickle
+    data_to_save = {
+        "D_bin_centers": D_bin_centers,
+        "all_means_bg": all_means_bg,
+        "all_medians_bg": all_medians_bg,
+        "BG_mean": BG_mean,
+        "BG_median": BG_median,
+        "Avg_means": Avg_means,
+        "Avg_medians": Avg_medians,
+        "Avg_means_std": Avg_means_std,
+        "Avg_medians_std": Avg_medians_std,
+        "int_Avg_means": int_Avg_means,
+        "int_Avg_medians": int_Avg_medians,
+        "int_Avg_means_std": int_Avg_means_std,
+        "int_Avg_medians_std": int_Avg_medians_std,
+        "int_D_bin_centers": int_D_bin_centers
+    }
+
+    # Save data to pickle file
+    with open(pickle_filename, "wb") as f:
+        pickle.dump(data_to_save, f)
+
+    print(f"Data for M31_vs_entire sky plotting saved to {pickle_filename}")
 
 # Load the data immediately
 with open(pickle_filename, "rb") as f:
@@ -1670,48 +1672,49 @@ with open(pickle_filename, "rb") as f:
 print("Data successfully reloaded and unpacked for M31_vs_entire sky plotting")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
-    # plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
 
-    # ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
-    # ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
-    #             color= 'green', fmt='.-', capsize = 2)#,label ='$Median_{\mu patch}$')
+    if args.original_plot:
+        plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
+
+        ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
+        ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
+                    color= 'green', fmt='.-', capsize = 2)#,label ='$Median_{\mu patch}$')
+        
+        # #plotting average (Interpolated for smoother effect)
+        # ax2.plot(D_bin_centers, Avg_means, color='blue', label='$\mu_{\mu patch}$')
+        # ax2.plot(D_bin_centers, Avg_medians, color='green', label='$Median_{\mu patch}$')
+
+        # After all plots, fill the area between the highest and lowest lines
+        ax2.fill_between(int_D_bin_centers, 
+                        int_Avg_means - int_Avg_means_std , 
+                        int_Avg_means + int_Avg_means_std, 
+                        color='blue', alpha=0.2)#, label='$\mu_{patch}$' + ' Coverage')
+        ax2.fill_between(int_D_bin_centers, 
+                        int_Avg_medians - int_Avg_medians_std, 
+                        int_Avg_medians + int_Avg_medians_std, 
+                        color='green', alpha=0.4)#, label='$Median_{patch}$' + ' Coverage')
+        ax2.set_xlabel(r'R$_{projected}$ [kpc]',fontsize=12)
+        ax2.set_ylabel('|RM|', fontsize=12)
+        ax2.set_xlim(0,300)
+        ax2.set_ylim(0,)
+
+        # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
+        # ax2.fill_between(D_bin_centers, Avg_medians_std, Avg_medians_std, color='green', alpha=0.4, label='Median standard deviation of the patches')
+
+        # ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
+        #             framealpha = 0, ncols = (2,4))
+        plt.tight_layout()
+        plt.show()
     
-    # # #plotting average (Interpolated for smoother effect)
-    # # ax2.plot(D_bin_centers, Avg_means, color='blue', label='$\mu_{\mu patch}$')
-    # # ax2.plot(D_bin_centers, Avg_medians, color='green', label='$Median_{\mu patch}$')
-
-    # # After all plots, fill the area between the highest and lowest lines
-    # ax2.fill_between(int_D_bin_centers, 
-    #                 int_Avg_means - int_Avg_means_std , 
-    #                 int_Avg_means + int_Avg_means_std, 
-    #                 color='blue', alpha=0.2)#, label='$\mu_{patch}$' + ' Coverage')
-    # ax2.fill_between(int_D_bin_centers, 
-    #                 int_Avg_medians - int_Avg_medians_std, 
-    #                 int_Avg_medians + int_Avg_medians_std, 
-    #                 color='green', alpha=0.4)#, label='$Median_{patch}$' + ' Coverage')
-    # ax2.set_xlabel(r'R$_{projected}$ [kpc]',fontsize=12)
-    # ax2.set_ylabel('|RM|', fontsize=12)
-    # ax2.set_xlim(0,300)
-    # ax2.set_ylim(0,)
-
-    # # ax2.fill_between(D_bin_centers, Avg_means_std , Avg_means_std, color='blue', alpha=0.2, label='Mean standard deviation of the patches')
-    # # ax2.fill_between(D_bin_centers, Avg_medians_std, Avg_medians_std, color='green', alpha=0.4, label='Median standard deviation of the patches')
-
-    # # ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
-    # #             framealpha = 0, ncols = (2,4))
-    # plt.tight_layout()
-    # #plt.show()
+    if args.rm_vs_proj_dist:
+        path = curr_dir_path() + "Results/"
+        fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
+        print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
     
-    # if args.rm_vs_proj_dist:
-    #     path = curr_dir_path() + "Results/"
-    #     fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
-    #     print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
+    plt.close(fig2) #Deleting the Figure
     
-    # plt.close(fig2) #Deleting the Figure
-    
-    # # #Data close to Gundo's shade_ms plots to spot any storng outliers
-    # # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
-
+    # #Data close to Gundo's shade_ms plots to spot any storng outliers
+    # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
     if args.test_patches: #show patches on sphere as they get smaller
         test_patches_on_sphere()
 
