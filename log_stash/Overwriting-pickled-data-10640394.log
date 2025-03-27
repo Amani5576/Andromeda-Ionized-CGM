@@ -1,0 +1,10 @@
+Submitting Slurm Job for M31 vs 10K Random Patches Storage and overwriting of Pickled data.
+Saved random points as SkyCoord
+(No longer plotting) but collecting of points from each circular patch has begun...
+Collection of points by each circular patch on WCS sphere is complete
+Getting separation of RM from center of relative patch
+Mean and Median calculations have begun
+Mean, Median calculations, and additional variables have been pickled successfully!
+Pickled data has been loaded successfully!
+Data for M31_vs_entire sky plotting saved to ../saved_data.pkl
+Data successfully reloaded and unpacked for M31_vs_entire sky plotting
