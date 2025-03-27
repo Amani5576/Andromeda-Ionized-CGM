@@ -3,8 +3,8 @@
 #SBATCH --output=log_stash/Overwriting-pickled-data-%j.log
 #SBATCH --error=log_stash/Overwriting-pickled-data-%j-error.log
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=3
-#SBATCH --mem=30G
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=20G
 #SBATCH --time=00:45:00
 #SBATCH --partition=Main
 
