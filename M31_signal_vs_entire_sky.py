@@ -1775,8 +1775,8 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         Creating Histogram plot of Number Random of Patches that have a certian number of collected RM points
         """
 
-        #Getting galactic latitude (B) by converting each radnom R_vir patch's RM_coordinates from ICRS to Galactic (Their Original)
-        RM_gal_B_coords_per_patch = [rm_icrs_coords.transform_to('galactic').b for rm_icrs_coords in RM_coords_per_patch]
+        #Getting galactic latitude (B) by converting each radnom R_vir patch's center point to from ICRS to Galactic coordinates.
+        Random_cent_points_B = [patch_pos_B.transform_to('galactic').b for patch_pos_B in Patch_pos]
         
         # rm_gal_B_coords_flat = 
         # Flatten the RM values per patch into a single list
@@ -1793,7 +1793,6 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         plt.savefig(f"{path}Histogram_rVir_vs_RMpoints.png", dpi=600, bbox_inches="tight")
         print(f"Histogram plot of Number Random of Patches that have a certian number of collected RM points has been saved to {path}")
 
-    # if args.
 
     if args.cdf_anal:
         
