@@ -12,6 +12,7 @@ from matplotlib.patches import Rectangle, Circle, Path
 from scipy.optimize import curve_fit
 from astropy.utils.exceptions import AstropyWarning
 import warnings
+from scipy.interpolate import RectBivariateSpline, griddata
 
 # Suppress specific Astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
@@ -83,17 +84,20 @@ m33_theta = m33_m31coord.position_angle(m31_pos)
           #Virial radius,#distance to Andromeda
 L_m31 = (np.arctan(R_vir/d_m31)*u.rad.to(u.deg)).value #no longer uses small angle approximation.
 
+#All RM vlaues (Used for Random R_vir in other scripts)
+rm_icrs = rm_m31_coord .transform_to("icrs")
+
 #Creating conditions.         EnsuresRM measurement for bg is within 30 degrees of M31
 bg_condition = (m31_sep.deg > L_m31) & (m31_sep.deg < cutoff.value)
 m31_condition = m31_sep.deg <= L_m31
 
-#Applying conditions to filter RM positions
+#Applying conditions to filter RM positions for CGM of M31 and its BG alone.
 bg_pos = rm_m31_coord[bg_condition]
 bg_pos_icrs = bg_pos.transform_to("icrs") 
 rm_pos = rm_m31_coord[m31_condition]
 rm_pos_icrs = rm_pos.transform_to("icrs") 
 
-#Done in the year 2025 for plotting RM vs Galactic Azimuth
+#Done in year 2025 for plotting RM vs Galactic Azimuth
 rm_pos_gal_lat = position.b.deg[m31_condition]
 rm_pos_gal_lat_bg = position.b.deg[bg_condition]
 
@@ -107,11 +111,66 @@ rm_m31 = rm[m31_condition] #Record m31's RM
 m31_sep_Rvir = (m31_sep.deg[m31_condition])*u.deg #Record m31's RM separated values.
 err_m31 = rm_err[m31_condition] #Record m31's RM errors
 
-# #Subtracting mean RM outside of Rvir (backgorund) from all RM belonging to m31's CGM.  
-rm_m31 -= np.average(rm_bg)
-rm_bg -= np.average(rm_bg) #Doing same for background itself
-rm -= np.average(rm_bg) #for all rm readings
+def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
+    """
+    Perform background subtraction on Rotation Measure (RM) values using 
+    RectBivariateSpline interpolation.
 
+    Parameters:
+    -----------
+    rm_coords : SkyCoord
+        Sky coordinates of RM measurements to be background corrected.
+    rm_values : np.ndarray
+        RM values corresponding to `rm_coords`.
+    bg_coords : SkyCoord
+        Sky coordinates of background RM measurements.
+    bg_values : np.ndarray
+        RM values at background positions.
+
+    Returns:
+    --------
+    np.ndarray
+        Background-corrected RM values.
+    """
+    #Converting to degrees
+    x_bg = bg_coords.ra.deg  #(N,)
+    y_bg = bg_coords.dec.deg  #(N,)
+    
+    rm_x = rm_coords.ra.deg  #(M,)
+    rm_y = rm_coords.dec.deg  #(M,)
+    
+    # Define a regular grid for interpolation
+    x_grid = np.linspace(x_bg.min(), x_bg.max(), len(x_bg)) #(N,)
+    y_grid = np.linspace(y_bg.min(), y_bg.max(), len(x_bg)) #(N,)
+    X_grid, Y_grid = np.meshgrid(x_grid, y_grid) #each having dimensions (N,N)
+    
+    #Ensuring griddata inputs have correct dimensions
+    bg_points = np.column_stack((x_bg, y_bg))  # (N,2) format required by griddata
+    grid = np.column_stack((X_grid.ravel(), Y_grid.ravel()))  # (N*N,2)
+    
+    #Interpolating background values onto grid
+    bg_grid = griddata(bg_points, bg_values, grid, method='linear')  # (N*N,)
+    bg_grid = bg_grid.reshape(X_grid.shape)  # Reshape back to (N,N)
+    
+    # # Handle NaNs (replace with nearest-neighbor interpolation)
+    # if np.isnan(bg_grid).any():
+    #     bg_grid = griddata(points, bg_values, grid_points, method='nearest')
+    #     bg_grid = bg_grid.reshape(X_grid.shape)
+
+    #Fitting spline to interpolated background RM data
+    fbeam = RectBivariateSpline(y_grid, x_grid, bg_grid)
+    
+    #Interpolating the background RM values at RM positions
+    bg_values_interp = fbeam.ev(rm_y, rm_x)
+    
+    #Finally subtracting complex background (interpolated) from given rm coords.
+    rm_corrected = rm_values - bg_values_interp
+    
+    return rm_corrected
+
+#Conducting backgroudn subtraction.  
+rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg)
+rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg) #Doing same for background itself
 #Validation/Sanity Check
 # print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
@@ -144,7 +203,7 @@ bin_centers = bin_edges[1:] - bin_width/2
 get_projected_d = lambda ang, d: (d * np.tan(ang.to(u.rad))).to(u.kpc)
 get_projected_d_old = lambda pos: d_m31*np.arctan(np.radians(pos)) #specifically used for M31 (not RM)
 
-get_sep_angle = lambda d_proj, d: np.arctan((d_proj / d).to(u.dimensionless_unscaled)).to(u.deg)
+get_sep_angle = lambda d_proj, d: (np.arctan(d_proj/d.value)*u.rad).to(u.deg)
 
 #Convert projected radial distance (in kpc) and known distance to object (in kpc)
 #to angular separation (in degrees)
@@ -156,7 +215,7 @@ d_rm = get_projected_d(m31_sep_Rvir, d_m31) #Is only for within R_vir
 d_m33 = get_projected_d(m33_sep, d_m31)
 d_bin_centers = get_projected_d(bin_centers*u.deg, d_m31)
 
-# SEMed = lambda sig, N: 1.253*sig/N #Using a bootstrap method of calculating standard error of the median
+# SEMed = lambda sig, N: 1.253*sig/N #Using a bootstrap method of calculating standard error of median
 
 #Using standard error of mean for error bars: 
 bin_std, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, 
@@ -303,14 +362,14 @@ def convert_txt_to_Skycoord(file, withNames=False):
             elif DEC: dec_list.append(row[0].strip())
             elif NAME and withNames: name_list.append(row[0].strip())
 
-    #Ensure the lists are not empty
-    if not ra_list or not dec_list: raise ValueError("RA or DEC data is missing in the file.")
+    #Ensure lists are not empty
+    if not ra_list or not dec_list: raise ValueError("RA or DEC data is missing in file.")
     
     skycoord = SkyCoord(ra=ra_list, dec=dec_list, unit=(u.hourangle, u.deg))
     
     if not withNames:  #If names are not requested, just return SkyCoord
         return skycoord
-    else:  #Return the SkyCoord object and list of names in tuple form
+    else:  #Return SkyCoord object and list of names in tuple form
         return skycoord, name_list
 
 def gauss2d(x, y, a, x0, y0, sx, sy):
@@ -373,7 +432,7 @@ def smooth_2d_image(ra, dec, fitfile, imsize=5000, nsig=1):
     # print(f"{std_y=}")
 
     """IMPORTANT"""
-    smooth = 1.1 #Factor for smoothing the scatter plot via 2d guassian
+    smooth = 1.1 #Factor for smoothing scatter plot via 2d guassian
     std_x, std_y = smooth*std_x, smooth*std_y
     
     DELTS = fits.open('LGSNLGSR.SQLGBB.FITS')[0].header['CDELT*'][:2]
@@ -423,7 +482,7 @@ def get_width_midpoints(patchname):
 
     edge_lengths = [np.linalg.norm(v2 - v1) for v1, v2 in edges]
 
-    #Retreiving indices of the two shortest edges
+    #Retreiving indices of two shortest edges
     shortest_edge_indices = np.argsort(edge_lengths)[:2]
 
     #Calculating midpoints based on those indices that target 'edges'
@@ -436,13 +495,13 @@ def get_width_midpoints(patchname):
 
 def points_inOrOut_patch(p, patchname, mask, rm_s, rm_errs, In=True, **kw):
     """
-    Handle points near the poles, reflecting RA when declination approaches 90 or -90.
+    Handle points near poles, reflecting RA when declination approaches 90 or -90.
     """
     val_ra = 360  # RA range (0 to 360 degrees)
     tolerance = 1e-6  # Small tolerance to avoid boundary issues
 
     def _points_in_or_out_with_mirrored_RA(x, y, patch):
-        # Transform the vertices of the patch
+        # Transform vertices of patch
         patch_vertices = patch.get_path().vertices
         patch_vertices_transformed = patch.get_patch_transform().transform(patch_vertices)
 
@@ -453,17 +512,17 @@ def points_inOrOut_patch(p, patchname, mask, rm_s, rm_errs, In=True, **kw):
         near_north_pole = dec_vertices > 90
         near_south_pole = dec_vertices < -90
 
-        # Collect paths for standard points inside the patch
+        # Collect paths for standard points inside patch
         patch_path = Path(patch_vertices_transformed)
         x_wrapped = np.mod(x, val_ra)  # Wrap RA to [0, 360)
 
         # Fix points near RA=360 boundary
         x_wrapped = np.where(np.abs(x_wrapped - val_ra) < tolerance, 0, x_wrapped)
 
-        # Initial mask: points within the patch
+        # Initial mask: points within patch
         combined_mask = patch_path.contains_points(np.vstack((x_wrapped, y)).T)
 
-        # If the patch is near the North Pole
+        # If patch is near North Pole
         if np.any(near_north_pole):
             # Reflect RA points for dec > 90
             mirrored_ra_vertices = (val_ra - ra_vertices[near_north_pole]) % val_ra
@@ -472,11 +531,11 @@ def points_inOrOut_patch(p, patchname, mask, rm_s, rm_errs, In=True, **kw):
             mirrored_patch_vertices = np.column_stack((mirrored_ra_vertices, mirrored_dec_vertices))
             mirrored_patch_path = Path(mirrored_patch_vertices)
 
-            # Apply mask for points within the mirrored region
+            # Apply mask for points within mirrored region
             mirrored_mask = mirrored_patch_path.contains_points(np.vstack((x_wrapped, y)).T)
             combined_mask = np.logical_or(combined_mask, mirrored_mask)
 
-        # If the patch is near the South Pole
+        # If patch is near South Pole
         if np.any(near_south_pole):
             # Reflect RA points for dec < -90
             mirrored_ra_vertices = (val_ra - ra_vertices[near_south_pole]) % val_ra
@@ -485,20 +544,20 @@ def points_inOrOut_patch(p, patchname, mask, rm_s, rm_errs, In=True, **kw):
             mirrored_patch_vertices = np.column_stack((mirrored_ra_vertices, mirrored_dec_vertices))
             mirrored_patch_path = Path(mirrored_patch_vertices)
 
-            # Apply mask for points within the mirrored region
+            # Apply mask for points within mirrored region
             mirrored_mask = mirrored_patch_path.contains_points(np.vstack((x_wrapped, y)).T)
             combined_mask = np.logical_or(combined_mask, mirrored_mask)
 
         return combined_mask if In else np.logical_not(combined_mask)
 
-    # Apply the check for points inside the patch and with mirrored RA
+    # Apply check for points inside patch and with mirrored RA
     inside_mask = _points_in_or_out_with_mirrored_RA(
         p.ra.deg[mask],
         p.dec.deg[mask],
         patchname
     )
 
-    # Select points inside the region
+    # Select points inside region
     p_inside = p[mask][inside_mask]
 
     # RM values and errors of those points
@@ -518,13 +577,13 @@ def confining_circle(ax, ra, dec, radius, polar_angle, positions,
     ax : matplotlib.axes.Axes
        axis on which to plot.
     ra : float
-        Right Ascension of the center of the circle in degrees.
+        Right Ascension of center of circle in degrees.
     dec : float
-        Declination of the center of the circle in degrees.
+        Declination of center of circle in degrees.
     radius : float
-        Radius of the circle in degrees.
+        Radius of circle in degrees.
     polar_angle : float
-        Position angle of the region in degrees (optional for future enhancement).
+        Position angle of region in degrees (optional for future enhancement).
     positions : object
        ICRS coordinates of RM positions.
     pos_mask : array-like
@@ -538,9 +597,9 @@ def confining_circle(ax, ra, dec, radius, polar_angle, positions,
     transform : str, optional
         Coordinate system for transformation (default is "icrs").
     return_data : bool, optional
-        If True, return positions and RM values of points inside the region (default is False).
+        If True, return positions and RM values of points inside region (default is False).
     return_err : bool, optional
-        If True, returns errors in positive and negative RM values inside the region (default is True).
+        If True, returns errors in positive and negative RM values inside region (default is True).
     plot : tuple of bool, optional
         If True, plot circle and scatter points (default is (True, True)).
     
@@ -550,29 +609,29 @@ def confining_circle(ax, ra, dec, radius, polar_angle, positions,
     """
     rm_s, rm_errs = kw["rm_s"], kw["rm_errs"]
     
-    # Create a circle (patch) for defining the region
+    # Create a circle (patch) for defining region
     circle = Circle((ra, dec), radius=radius, edgecolor='k', fill=False, linestyle='-', 
                     linewidth=1.1, transform=ax.get_transform('world'))
     
-    if plot[0]: ax.add_patch(circle)  # To plot the circle
+    if plot[0]: ax.add_patch(circle)  # To plot circle
     
     if plot[1]:  # To plot scatter points in red and blue depending on pos or neg
         alpha = 1
-        # Getting positive positions and their RM values inside the region
+        # Getting positive positions and their RM values inside region
         pos_in_region, rm_value_pos, _ = points_inOrOut_patch(positions, circle, pos_mask, rm_s, rm_errs, typ='circle')
         ax.scatter(pos_in_region.ra, pos_in_region.dec,
                    transform=ax.get_transform(transform), marker='o', 
                    s=1, color=color_pos, alpha=alpha)
         
-        # Getting negative positions and their RM values inside the region
+        # Getting negative positions and their RM values inside region
         neg_in_region, rm_value_neg, _ = points_inOrOut_patch(positions, circle, neg_mask, rm_s, rm_errs, typ='circle')
         ax.scatter(neg_in_region.ra, neg_in_region.dec,
                    transform=ax.get_transform(transform), marker='o', 
                    s=1, color=color_neg, alpha=alpha)
     
-    # Get the positive positions and their RM values inside the region without plotting
+    # Get positive positions and their RM values inside region without plotting
     pos_in_region, rm_value_pos, rm_err_pos = points_inOrOut_patch(positions, circle, pos_mask, rm_s, rm_errs, typ='circle')
-    # Get the negative positions and their RM values inside the region without plotting
+    # Get negative positions and their RM values inside region without plotting
     neg_in_region, rm_value_neg, rm_err_neg = points_inOrOut_patch(positions, circle, neg_mask, rm_s, rm_errs, typ='circle')
     
     if return_data:
@@ -591,8 +650,8 @@ def confining_rectangle(ax, ra, dec, width, height, angle, polar_angle, position
     rm_s, rm_errs = kw["rm_s"], kw["rm_errs"]
     
     # Createrectangle (patch) for defining region
-    #Note that the position of the rectangel is at the bottom corner
-    #But the box should be shifted so that the point chosen is the same as the center of the box
+    #Note that position of rectangel is at bottom corner
+    #But box should be shifted so that point chosen is same as center of box
     bottom_left_x = ra - width / 2
     bottom_left_y = dec - height / 2
     rect = Rectangle((bottom_left_x, bottom_left_y), width=width, height=height,
@@ -683,16 +742,16 @@ def axis_transformation(points, RA_range, DEC_range):
     #Calculating Rotational angle
     angle = np.arctan(m)
     
-    #rotation matrix to be used for making the line the new x-axis
+    #rotation matrix to be used for making line new x-axis
     rotation_matrix = np.array([
         [np.cos(angle), -np.sin(angle)],
         [np.sin(angle), np.cos(angle)]
     ])
     
-    #Rotating points by using the rotation matrix
+    #Rotating points by using rotation matrix
     rotated_points = points @ rotation_matrix
     
-    #Rotating the original x-axis (DEC=0) for a range of RA values
+    #Rotating original x-axis (DEC=0) for a range of RA values
     x_axis_original = np.array([[RA, 0] for RA in np.linspace(*RA_range, len(points))])
     rotated_x_axis = x_axis_original @ rotation_matrix #Rotating it to new axis frame (of actual coordinate system of new_y and new_x)
     try:
@@ -753,7 +812,7 @@ def dens_verses_rm(ra, dec, rm_values, rm_errors, above_zero=True):
     # Extract rm and HI_dens_values from result_tuples
     rm_values, HI_dens_values = zip(*result_tuples)
     
-    # #this shows that 87% of the RM within the BT04 data was flagged as Nan.
+    # #this shows that 87% of RM within BT04 data was flagged as Nan.
     # count = np.sum(np.array(HI_dens_values)< 14)
     # print(100*(1 - count/sum(valid_mask))); import sys; sys.exit()
     
@@ -783,7 +842,7 @@ def characterize_densVersesRM():
     plt.xlabel(r'$\log_{10}(N_H)$' + ' ' + '$[cm^{-2}]$', fontsize=14, rotation='horizontal')
     plt.ylabel(r'RM [rad/$m^2$]', fontsize=14)
 
-    #R. Braun and D. A. Thilker: Local Group HI in the WSRT wide-field survey. II FIGURE 5
+    #R. Braun and D. A. Thilker: Local Group HI in WSRT wide-field survey. II FIGURE 5
     #log(N_H) limited to > 17.3
     max_y, min_y = 100, -160
     plt.axvline(17.3, ymin=min_y, ymax=max_y, color="g",
@@ -806,7 +865,7 @@ def characterize_densVersesRM():
     print('successfully printed correlation')
     plt.tight_layout()
 
-#make sure to change title if you change the data being given by confining_rectangle() function.
+#make sure to change title if you change data being given by confining_rectangle() function.
 def assessing_boxScatter_with_HI(title):
     # OpeningFITS file and extracting data
     filename = 'LGSNLGSR.SQLGBB.FITS'
@@ -871,3 +930,4 @@ def binned_scatter(x, y, bins):
             bin_means.append([bin_mean_x, bin_mean_y])
             bin_stds.append(bin_std_y)
     return np.array(bin_means), np.array(bin_stds), bin_edges
+
