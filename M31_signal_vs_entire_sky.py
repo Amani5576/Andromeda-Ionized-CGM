@@ -54,9 +54,9 @@ d_bin_centers as d_bin_centers_m31,
 bin_means as bin_means_m31,
 bin_med as bin_med_m31,
 bin_std as bin_std_m31,
-rm, #RM values of the entrie sky in Galactic coordinates
-rm_err, eq_pos,
-rm_icrs, #RM values of the entrie sky in ICRS coordinates
+rm, #RM values of the entrie sky
+rm_err, 
+eq_pos,#RM coordinates of the entrie sky in ICRS coordinates
 m31_sep_Rvir, rm_m31, err_m31,
 m31_sep_bg, rm_bg, err_bg,
 bin_num as bin_num_from_main,
@@ -100,7 +100,7 @@ def interpolate(data, num_points):
     return f_interpolate(x_new)
     
 def get_real_rm_data(): #get rm_data from catalog.dat
-    return rm_icrs, rm_err
+    return rm, rm_err
 
 #to be used for scaling size of scatter based on their rm value
 sizes = lambda vals: 30 #np.abs(vals) * 2.3
@@ -1517,7 +1517,7 @@ BINS = bin_num_main
 if __name__== "__main__":
     if args.pickling: #Then overwrite then process and overwrite existing pickled data
         rm_s, rm_errs = get_real_rm_data()
-
+        
         #Creating random center points for Random R_vir assessment
         patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
                                                         ra_range=(min(eq_pos.ra.deg), 

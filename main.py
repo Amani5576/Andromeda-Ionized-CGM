@@ -84,9 +84,6 @@ m33_theta = m33_m31coord.position_angle(m31_pos)
           #Virial radius,#distance to Andromeda
 L_m31 = (np.arctan(R_vir/d_m31)*u.rad.to(u.deg)).value #no longer uses small angle approximation.
 
-#All RM vlaues (Used for Random R_vir in other scripts)
-rm_icrs = rm_m31_coord .transform_to("icrs")
-
 #Creating conditions.         EnsuresRM measurement for bg is within 30 degrees of M31
 bg_condition = (m31_sep.deg > L_m31) & (m31_sep.deg < cutoff.value)
 m31_condition = m31_sep.deg <= L_m31
