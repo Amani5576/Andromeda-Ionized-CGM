@@ -146,7 +146,7 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
     grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))  # (N*N,2)
     
     #Interpolating background values onto grid
-    bg_grid = griddata(bg_points, bg_values, grid_points, method='linear')  # (N*N,)
+    bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')  # (N*N,)
     bg_grid = bg_grid.reshape(X_grid.shape)  # Reshape back to (N,N)
     
     # Handle NaNs (replace with nearest-neighbor interpolation)
