@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1545, in <module>
+    collection_of_points_from_WCS_sphere() #IMPORTANT
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 227, in collection_of_points_from_WCS_sphere
+    pos_mask=rm_s>0, #All positive points on WCS axis
+TypeError: '>' not supported between instances of 'SkyCoord' and 'int'
