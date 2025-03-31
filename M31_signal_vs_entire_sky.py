@@ -14,10 +14,10 @@ from concurrent.futures import ThreadPoolExecutor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
+    parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
     parser.add_argument('--pickling', action='store_true', help='Overwrites the pickled data where new random patches are produced and processed. (Save manually from jupyter ilifu to local)')
     parser.add_argument('--test-patches', action='store_true', help='Testing by showing patches on sphere as they get smaller')
     parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-    parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
     parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of RANDOM patches in the sky')
     parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
     parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
@@ -867,21 +867,10 @@ def annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=False, st
     # Stack all patches together without any mean analysis
     if stack_indiv_patch:
 
-        # Converting Radial separation from relative patch to projected distance to be used for BG correction
-        projected_distances = [
-            [get_projected_d(val, d_m31) for val in sublist.value] 
-            for sublist in RM_coords_sep
-        ]
-        
-        RM_values_per_patch_corr = [
-            indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
-            for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
-        ]
-
         # Flattening the lists for easier computation (These are for random patches all over the sky)
-        flat_sep_vals = np.concatenate([patch.value for patch in RM_coords_sep])  # Separation distances (degrees)
-        flat_rm_vals_mean = np.concatenate([RM_values_per_patch_corr_mean for RM_values_per_patch_corr_mean in RM_values_per_patch])  # Corresponding RM values for mean
-        flat_rm_vals_median = np.concatenate([RM_values_per_patch_corr_median for RM_values_per_patch_corr_median in RM_values_per_patch])  # Corresponding RM values for median
+        flat_sep_vals = np.concatenate([patch.value for patch in CGM_RM_coords_sep])  # Separation distances (degrees)
+        flat_rm_vals_mean = np.concatenate([CGM_RM_coords_per_patch_mean for CGM_RM_coords_per_patch_mean in CGM_RM_coords_per_patch])  # Corresponding RM values for mean
+        flat_rm_vals_median = np.concatenate([CGM_RM_coords_per_patch_median for CGM_RM_coords_per_patch_median in CGM_RM_coords_per_patch])  # Corresponding RM values for median
         construct_and_plot_annuli(flat_sep_vals, flat_rm_vals_mean, flat_rm_vals_median)
 
     # Using binned values for MEAN and MEDIAN (As initially discussed with DJ and Russ)
@@ -1392,7 +1381,7 @@ def Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_me
 
     plt.show()
 
-#Individiual background correction
+#Individiual background correction (Old Method. New method -s better - Spline)
 def indiv_bg_corr(arr, bin_cent, absol=True):
     """
     bin_cent - Center of bin of projected distance or just projected distance relative to the RM values given in 'arr'
@@ -1722,13 +1711,11 @@ if __name__== "__main__":
             pickle.dump(data_to_pickle, f)
         print("Mean, Median calculations, and additional variables have been pickled successfully!")
 
-#Loading RM statistics
-(fig2, ax2, RM_values_per_patch, RM_coords_per_patch, RM_coords_sep, all_d_bin_centers,
- all_means, all_medians, all_bin_stds, all_bin_edges, rm_s, rm_errs, 
- patch_ra_points, patch_dec_points, Patch_pos) = (
-    load_pickle("../RM_stats.pkl", 
-                "Pickled data from Mean and Median Calculations has been loaded successfully!")
-)
+    #Loading RM statistics
+    (ax2, fig2, RM_coords_sep, all_d_bin_centers, all_means, all_medians, 
+    all_bin_stds, all_bin_edges, rm_s, rm_errs, patch_ra_points, 
+    patch_dec_points, Patch_pos) = load_pickle("../RM_stats.pkl", 
+                    "Pickled data from Mean and Median Calculations has been loaded successfully!")
 
 pickle_filename = os.path.join("..", "saved_data.pkl")
 
@@ -1767,8 +1754,6 @@ if __name__ == "__main__":
         # Variables to pickle
         data_to_save = {
             "D_bin_centers": D_bin_centers,
-            "all_means_bg": all_means_bg,
-            "all_medians_bg": all_medians_bg,
             "Avg_means": Avg_means,
             "Avg_medians": Avg_medians,
             "Avg_means_std": Avg_means_std,
@@ -1790,11 +1775,8 @@ if __name__ == "__main__":
 with open(pickle_filename, "rb") as f:
     loaded_data = pickle.load(f)
 
-# Unpack loaded data for continued use
-(
+(#Unpack loaded data for continued use
     D_bin_centers,
-    all_means_bg,
-    all_medians_bg,
     Avg_means,
     Avg_medians,
     Avg_means_std,
@@ -1843,14 +1825,14 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         # ax2.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (.5, 1.2), 
         #             framealpha = 0, ncols = (2,4))
         plt.tight_layout()
-        plt.show()
+        if not args.save_plot:
+            plt.show()
+        else:
+            path = curr_dir_path() + "Results/"
+            fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
+            print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
     
-    if args.rm_vs_proj_dist:
-        path = curr_dir_path() + "Results/"
-        fig2.savefig(f"{path}M31_signal_vs_entire_sky_{number_of_patches}_patches.png", dpi=600, bbox_inches="tight") #saving the image
-        print(f"M31_signal_vs_entire_sky_{number_of_patches}_patches.png has been successfully saved in Results directory")
-    
-    plt.close(fig2) #Deleting the Figure
+        plt.close(fig2) #Deleting the Figure
     
     # #Data close to Gundo's shade_ms plots to spot any storng outliers
     # Shade_ms_mimic(int_Avg_means, int_Avg_means_std, int_Avg_medians, int_Avg_medians_std, int_D_bin_centers)
@@ -1861,9 +1843,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         plot_m31_dispersion(bin_num_from_main)
 
     if args.annuli_anal: 
-        all_means_corr = indiv_bg_corr(all_means, all_d_bin_centers, absol=False) #Ensuring proper background correction on means of each random patch
-        all_medians_corr = indiv_bg_corr(all_medians, all_d_bin_centers, absol=False)  #Ensuring proper background correction on medians of each random patch
-        annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=True)
+        annuli_analysis_random(all_means, all_medians, save_plot=True)
 
     elif args.m31_annuli_anal:
         annuli_analysis_m31(save_plot=True)
@@ -1966,20 +1946,9 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         print(f"Stacked Histogram plot saved to {path}")
 
     if args.cdf_anal: #Cumulative Density Function (Different from CDF of RM Denisty plots)
-        
-        projected_distances = [
-            [get_projected_d(val, d_m31) for val in sublist] 
-            for sublist in RM_coords_sep
-        ]
-        print(type(projected_distances)); import sys; sys.exit()
-
-        RM_values_per_patch_corr = [ #Correcting all Rotation Measures based on their random patch's background region.
-            indiv_bg_corr(RM_patch, bin_cent=proj_d_patch, absol=False)
-            for RM_patch, proj_d_patch in zip(RM_values_per_patch, projected_distances)
-        ]
 
         # Flatten the list of RM values for the sky (excluding M31)
-        rm_sky = np.concatenate(RM_values_per_patch_corr)
+        rm_sky = np.concatenate(CGM_RM_values_per_patch)
 
         # Get the absolute values of RM
         rm_m31_abs = np.abs(rm_m31)
