@@ -1,0 +1,8 @@
+Submitting Slurm Job: Proper BG subtraction with spline and pickling.
+Saved random points as SkyCoord
+(No longer plotting) but collecting of points from each circular patch has begun...
+Collection of points by each circular patch on WCS sphere is complete
+Getting separation of RM from center of relative patch
+Data for Random R_vir's have been structured for Proper BG substraction
+Structured Data for Proper background subtraction has been saved successfully
+Structured Data for Proper background subtraction has been reloaded from pickle file successfully

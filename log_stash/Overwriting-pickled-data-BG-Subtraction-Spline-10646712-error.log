@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1638, in <module>
+    CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch, CGM_RM_coords_sep, BG_RM_coords_sep = (
+ValueError: too many values to unpack (expected 6)
