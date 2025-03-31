@@ -3,9 +3,9 @@
 #SBATCH --output=log_stash/Overwriting-pickled-data-BG-Subtraction-Spline-%j.log
 #SBATCH --error=log_stash/Overwriting-pickled-data-BG-Subtraction-Spline-%j-error.log
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=45G
-#SBATCH --time=01:45:00
+#SBATCH --cpus-per-task=3
+#SBATCH --mem=30G
+#SBATCH --time=01:00:00
 #SBATCH --partition=Main
 
 # Load required modules

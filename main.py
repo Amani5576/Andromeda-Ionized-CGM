@@ -149,10 +149,10 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
     bg_grid = griddata(bg_points, bg_values, grid, method='linear')  # (N*N,)
     bg_grid = bg_grid.reshape(X_grid.shape)  # Reshape back to (N,N)
     
-    # # Handle NaNs (replace with nearest-neighbor interpolation)
-    # if np.isnan(bg_grid).any():
-    #     bg_grid = griddata(points, bg_values, grid_points, method='nearest')
-    #     bg_grid = bg_grid.reshape(X_grid.shape)
+    # Handle NaNs (replace with nearest-neighbor interpolation)
+    if np.isnan(bg_grid).any():
+        bg_grid = griddata(points, bg_values, grid_points, method='nearest')
+        bg_grid = bg_grid.reshape(X_grid.shape)
 
     #Fitting spline to interpolated background RM data
     fbeam = RectBivariateSpline(y_grid, x_grid, bg_grid)

@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
+    parser.add_argument('--save-plot', action='store_true', help='Saves the plot to Results folder rather than just showing the plot (To be used with --original-plot)')
     parser.add_argument('--pickling', action='store_true', help='Overwrites the pickled data where new random patches are produced and processed. (Save manually from jupyter ilifu to local)')
     parser.add_argument('--test-patches', action='store_true', help='Testing by showing patches on sphere as they get smaller')
     parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
@@ -1795,6 +1796,8 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
 
     if args.original_plot:
         plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
+
+        print(f"{np.sum(~np.isnan(CGM_RM_values_per_patch[0]))=}")
 
         ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
         ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
