@@ -14,7 +14,6 @@ from concurrent.futures import ThreadPoolExecutor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
-    parser.add_argument('--rm-vs-proj-dist', action='store_true', help='Honours output in plotting RM against projected distance from M31 (as well as assemsemnt of the entire RM-sky)')
     parser.add_argument('--pickling', action='store_true', help='Overwrites the pickled data where new random patches are produced and processed. (Save manually from jupyter ilifu to local)')
     parser.add_argument('--test-patches', action='store_true', help='Testing by showing patches on sphere as they get smaller')
     parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
