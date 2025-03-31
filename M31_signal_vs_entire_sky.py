@@ -1797,7 +1797,7 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     if args.original_plot:
         plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
 
-        print(f"{np.sum(~np.isnan(CGM_RM_values_per_patch[0]))=}")
+        # print(f"{np.sum(~np.isnan(CGM_RM_values_per_patch[0]))=}")
 
         ax2.errorbar(D_bin_centers, np.absolute(Avg_means), yerr = Avg_means_std, fmt = 'b.-')#,label ="$\mu_{\mu patch}$"
         ax2.errorbar(D_bin_centers, np.absolute(Avg_medians), yerr = Avg_medians_std, 
