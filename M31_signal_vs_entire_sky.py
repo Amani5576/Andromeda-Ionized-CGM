@@ -85,6 +85,11 @@ from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter('ignore', AstropyWarning)
 warnings.simplefilter("ignore", RuntimeWarning) #Suppresses stats SmallSampleWarning when using stats.sem()
 
+def load_pickle(filename, message):
+    with open(filename, "rb") as f:
+        data = pickle.load(f)
+    print(message)
+    return tuple(data.values()) 
 
 def curr_dir_path():
     """Returns the folder path of the currently running script."""
@@ -1596,17 +1601,30 @@ if __name__== "__main__":
                 BG_RM_values_per_patch = list(executor.map(
                     filter_RM_values, values_list, sep_list, [L_m31] * len(sep_list), [np.greater] * len(sep_list)
                 ))
+                CGM_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Smaller than L_m31)
+                    filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.less] * len(sep_list)
+                ))
+                BG_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Greater than L_m31)
+                    filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.greater] * len(sep_list)
+                ))
 
-            return CGM_RM_coords_per_patch, BG_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_values_per_patch
+            return (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
+                    CGM_RM_values_per_patch, BG_RM_values_per_patch,
+                    CGM_RM_coords_sep, BG_RM_coords_sep)
 
+    if args.pickling:
         #Running in parallel
-        CGM_RM_coords_per_patch, BG_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_values_per_patch = process_patch(
+        (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
+        CGM_RM_values_per_patch, BG_RM_values_per_patch,
+        CGM_RM_coords_sep, BG_RM_coords_sep) = process_patch(
             RM_coords_per_patch, RM_values_per_patch, RM_coords_sep, L_m31
         )
         print("Data for Random R_vir's have been structured for Proper BG substraction")
         pickle_filename = "../Structured_data_for_BG_Subtraction.pkl"
         data_to_pickle = {
                 "RM_coords_sep": RM_coords_sep,
+                "CGM_RM_coords_sep": CGM_RM_coords_sep,
+                "BG_RM_coords_sep": BG_RM_coords_sep,
                 "CGM_RM_coords_per_patch": CGM_RM_coords_per_patch,
                 "CGM_RM_values_per_patch": CGM_RM_values_per_patch,
                 "BG_RM_coords_per_patch": BG_RM_coords_per_patch,
@@ -1616,6 +1634,13 @@ if __name__== "__main__":
             pickle.dump(data_to_pickle, f)
         print("Structured Data for Proper background subtraction has been saved successfully")
 
+    #Loading structured data for background subtraction
+    CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch, CGM_RM_coords_sep, BG_RM_coords_sep = (
+        load_pickle("../Structured_data_for_BG_Subtraction.pkl", 
+                    "Structured Data for Proper background subtraction has been reloaded from pickle file successfully")
+    )
+
+    if args.pickling:
         #____________________________________________________________
         # Undergoing Proper BG Correction for each Random Patch (using multithreading)
         #____________________________________________________________
@@ -1637,6 +1662,13 @@ if __name__== "__main__":
             pickle.dump(data_to_pickle, f)
         print(" Properly Subtracted RM's have been dumped in pickle file successfully.")
 
+    #Loading properly subtracted RM values
+    (CGM_RM_values_per_patch,) = (
+        load_pickle("../RM_Subtracted_with_spline.pkl", 
+                    "Properly Subtracted RM's have been reloaded from pickle file successfully")
+    )
+
+    if args.pickling:
         all_d_bin_centers=[] #For x-axis
         all_means = []
         all_medians = []
@@ -1650,7 +1682,7 @@ if __name__== "__main__":
             
             if not (CGM_RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
                 if not (CGM_RM_coords_per_patch[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
-                    d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], CGM_RM_values_per_patch[i], bin_num=BINS)
+                    d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(CGM_RM_coords_sep[i], CGM_RM_values_per_patch[i], bin_num=BINS)
                     
                     all_d_bin_centers.append(d_bin_centers) #For x axis
                     all_means.append(bin_mean) #For y-axis
@@ -1689,24 +1721,6 @@ if __name__== "__main__":
         with open("../RM_stats.pkl", "wb") as f:
             pickle.dump(data_to_pickle, f)
         print("Mean, Median calculations, and additional variables have been pickled successfully!")
-
-def load_pickle(filename, message):
-    with open(filename, "rb") as f:
-        data = pickle.load(f)
-    print(message)
-    return tuple(data.values()) 
-
-#Loading structured data for background subtraction
-CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch = (
-    load_pickle("../Structured_data_for_BG_Subtraction.pkl", 
-                "Structured Data for Proper background subtraction has been reloaded from pickle file successfully")
-)
-
-#Loading properly subtracted RM values
-(CGM_RM_values_per_patch,) = (
-    load_pickle("../RM_Subtracted_with_spline.pkl", 
-                "Properly Subtracted RM's have been reloaded from pickle file successfully")
-)
 
 #Loading RM statistics
 (fig2, ax2, RM_values_per_patch, RM_coords_per_patch, RM_coords_sep, all_d_bin_centers,
