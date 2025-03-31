@@ -1635,7 +1635,7 @@ if __name__== "__main__":
         print("Structured Data for Proper background subtraction has been saved successfully")
 
     #Loading structured data for background subtraction
-    CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch, CGM_RM_coords_sep, BG_RM_coords_sep = (
+    RM_coords_sep, CGM_RM_coords_sep, BG_RM_coords_sep, CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch = (
         load_pickle("../Structured_data_for_BG_Subtraction.pkl", 
                     "Structured Data for Proper background subtraction has been reloaded from pickle file successfully")
     )
