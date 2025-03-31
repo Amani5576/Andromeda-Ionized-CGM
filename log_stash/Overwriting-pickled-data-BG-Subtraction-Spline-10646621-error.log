@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1653, in <module>
+    d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(RM_coords_sep[i], CGM_RM_values_per_patch[i], bin_num=BINS)
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 268, in get_mean_and_med_stats
+    bin_means, bin_edges_mean, binnumber = stats.binned_statistic(x_vals, y_vals, statistic='mean', bins=bin_num)
+  File "/users/amani/.local/lib/python3.10/site-packages/scipy/stats/_binned_statistic.py", line 184, in binned_statistic
+    medians, edges, binnumbers = binned_statistic_dd(
+  File "/users/amani/.local/lib/python3.10/site-packages/scipy/stats/_binned_statistic.py", line 571, in binned_statistic_dd
+    raise AttributeError('The number of `values` elements must match the '
+AttributeError: The number of `values` elements must match the length of each `sample` dimension.
