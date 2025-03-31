@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1726, in <module>
+    (fig2, ax2, RM_values_per_patch, RM_coords_per_patch, RM_coords_sep, all_d_bin_centers,
+ValueError: not enough values to unpack (expected 15, got 13)
