@@ -1125,8 +1125,7 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     #                             np.mean(bin_med_flat[no_nan_mask] #vertical shift
     #                                     )))
     
-    ax.scatter(PA_rm_deg_bg,rm_bg, marker="s", alpha=1, s=1, c="k", label="BG") #Adding in backgorund region - Firstly
-
+    ax.scatter(PA_rm_deg_bg,rm_bg, marker="s", alpha=1, s=1, c="#73e831", label="Background") #Adding in backgorund region - Firstly
     for bin_idx in range(1,len(RM)+1):
          if bin_idx in RM:
             ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=1, s=12,
@@ -1141,6 +1140,7 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
 
     apply_plot_attributes(push_title_up = 1.1, xlim=(0,360), ylim=(-300, 200))
+    ax.legend(bbox_to_anchor=(1.05, 1.1), loc="upper left", framealpha=0)  
 
     if save_plot:
         path = curr_dir_path() + "Results/"
@@ -1215,10 +1215,11 @@ def plot_m31_dispersion(bin_num, save_plot=False):
     if save_plot: 
         path = curr_dir_path() + "Results/"
         plt.savefig(f"{path}" + "Dispersion_M31.png", dpi=600, bbox_inches="tight")#Saving as image
+        print(f"Dispersion image saved in " + f"{path}")
         plt.clf() #clearing the figure (not deleting it)
     else:
+        plt.show()
         plt.close() #Deleting the figure to clear memory
-        print(f"Dispersion image saved in " + f"{path}")
 
 # In[A little extra testing]:        
 #This code below produces 2 subplots on a figure.
@@ -1669,8 +1670,8 @@ if __name__== "__main__":
         print("Mean and Median calculations have begun")
         for i in range(len(RM_coords_sep)): #Searching through each patch
             
-            if not (CGM_RM_values_per_patch_corr[i].shape == ()):  #Checking if its not empty or filled with NaNs
-                if not (CGM_RM_values_per_patch_corr[i].shape[0] < 15):  # Ensure sufficient number of points for stats module to work
+            if not (CGM_RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+                if not (CGM_RM_coords_per_patch[i].shape[0] < 30):  # Ensure sufficient number of points for stats module to work
                     d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(CGM_RM_coords_sep[i], CGM_RM_values_per_patch_corr[i], bin_num=BINS)
                     
                     all_d_bin_centers.append(d_bin_centers) #For x axis
@@ -1711,11 +1712,11 @@ if __name__== "__main__":
             pickle.dump(data_to_pickle, f)
         print("Mean, Median calculations, and additional variables have been pickled successfully!")
 
-    #Loading RM statistics
-    (ax2, fig2, RM_coords_sep, all_d_bin_centers, all_means, all_medians, 
-    all_bin_stds, all_bin_edges, rm_s, rm_errs, patch_ra_points, 
-    patch_dec_points, Patch_pos) = load_pickle("../RM_stats.pkl", 
-                    "Pickled data from Mean and Median Calculations has been loaded successfully!")
+#Loading RM statistics
+(ax2, fig2, RM_coords_sep, all_d_bin_centers, all_means, all_medians, 
+all_bin_stds, all_bin_edges, rm_s, rm_errs, patch_ra_points, 
+patch_dec_points, Patch_pos) = load_pickle("../RM_stats.pkl", 
+                "Pickled Mean & Median data loaded successfully!")
 
 pickle_filename = os.path.join("..", "saved_data.pkl")
 
@@ -1788,7 +1789,7 @@ with open(pickle_filename, "rb") as f:
     int_D_bin_centers
 ) = (loaded_data[key] for key in loaded_data)
 del loaded_data
-print("Data successfully reloaded and unpacked for original plot of M31_vs_entire_sky plotting")
+print("Data reloaded for original M31_vs_entire_sky plot.")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
 
@@ -1840,7 +1841,8 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
         test_patches_on_sphere()
 
     if args.show_dispersion:
-        plot_m31_dispersion(bin_num_from_main)
+        from main import d_bin_centers
+        plot_m31_dispersion(bin_num_from_main, save_plot=True)
 
     if args.annuli_anal: 
         annuli_analysis_random(all_means, all_medians, save_plot=True)

@@ -14,22 +14,22 @@ from M31_signal_vs_entire_sky import (
     all_medians as md,
     all_bin_stds as std,
     number_of_patches,
-    plot_m31_stats, indiv_bg_corr, curr_dir_path
+    plot_m31_stats, curr_dir_path
 )
 
-print("Pickled data for M31_vs_entire sky plotting has successfully been extracted for M31 density of background plotting")
+print("Extracted pickled data for M31 background density plot.")
 
-def fill_all_arrays_with_initial_0(arrays):
-    arr_1 = arrays[0]
+# def fill_all_arrays_with_initial_0(arrays):
+#     arr_1 = arrays[0]
 
-    Arr = []
-    for idx, arr in enumerate(arrays):
-        #Adding 0 (or 0-array) to ensure kde-plot starts from point (0,0)
-        Arr.append(
-        np.insert(np.array(arr), 0, np.zeros_like(arr_1), axis=0) 
-        if len(arr) > 0 else np.array(arr) #checking if array is empty
-        )
-    return tuple(Arr)
+#     Arr = []
+#     for idx, arr in enumerate(arrays):
+#         #Adding 0 (or 0-array) to ensure kde-plot starts from point (0,0)
+#         Arr.append(
+#         np.insert(np.array(arr), 0, np.zeros_like(arr_1), axis=0) 
+#         if len(arr) > 0 else np.array(arr) #checking if array is empty
+#         )
+#     return tuple(Arr)
 
 def filter_nans(*arrays):
     """
@@ -63,10 +63,10 @@ def give_cbar_properties(cbar, Z, typ):
         cbar.set_ticklabels([f"{tick*10**5:.0f}" for tick in ticks])
         label = f"{typ} Density " + r"[$10^{-5}\text{ kpc}^{-1} \cdot (\text{rad/m}^2)^{-1}$]"
     cbar.ax.tick_params(labelsize=9)
-    cbar.set_label(label + "\n(10K Random " + r"R$_{vir}$)", rotation=-90, labelpad=20 if not args.cumulative else 24, fontsize=10)
+    cbar.set_label(label + "\n(10K Random " + r"R$_{vir}$)", rotation=-90, labelpad=24 if not args.cumulative else 27, fontsize=10)
 
 # for i in [bin_centers, mn, md, std]: print(np.shape(i))
-bin_centers, mn, md, std = fill_all_arrays_with_initial_0([bin_centers, mn, md, std])
+# bin_centers, mn, md, std = fill_all_arrays_with_initial_0([bin_centers, mn, md, std])
 # for i in [bin_centers, mn, md, std]: print(np.shape(i))
 
 convert = lambda L: np.array(L).ravel()
@@ -75,21 +75,17 @@ y_mean, y_med = convert(mn), convert(md)
 
 x, y_mean, y_med, std = filter_nans(x, y_mean, y_med, std)
 
-#executing background correction
-y_mean = indiv_bg_corr(y_mean, bin_cent=x)
-y_med = indiv_bg_corr(y_med, bin_cent=x)
-
 #Generating a Kernel Density Estimation of the points.
 xy_mean, xy_med = np.vstack([x, y_mean]), np.vstack([x, y_med])
 
 #Creating grid for evaluation
 grid_num = int(1e2)
-x_grid = np.linspace(min(x), max(x), grid_num)
-y_mean_grid, y_med_grid = np.linspace(min(y_mean), max(y_mean), grid_num), np.linspace(min(y_med), max(y_med), grid_num)
+x_grid = np.linspace(0, 300, grid_num)
+y_mean_grid, y_med_grid = np.linspace(0, max(y_mean), grid_num), np.linspace(0, max(y_med), grid_num)
 X, Y_mean = np.meshgrid(x_grid, y_mean_grid)
 X, Y_med = np.meshgrid(x_grid, y_med_grid)
 
-bw = 0.065
+bw = 0.07 if not args.cumulative else 0.085
 kde_mean  = gaussian_kde(xy_mean, bw_method=bw, weights=std)
 kde_med = gaussian_kde(xy_med, bw_method=bw, weights=std)
 
@@ -118,7 +114,7 @@ def plot_density(ax, X, Y, Z, title, xlabel, ylabel=None):
     ax.set_xlabel(xlabel)
     if ylabel:
         ax.set_ylabel(ylabel)
-    ax.set_ylim(0, 85)
+    ax.set_ylim(0, 200)
     ax.set_xlim(0, 300)
 
     plot_m31_stats(ax) #Line plots of Mean and Median for |RM| vs proj distance within CGM of M31
@@ -131,7 +127,7 @@ def plot_density(ax, X, Y, Z, title, xlabel, ylabel=None):
 plot_density(axes[0], X, Y_mean, Z_mean, "Mean", r'R$_{projected}$ [kpc]', "|RM| [rad " + r"m$^2$]")
 plot_density(axes[1], X, Y_med, Z_med, "Median", r'R$_{projected}$ [kpc]')
 
-plt.tight_layout(w_pad=1)
+plt.tight_layout(w_pad=2)
 if args.save_plot:
     path = curr_dir_path() + "Results/"
     filename = f"{'Cumulative_' if args.cumulative else ''}Density_{bw=}.png"
