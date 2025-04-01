@@ -1,0 +1,18 @@
+Submitting Slurm Job: BG Subtraction with Spline, Pickling, and Plotting.
+Saved random points as SkyCoord
+(No longer plotting) but collecting of points from each circular patch has begun...
+Collection of points by each circular patch on WCS sphere is complete
+Getting separation of RM from center of relative patch
+Data for Random R_vir's have been structured for Proper BG substraction
+Structured Data for Proper background subtraction has been saved successfully
+Structured Data for Proper background subtraction has been reloaded from pickle file successfully
+Rotation Measures have been Corrected !! :)
+ Properly Subtracted RM's have been dumped in pickle file successfully.
+Properly Subtracted RM's have been reloaded from pickle file successfully
+Mean and Median calculations have begun
+Mean, Median calculations, and additional variables have been pickled successfully!
+Pickled data from Mean and Median Calculations has been loaded successfully!
+Data for M31_vs_entire sky plotting saved to ../saved_data.pkl
+Data successfully reloaded and unpacked for original plot of M31_vs_entire_sky plotting
+M31_signal_vs_entire_sky_10000_patches.png has been successfully saved in Results directory
+Job completed: Pickling and Original Plot generation finished.
