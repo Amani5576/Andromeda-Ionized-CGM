@@ -1,0 +1,4 @@
+Submitting Slurm Job: Proper BG subtraction with spline and pickling.
+Structured Data for Proper background subtraction has been reloaded from pickle file successfully
+Rotation Measures have been Corrected !! :)
+ Properly Subtracted RM's have been dumped in pickle file successfully.
