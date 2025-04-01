@@ -1,0 +1,2 @@
+/var/lib/slurm/slurmd/job10647277/slurm_script: line 15: 3395737 Killed                  singularity exec /idia/software/containers/ASTRO-PY3.10-2024-10-18.sif python3 M31_signal_vs_entire_sky.py --pickling
+slurmstepd: error: Detected 1 oom_kill event in StepId=10647277.batch. Some of the step tasks have been OOM Killed.
