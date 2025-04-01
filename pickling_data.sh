@@ -4,7 +4,7 @@
 #SBATCH --error=log_stash/Overwriting-pickled-data-BG-Subtraction-Spline-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=30
-#SBATCH --mem=30G
+#SBATCH --mem=90G
 #SBATCH --time=01:30:00
 #SBATCH --partition=Main
 
