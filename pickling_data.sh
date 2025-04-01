@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="Overwriting-pickled-data-BG-Subtraction-Spline-%j"
+#SBATCH --job-name="Overwriting-pickled-data-BG-Subtraction-Spline-with-multithreading%j"
 #SBATCH --output=log_stash/Overwriting-pickled-data-BG-Subtraction-Spline-%j.log
 #SBATCH --error=log_stash/Overwriting-pickled-data-BG-Subtraction-Spline-%j-error.log
 #SBATCH --ntasks=1
