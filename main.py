@@ -137,7 +137,7 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
     rm_y = rm_coords.dec.deg  #(M,)
     
     # Define a regular grid for interpolation
-    grid_res = len(x_bg)*4 # the "N"
+    grid_res = len(x_bg)*2 # the "N"
     x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res) #(N,)
     y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res) #(N,)
     X_grid, Y_grid = np.meshgrid(x_grid, y_grid) #each having dimensions (N,N)
@@ -928,4 +928,5 @@ def binned_scatter(x, y, bins):
             bin_means.append([bin_mean_x, bin_mean_y])
             bin_stds.append(bin_std_y)
     return np.array(bin_means), np.array(bin_stds), bin_edges
+
 
