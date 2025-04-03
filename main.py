@@ -423,7 +423,7 @@ def print_smoothing_scale(delts, std_x, std_y, nsig):
     print(f"Smoothing scale (X): {smoothing_scale_x:.3f} degrees")
     print(f"Smoothing scale (Y): {smoothing_scale_y:.3f} degrees")
 
-def smooth_2d_image(ra, dec, fitfile, imsize=5000, nsig=1):
+def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=5000, nsig=1):
 
     im = np.zeros((imsize, imsize), dtype=float)
 

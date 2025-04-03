@@ -78,7 +78,8 @@ ax.coords[0].set_ticklabel(fontsize=tick_f_s)
 ax.coords[1].set_axislabel('Dec [J2000]', fontsize=f_s)
 ax.coords[1].set_ticklabel(fontsize=tick_f_s)
 
-vmin, vmax = -500, 500 # Maximum and minimum RM limits
+vmin, vmax = -50, 50 # Maximum and minimum RM limits
+rm_m31_clipped = np.clip(rm_m31, vmin, vmax)
 
 # Marker in order to show vertical colorbar
 sctt = ax.scatter(rm_pos_icrs.ra, rm_pos_icrs.dec,
@@ -95,25 +96,26 @@ ra, dec = eq_pos.ra[m31_condition], eq_pos.dec[m31_condition]
 
 # global im
 # nsig is a multiplier for sigma (std) in y and x direction.
-im = smooth_2d_image(ra, dec, imsize=450, nsig = .014, fitfile=filename)
-im_clipped = np.clip(im, -5000, 5000) #manually clipping based off of what i can see on defualt colorbar
+im = smooth_2d_image(ra, dec, imsize=450, nsig = .005, fitfile=filename, rm_m31=rm_m31_clipped)
+im_clipped = im #np.clip(im, -5000, 5000) #manually clipping based off of what i can see on defualt colorbar
 
 x0s, y0s = ra_dec_to_pixels(ra, dec, filename=filename)
 #image 'im' is already trnsformed intowcs.ax's 'world'
 # ax.scatter(x0s, y0s, marker='.', s=2)
 
-RM_dens = ax.imshow(im_clipped, cmap='RdYlBu', origin='lower', alpha=0.5)
+RM_dens = ax.imshow(im, cmap='RdYlBu', origin='lower', alpha=0.5)
 
 RM_dens_cbar = plt.colorbar(RM_dens, ax=ax, fraction=0.05, orientation='horizontal')
 RM_dens_cbar.set_label('Smooth RM Intensity (capped)', labelpad=labelpad, fontsize=cbar_lab_size)
 global min_tick_1, max_tick_1, min_tick_2, max_tick_2
 
 steps = 11
-rm_m31_clipped = np.clip(rm_m31, vmin, vmax)
 min_tick_1 = np.min(rm_m31_clipped) ; max_tick_1 = np.max(rm_m31_clipped) 
 min_tick_2 = np.min(im_clipped) ;  max_tick_2 = np.max(im_clipped)
+m = (max_tick_2 - min_tick_2) / (max_tick_1 - min_tick_1)
 RM_dens_cbar.set_ticks(np.linspace(min_tick_2, max_tick_2, steps))
-ticklabs = np.round(np.linspace(min_tick_1, max_tick_1,steps))
+ticklabs = np.round(np.linspace(min_tick_2/m, max_tick_2/m,steps))
+# ticklabs = np.round(np.linspace(min_tick_1, max_tick_1,steps))
 RM_dens_cbar.set_ticklabels(ticklabs.astype(int))
 RM_dens_cbar.ax.tick_params(labelsize=l_s)
 
