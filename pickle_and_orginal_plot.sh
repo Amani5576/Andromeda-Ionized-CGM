@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name="Pickle-and-Original-Plot-BG-Subtraction%j"
-#SBATCH --output=log_stash/Pickle-and-Original-Plot-BG-Subtraction-%j.log
-#SBATCH --error=log_stash/Pickle-and-Original-Plot-BG-Subtraction-%j-error.log
+#SBATCH --job-name="Pickle-and-Original-Plot-2order-BG-Subtraction%j"
+#SBATCH --output=log_stash/Pickle-and-Original-Plot-2order-BG-Subtraction-%j.log
+#SBATCH --error=log_stash/Pickle-and-Original-Plot-2order-BG-Subtraction-%j-error.log
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=20
 #SBATCH --mem=100G

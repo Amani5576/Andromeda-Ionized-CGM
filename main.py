@@ -129,6 +129,9 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
     np.ndarray
         Background-corrected RM values.
     """
+    
+    Spline_order = 2
+
     #Converting to degrees
     x_bg = bg_coords.ra.deg  #(N,)
     y_bg = bg_coords.dec.deg  #(N,)
@@ -156,7 +159,8 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
         bg_grid = bg_grid.reshape(X_grid.shape)
 
     #Fitting spline to interpolated background RM data
-    fbeam = RectBivariateSpline(np.sort(y_grid), np.sort(x_grid), bg_grid)
+    fbeam = RectBivariateSpline(np.sort(y_grid), np.sort(x_grid), bg_grid,
+                                kx=Spline_order, ky=Spline_order)
     
     #Interpolating the background RM values at RM positions
     bg_values_interp = fbeam.ev(rm_y, rm_x)

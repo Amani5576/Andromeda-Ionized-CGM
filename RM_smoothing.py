@@ -78,7 +78,7 @@ ax.coords[0].set_ticklabel(fontsize=tick_f_s)
 ax.coords[1].set_axislabel('Dec [J2000]', fontsize=f_s)
 ax.coords[1].set_ticklabel(fontsize=tick_f_s)
 
-vmin, vmax = -50, 50  # Maximum and minimum RM limits
+vmin, vmax = -500, 500 # Maximum and minimum RM limits
 
 # Marker in order to show vertical colorbar
 sctt = ax.scatter(rm_pos_icrs.ra, rm_pos_icrs.dec,
@@ -95,7 +95,7 @@ ra, dec = eq_pos.ra[m31_condition], eq_pos.dec[m31_condition]
 
 # global im
 # nsig is a multiplier for sigma (std) in y and x direction.
-im = smooth_2d_image(ra, dec, imsize=450, nsig = .6, fitfile=filename)
+im = smooth_2d_image(ra, dec, imsize=450, nsig = .014, fitfile=filename)
 im_clipped = np.clip(im, -5000, 5000) #manually clipping based off of what i can see on defualt colorbar
 
 x0s, y0s = ra_dec_to_pixels(ra, dec, filename=filename)
@@ -165,32 +165,32 @@ ax.scatter(dwf_Gs.ra, dwf_Gs.dec,
     )
 more += 0.03
 
-def extract_continuum_data(file, **kw):
-    #Continuum Absoroption features form paper:
-    #from paper https://ui.adsabs.harvard.edu/abs/1993ApJ...405..153D/abstract
-    contSources = Table.read(file, format='ascii')
-    contSources.keep_columns(['NAME','RA_1950','DEC_1950','N_H','T_B_max'])
-    label = kw["label_legend"] if "label_legend" in kw else ""
+# def extract_continuum_data(file, **kw):
+#     #Continuum Absoroption features form paper:
+#     #from paper https://ui.adsabs.harvard.edu/abs/1993ApJ...405..153D/abstract
+#     contSources = Table.read(file, format='ascii')
+#     contSources.keep_columns(['NAME','RA_1950','DEC_1950','N_H','T_B_max'])
+#     label = kw["label_legend"] if "label_legend" in kw else ""
 
-    contSources["Coords"] = SkyCoord(ra=contSources["RA_1950"], 
-                                     dec=contSources["DEC_1950"], 
-                                     unit = (u.hourangle, u.deg), 
-                                     frame=FK4(equinox="B1950.0"))
+#     contSources["Coords"] = SkyCoord(ra=contSources["RA_1950"], 
+#                                      dec=contSources["DEC_1950"], 
+#                                      unit = (u.hourangle, u.deg), 
+#                                      frame=FK4(equinox="B1950.0"))
 
-    contSources["RA"], contSources["DEC"] = contSources["Coords"].ra, contSources["Coords"].dec #incase i wanna deal with one or the other.
-    contSources["N_H"] = np.int64(contSources["N_H"])
-    contSources["T_B_max"] = np.float64(contSources["T_B_max"])
-    contSources["N_H"].unit, contSources["T_B_max"].unit = (10**(19))/(u.cm**2), u.K
+#     contSources["RA"], contSources["DEC"] = contSources["Coords"].ra, contSources["Coords"].dec #incase i wanna deal with one or the other.
+#     contSources["N_H"] = np.int64(contSources["N_H"])
+#     contSources["T_B_max"] = np.float64(contSources["T_B_max"])
+#     contSources["N_H"].unit, contSources["T_B_max"].unit = (10**(19))/(u.cm**2), u.K
 
-    cords=contSources["Coords"]
-    temp = np.array(list(map(int,([0] + list(contSources["T_B_max"])[1:]))))
-    ax.scatter(cords.ra, cords.dec, 
-            color='k', marker='x',transform=ax.get_transform('world'),
-            s=np.int64((temp/min(temp[temp!=0]))*17), label=label
-        )
+#     cords=contSources["Coords"]
+#     temp = np.array(list(map(int,([0] + list(contSources["T_B_max"])[1:]))))
+#     ax.scatter(cords.ra, cords.dec, 
+#             color='k', marker='x',transform=ax.get_transform('world'),
+#             s=np.int64((temp/min(temp[temp!=0]))*17), label=label
+#         )
 
-extract_continuum_data("M31_contSources.txt", label_legend= "Cont. Sources")
-extract_continuum_data("M33_contSources.txt")
+# extract_continuum_data("M31_contSources.txt", label_legend= "Cont. Sources")
+# extract_continuum_data("M33_contSources.txt")
 
 # # Coordniates of Backgorund AGN 
 # #from https://doi.org/10.3847/1538-4357/aa87b4
