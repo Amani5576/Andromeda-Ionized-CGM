@@ -4,6 +4,7 @@ from personal_converter import convert_magellanic_stream_coords
 from astropy.coordinates import Angle, FK4, ICRS
 from astropy.time import Time
 
+
 from main import (
     
 # Imprting alias'
@@ -12,12 +13,14 @@ fits, WCS, plt, u, np, Table, SkyCoord,
 #importing variables
 m31_pos, Circle, Rectangle, rm_pos_icrs, 
 rm_m31, eq_pos, m31_condition, m33_pos,
+rm, bg_condition,
+bg_pos_icrs,
 
 
 # Importing functions
 smooth_2d_image, 
 convert_txt_to_Skycoord, 
-ra_dec_to_pixels
+ra_dec_to_pixels,
 )
 
 levels = 16 #For HI density contour

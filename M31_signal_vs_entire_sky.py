@@ -77,7 +77,7 @@ m31_pos, #Position of M31 (in ICRS coordinates)
 
 #importing functions
 get_projected_d, get_sep_angle,
- confining_circle, get_wcs, BG_correction
+ confining_circle, get_wcs, BG_correction, curr_dir_path
 )
 
 #Hanlding unnneccesary clutter of printing from warnings
@@ -90,10 +90,6 @@ def load_pickle(filename, message):
         data = pickle.load(f)
     print(message)
     return tuple(data.values()) 
-
-def curr_dir_path():
-    """Returns the folder path of the currently running script."""
-    return os.path.dirname(os.path.abspath(__file__)) + "/"
 
 def interpolate(data, num_points):
     #Function to quadratically interpolate data (increasing number of points for smoothness)

@@ -13,6 +13,8 @@ from scipy.optimize import curve_fit
 from astropy.utils.exceptions import AstropyWarning
 import warnings
 from scipy.interpolate import RectBivariateSpline, griddata
+import os
+
 
 # Suppress specific Astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
@@ -88,27 +90,37 @@ L_m31 = (np.arctan(R_vir/d_m31)*u.rad.to(u.deg)).value #no longer uses small ang
 bg_condition = (m31_sep.deg > L_m31) & (m31_sep.deg < cutoff.value)
 m31_condition = m31_sep.deg <= L_m31
 
+# vb  = 10
+
 #Applying conditions to filter RM positions for CGM of M31 and its BG alone.
 bg_pos = rm_m31_coord[bg_condition]
+# bg_pos = bg_pos[1:vb] 
 bg_pos_icrs = bg_pos.transform_to("icrs") 
 rm_pos = rm_m31_coord[m31_condition]
+# rm_pos = rm_pos[1:vb] 
 rm_pos_icrs = rm_pos.transform_to("icrs") 
 
 #Done in year 2025 for plotting RM vs Galactic Azimuth
 rm_pos_gal_lat = position.b.deg[m31_condition]
+# rm_pos_gal_lat = rm_pos_gal_lat[1:vb] 
 rm_pos_gal_lat_bg = position.b.deg[bg_condition]
+# rm_pos_gal_lat_bg = rm_pos_gal_lat_bg[1:vb] 
 
 
 # #Applying conditions to filter RM values and their errors
 rm_bg = rm[bg_condition] #Record background RM
+# rm_bg = rm_bg[1:vb] 
 m31_sep_bg = (m31_sep.deg[bg_condition])*u.deg #Record background RM positions (angular)
+# m31_sep_bg = m31_sep_bg[1:vb] 
 err_bg = rm_err[bg_condition] #Record background RM error
 
 rm_m31 = rm[m31_condition] #Record m31's RM
+# rm_m31 = rm_m31[1:vb] 
 m31_sep_Rvir = (m31_sep.deg[m31_condition])*u.deg #Record m31's RM separated values.
+# m31_sep_Rvir =m31_sep_Rvir[1:vb] 
 err_m31 = rm_err[m31_condition] #Record m31's RM errors
 
-def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
+def BG_correction(rm_coords, rm_values, bg_coords, bg_values, **kw):
     """
     Perform background subtraction on Rotation Measure (RM) values using 
     RectBivariateSpline interpolation.
@@ -130,7 +142,7 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
         Background-corrected RM values.
     """
     
-    Spline_order = 2
+    Spline_order = 1
 
     #Converting to degrees
     x_bg = bg_coords.ra.deg  #(N,)
@@ -140,7 +152,7 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values):
     rm_y = rm_coords.dec.deg  #(M,)
     
     # Define a regular grid for interpolation
-    grid_res = len(x_bg)*2 # the "N"
+    grid_res = kw["grid_res"] if "grid_res" in kw.keys() else 50 #len(x_bg)*1 # the "N" #The true modifying variable... Spline_order really doesnt do much...
     x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res) #(N,)
     y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res) #(N,)
     X_grid, Y_grid = np.meshgrid(x_grid, y_grid) #each having dimensions (N,N)
@@ -933,4 +945,6 @@ def binned_scatter(x, y, bins):
             bin_stds.append(bin_std_y)
     return np.array(bin_means), np.array(bin_stds), bin_edges
 
-
+def curr_dir_path():
+    """Returns the folder path of the currently running script."""
+    return os.path.dirname(os.path.abspath(__file__)) + "/"
