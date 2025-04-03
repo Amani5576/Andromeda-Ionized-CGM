@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/M31_signal_vs_entire_sky.py", line 1532, in <module>
+    ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+  File "/idia/projects/uct-mega-hi/m31/RM/RM_amani/MASTERS_starter_kit/GitStuff/Andromeda-Ionized-CGM/main.py", line 265, in get_wcs
+    hdu = fits.open(filename)[0]
+  File "/users/amani/.local/lib/python3.10/site-packages/astropy/io/fits/hdu/hdulist.py", line 223, in fitsopen
+    return HDUList.fromfile(
+  File "/users/amani/.local/lib/python3.10/site-packages/astropy/io/fits/hdu/hdulist.py", line 487, in fromfile
+    return cls._readfrom(
+  File "/users/amani/.local/lib/python3.10/site-packages/astropy/io/fits/hdu/hdulist.py", line 1222, in _readfrom
+    raise OSError(
+OSError: No SIMPLE card found, this file does not appear to be a valid FITS file. If this is really a FITS file, try with ignore_missing_simple=True
