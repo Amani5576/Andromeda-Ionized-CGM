@@ -27,10 +27,11 @@ bg_pos_icrs,
 BG_correction, curr_dir_path
 )
 
+grid_res = 50 if args.grid_res is None else args.grid_res
 rm_m31 = rm[m31_condition]
 rm_bg = rm[bg_condition]
-rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, grid_res = 50 if args.grid_res is None else args.grid_res)
-rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg, grid_res = 50 if args.grid_res is None else args.grid_res)
+rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, grid_res = grid_res)
+rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg, grid_res = grid_res)
 
 
 #Using standard error of mean for error bars: 
@@ -52,7 +53,7 @@ plt.grid(True, which="both")
 
 if args.save_plot: #Save individual plots
     path = curr_dir_path() + "Results/"
-    plt.savefig(f"{path}RM_vs_M31_radius_grid_res={args.grid_res}.png", dpi=600, bbox_inches="tight")
+    plt.savefig(f"{path}RM_vs_M31_radius_grid_res={grid_res}.png", dpi=600, bbox_inches="tight")
     print(f"RM_vs_M31_radius has been saved to {path}")
 else:
     plt.show()
