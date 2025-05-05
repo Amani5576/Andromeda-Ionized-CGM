@@ -4,21 +4,42 @@ from main import (
 L_m31, cutoff, rm_m31, rm_bg, rm_m31_coord, PA_bg, 
 m31_sep_bg, PA_m33, m31_condition, m33_m31coord, PA_rm,
 m31_sep_Rvir, m33_sep, m31_maj, m31_min, m31_pa,
-  
+args,
+
 #Importing function
 update_projection, 
 plot_ellipse
 )
-
 
 from matplotlib.colors import ListedColormap
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
 
-# Fill a range of radial distances for background region
-r_min, r_max = L_m31, cutoff.value  #Defining a radial range to fill
-theta_fill = np.linspace(0, 2 * np.pi, 100)  #Coveringentire polar angle
+#Simulating elliptical background region
+def ellipse_r(theta, a, b, pa_rad):
+    theta_rot = theta - pa_rad
+    return (a * b) / np.sqrt((b * np.cos(theta_rot))**2 + (a * np.sin(theta_rot))**2)
+
+theta_fill = np.linspace(0, 2 * np.pi, 1000)
+pa_rad = m31_pa.to(u.rad).value  # Convert once for consistency
+
+if not args.elliptic_CGM:
+    r_min = L_m31
+    r_max = cutoff.value
+    r_min_fill = np.full_like(theta_fill, r_min)
+    r_max_fill = np.full_like(theta_fill, r_max)
+else:
+    b = m31_min
+    a = m31_maj
+    axis_ratio = b / a
+
+    a_min, b_min = L_m31, L_m31 * axis_ratio
+    a_max, b_max = cutoff.value, cutoff.value * axis_ratio
+
+    r_min_fill = ellipse_r(theta_fill, a_min, b_min, pa_rad)
+    r_max_fill = ellipse_r(theta_fill, a_max, b_max, pa_rad)
+
 
                         #away #Neutral #Towards
 cmap = ListedColormap(['red','none','blue'])
@@ -35,7 +56,7 @@ fig, ax = plt.subplots(nrows=len_proj,
                         figsize=figsize)  
 
 rm_m31_normalized = np.where(rm_m31 < 0, -1, np.where(rm_m31 > 0, 1, 0))
-rm_bg_normalized = np.where(rm_bg < 0, -1, np.where(rm_bg > 0, 1, 0))
+# rm_bg_normalized = np.where(rm_bg < 0, -1, np.where(rm_bg > 0, 1, 0))
 
 D = "N" #Starting direction for polar plot
 #Iterating over each projection
@@ -61,7 +82,7 @@ for i, pro_i in enumerate(projections):
     else:
         vmin, vmax = -1.5, 1.5
         # Fill a range of radial distances for background region
-        ax1.fill_between(theta_fill, r_min, r_max, color='grey', 
+        ax1.fill_between(theta_fill, r_min_fill, r_max_fill, color='grey', 
                           alpha=.3)#, label='Background region')
 
         #plot rm within R_vir
@@ -82,10 +103,10 @@ for i, pro_i in enumerate(projections):
         m31_rvir_cbar.set_ticks(ticks)
         m31_rvir_cbar.set_ticklabels(ticklabels)
         
-        #plot background scatter on grey region
-        ax1.scatter(PA_bg, m31_sep_bg,
-                    c= rm_bg_normalized, cmap=cmap, 
-                    s=2, marker='.')
+        # #plot background scatter on grey region
+        # ax1.scatter(PA_bg, m31_sep_bg,
+        #             c= rm_bg_normalized, cmap=cmap, 
+        #             s=2, marker='.')
         
         #Mark M33
         ax1.plot(PA_m33, m33_sep.value, 'ks')#, label="m33")
@@ -121,7 +142,7 @@ for i, pro_i in enumerate(projections):
         vmin, vmax = -100, 100
         cmap = 'Spectral'
         # Fill a range of radial distances for background region
-        ax2.fill_between(theta_fill, r_min, r_max, color='grey', 
+        ax2.fill_between(theta_fill, r_min_fill, r_max_fill, color='grey', 
                           alpha=.3)#, label='Background region')
 
         #plot rm within R_vir
@@ -136,10 +157,10 @@ for i, pro_i in enumerate(projections):
                       fraction=.05)
         m31_rvir_cbar.set_label( r"RM [rad/$m^2]$", labelpad=1)
         
-        #plot background region
-        ax2.scatter(PA_bg, m31_sep_bg, marker='.',
-                    c= rm_bg_normalized, 
-                    s=2, cmap=cmap)
+        # #plot background region
+        # ax2.scatter(PA_bg, m31_sep_bg, marker='.',
+        #             c= rm_bg_normalized, 
+        #             s=2, cmap=cmap)
         
         #Mark M33
         ax2.plot(PA_m33, m33_sep.value, 'ks', label="m33")
@@ -206,7 +227,7 @@ for i, pro_i in enumerate(projections):
                             fig=fig)
 
     # Fill a range of radial distances for background region
-    ax2.fill_between(theta_fill, r_min, r_max, color='grey', 
+    ax2.fill_between(theta_fill, r_min_fill, r_max_fill, color='grey', 
                       alpha=.3)#, label='Background region')
 
     #plot rm within R_vir
@@ -215,11 +236,11 @@ for i, pro_i in enumerate(projections):
                 s=2, marker='.',
                 vmin=-100, vmax=100)
     
-    #plot background region
-    ax2.scatter(PA_bg, m31_sep_bg,
-                c= rm_bg, cmap='Spectral', 
-                s=2, marker='.',
-                vmin=-100, vmax=100)
+    # #plot background region
+    # ax2.scatter(PA_bg, m31_sep_bg,
+    #             c= rm_bg, cmap='Spectral', 
+    #             s=2, marker='.',
+    #             vmin=-100, vmax=100)
     
     #Colorbars for none-normalized background and Rvir RM's are
     #stillsame due to vmin and vmax parametres

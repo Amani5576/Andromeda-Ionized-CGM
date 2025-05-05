@@ -1,4 +1,4 @@
-#Note that this script only declares variables and functions. No ouput graps are produced
+#Note that this script only declares variables and functions. No ouputs are produced
 from astropy.table import Table
 from astropy import units as u
 import numpy as np
@@ -8,15 +8,58 @@ from astropy.wcs import WCS
 import matplotlib.pyplot as plt
 from scipy import stats
 from astropy.coordinates import SkyCoord
-from matplotlib.patches import Rectangle, Circle, Path
+from matplotlib.patches import Rectangle, Circle, Path, Patch
 from scipy.optimize import curve_fit
 from astropy.utils.exceptions import AstropyWarning
 import warnings
 from scipy.interpolate import RectBivariateSpline, griddata
 import os
+import random
 
+from Parsers import args #Personally made parsers
 
-# Suppress specific Astropy warnings
+b_upper_lim = 5 * u.deg if (args.b_limit or args.b_limit_small) else 0 * u.deg
+
+def galactic_cut(RM_lat, RM_lon, rm, rm_err, b_limit=False, extra=None, even_more=None, **kw):
+    """
+    Apply a Galactic latitude cut to the data based on |b| > b_upper_lim.
+    Includes the background (but done separately if provided).
+    
+    Parameters:
+    - RM_lat: array of Galactic latitudes
+    - RM_lon: array of Galactic longitudes
+    - rm: array of rotation measures
+    - rm_err: array of errors on rotation measures
+    - b_limit: bool, if True applies a cut of |b| > 5 degrees
+    - extra: optional, tuple of separation arrays for RM and background
+    
+    Returns:
+    - Filtered RM_lat, RM_lon, rm, rm_err arrays (and background/extra if provided)
+    """
+
+    def applying_mask(*data):
+        RM_lat, *_ = data
+        mask = (np.abs(RM_lat) > b_upper_lim.value)
+        return [d[mask] for d in data if d is not None]
+    
+    #if even_more is not None:
+    #    others = applying_mask(RM_lat, even_more, b_limit=b_limit)[1:]
+
+    # print(f"{len(*(extra[:len(extra)//2] if extra else []))=}")
+    #print(f"{extra[len(extra)//2]=}") if extra else None
+    masked_main = applying_mask(RM_lat, RM_lon, rm, rm_err, *(extra[:len(extra)//2] if extra else []))
+
+    if "BG_data" in kw:
+        if extra:
+            masked_bg = applying_mask(*kw["BG_data"], *(extra[len(extra)//2:] if extra else []))
+        else:
+            masked_bg = applying_mask(*kw["BG_data"])
+            
+        return (*masked_main, *masked_bg)
+
+    return masked_main
+
+#Suppress specific Astropy warnings
 warnings.simplefilter('ignore', AstropyWarning)
 
 #to be used for scaling size of scatter based on their rm value
@@ -26,101 +69,162 @@ R_vir = 300.*u.kpc #Virial Radius of Andromeda in kiloparsecs (kpc)
 cutoff = 30.*u.deg #(in deg) Limit for taking to account background correction
 d_m31 = 780.*u.kpc #Distance to Andromeda in kiloparsecs (kpc)
 
-#Read in catalog.dat file
-t = Table.read("catalog.dat", format = "ascii")
-
-t.rename_column("col9", "l")
-t.rename_column("col10", "b")
-t.rename_column("col17", "RM")
-t.rename_column("col18", "e_RM")
-
-t.keep_columns(["l", "b", "RM", "e_RM"])
-
-RM_unit = u.rad/u.m**2
-
-"""IMPORTANT"""
-sigma_detect_limit = 0
-
-sig_mask = ~(sigma_detect_limit*np.abs(t["e_RM"])>np.abs(t["RM"]))
-t["l"].unit = u.deg
-t["b"].unit = u.deg
-t["RM"].unit = RM_unit
-t["e_RM"].unit = RM_unit
-rm_raw = t["RM"]
-rm_err_raw = t["e_RM"]
-RM_lat = t["l"][sig_mask]
-RM_lon = t["b"][sig_mask]
-rm = rm_raw[sig_mask] #rm must be larger than e_RM
-rm_err = rm_err_raw[sig_mask]
-
 m31_maj = 73.*u.arcmin #Major axis diameter from POSS in arcmin
 m31_min = 45.*u.arcmin #Minor axis diameter from POSS in arcmin
 m31_pa = 37.7*u.deg #PA CCW from North from de Vaucouleurs et al. 1958.  
 
-position = SkyCoord(RM_lat, RM_lon, unit = "degree", frame = "galactic")
-
-eq_pos = position.transform_to('icrs') #Equitorial positions
-
+#Position of M31 (in ICRS coordinates)
 m31_pos = SkyCoord(ra = "00:42:44.35", dec = "+41:16:08.6", unit = (u.hourangle, u.deg), frame = 'icrs')
+m31_lat = m31_pos.transform_to('galactic').b
 
-new_frame_of_reference = m31_pos.skyoffset_frame()
+def vars_before_correction(sigma_detect_limit = args.sig_limit): #IMPORTANT
+    
+    """
+    Makes it easier to recreate many initial varibales that dont get affected by
+    further use of galactic_cut function
+    """
+    #Read in catalog.dat file
+    t = Table.read("catalog.dat", format = "ascii")
 
-#Convert coordinates to M31 reference frame
-rm_m31_coord = eq_pos.transform_to(new_frame_of_reference)
+    t.rename_column("col9", "l")
+    t.rename_column("col10", "b")
+    t.rename_column("col17", "RM")
+    t.rename_column("col18", "e_RM")
 
-# M31 separations
-m31_sep = eq_pos.separation(m31_pos)
-m31_theta = eq_pos.position_angle(m31_pos) #Polar angle
+    t.keep_columns(["l", "b", "RM", "e_RM"])
 
-#Distance of Cloud 6 from M31 (just because)
-cloud6_pos = SkyCoord("01:08:29.6 +37:45:00", unit = (u.hourangle, u.deg), frame = 'icrs')
-#print(cloud6_pos)
+    RM_unit = u.rad/u.m**2
 
-m33_pos = SkyCoord("23.462042 30.660222", unit = (u.deg, u.deg), frame = 'icrs')
+    sig_mask = ~(sigma_detect_limit*np.abs(t["e_RM"])>np.abs(t["RM"]))
+    t["l"].unit = u.deg
+    t["b"].unit = u.deg
+    t["RM"].unit = RM_unit
+    t["e_RM"].unit = RM_unit
+    rm_raw = t["RM"]
+    rm_err_raw = t["e_RM"]
+    RM_lon = t["l"][sig_mask] #Longitude coordinates of RMs
+    RM_lat = t["b"][sig_mask] #Latitude coordinates of RMs
+    rm = rm_raw[sig_mask] #rm must be larger than e_RM
+    rm_err = rm_err_raw[sig_mask]
 
-m33_m31coord = m33_pos.transform_to(new_frame_of_reference)
+    #NOTE: This galactic cut is ineffective as long as b_limit is not given as an argument.
+    RM_lat, RM_lon, rm, rm_err = galactic_cut(RM_lat, RM_lon, rm, rm_err, b_limit=args.b_limit)
 
-m33_sep = m33_m31coord.separation(m31_pos) #Angular distance from m31.
-m33_theta = m33_m31coord.position_angle(m31_pos)
+    position = SkyCoord(RM_lon, RM_lat, unit="deg", frame="galactic")
+    eq_pos = position.transform_to('icrs')  #Equatorial positions
+    new_frame_of_reference = m31_pos.skyoffset_frame()
 
-          #Virial radius,#distance to Andromeda
-L_m31 = (np.arctan(R_vir/d_m31)*u.rad.to(u.deg)).value #no longer uses small angle approximation.
+    #Convert coordinates to M31 reference frame
+    rm_m31_coord = eq_pos.transform_to(new_frame_of_reference)
 
-#Creating conditions.         EnsuresRM measurement for bg is within 30 degrees of M31
-bg_condition = (m31_sep.deg > L_m31) & (m31_sep.deg < cutoff.value)
-m31_condition = m31_sep.deg <= L_m31
+    #M31 separations
+    m31_sep = eq_pos.separation(m31_pos)
+    m31_theta = eq_pos.position_angle(m31_pos)  #Polar angle
 
-# vb  = 10
+    #Distance of Cloud 6 from M31 (for reference)
+    cloud6_pos = SkyCoord("01:08:29.6 +37:45:00", unit=(u.hourangle, u.deg), frame='icrs')
 
-#Applying conditions to filter RM positions for CGM of M31 and its BG alone.
-bg_pos = rm_m31_coord[bg_condition]
-# bg_pos = bg_pos[1:vb] 
-bg_pos_icrs = bg_pos.transform_to("icrs") 
-rm_pos = rm_m31_coord[m31_condition]
-# rm_pos = rm_pos[1:vb] 
-rm_pos_icrs = rm_pos.transform_to("icrs") 
+    m33_pos = SkyCoord("23.462042 30.660222", unit="deg", frame='icrs')
+    m33_m31coord = m33_pos.transform_to(new_frame_of_reference)
+    m33_sep = m33_m31coord.separation(m31_pos)
+    m33_theta = m33_m31coord.position_angle(m31_pos)
 
-#Done in year 2025 for plotting RM vs Galactic Azimuth
-rm_pos_gal_lat = position.b.deg[m31_condition]
-# rm_pos_gal_lat = rm_pos_gal_lat[1:vb] 
-rm_pos_gal_lat_bg = position.b.deg[bg_condition]
-# rm_pos_gal_lat_bg = rm_pos_gal_lat_bg[1:vb] 
+    #Virial radius angular size
+    L_m31 = (np.arctan(R_vir / d_m31) * u.rad.to(u.deg)).value
 
+    #Conditions
+    if args.elliptic_CGM:
+        #Offsets in the sky-offset frame (in arcmins)
+        x = rm_m31_coord.lon.arcmin
+        y = rm_m31_coord.lat.arcmin
 
-# #Applying conditions to filter RM values and their errors
-rm_bg = rm[bg_condition] #Record background RM
-# rm_bg = rm_bg[1:vb] 
-m31_sep_bg = (m31_sep.deg[bg_condition])*u.deg #Record background RM positions (angular)
-# m31_sep_bg = m31_sep_bg[1:vb] 
-err_bg = rm_err[bg_condition] #Record background RM error
+        #Position angle to radians and applying rotation
+        theta = m31_pa.to(u.rad).value  #rotation angle
+        x_rot = x * np.cos(theta) + y * np.sin(theta)
+        y_rot = -x * np.sin(theta) + y * np.cos(theta)
 
-rm_m31 = rm[m31_condition] #Record m31's RM
-# rm_m31 = rm_m31[1:vb] 
-m31_sep_Rvir = (m31_sep.deg[m31_condition])*u.deg #Record m31's RM separated values.
-# m31_sep_Rvir =m31_sep_Rvir[1:vb] 
-err_m31 = rm_err[m31_condition] #Record m31's RM errors
+        #Defining semi-major and semi-minor axes in arcmin
 
-def BG_correction(rm_coords, rm_values, bg_coords, bg_values, **kw):
+        major_deg = L_m31  # Full major axis scaled to R_vir in degrees
+        minor_deg = major_deg * (m31_min / m31_maj).value  # Preserve axis ratio
+
+        a = major_deg * 60  # semi-major axis in arcmin
+        b = minor_deg * 60  # semi-minor axis in arcmin
+        
+        ellipse = lambda a, b: (x_rot**2 / a**2 + y_rot**2 / b**2)
+
+        #Creation of elliptical condition for M31:
+        m31_condition = ellipse(a, b) <= 1
+
+        # Convert 9 degrees to arcminutes
+        bg_extent = ((cutoff.value - L_m31)*u.deg).to(u.arcmin).value
+
+        # New outer semi-axes for background
+        a_outer = a + bg_extent
+        b_outer = b + bg_extent
+
+        # Updated conditions for elliptical annulus
+        outer_condition =  ellipse(a_outer, b_outer) <= 1
+        inner_condition = ellipse(a, b) >= 1
+
+        #Creation of elliptical condition for M31'a BG region
+        bg_condition = inner_condition & outer_condition
+        
+    else:
+        bg_condition = (m31_sep.deg > L_m31) & (m31_sep.deg < cutoff.value)
+        m31_condition = m31_sep.deg <= L_m31
+
+    #Filtered positions
+    bg_pos = rm_m31_coord[bg_condition]
+    bg_pos_icrs = bg_pos.transform_to("icrs")
+    rm_pos = rm_m31_coord[m31_condition]
+    rm_pos_icrs = rm_pos.transform_to("icrs")
+
+    #Galactic latitudes
+    rm_pos_gal_lat = position.b.deg[m31_condition]
+    rm_pos_gal_lat_bg = position.b.deg[bg_condition]
+
+    #RM and error values
+    rm_bg = rm[bg_condition]
+    m31_sep_bg = (m31_sep.deg[bg_condition]) * u.deg
+    err_bg = rm_err[bg_condition]
+
+    rm_m31 = rm[m31_condition]
+    m31_sep_Rvir = (m31_sep.deg[m31_condition]) * u.deg
+    err_m31 = rm_err[m31_condition]
+
+    return (
+        RM_lat, RM_lon, rm, rm_err,
+        position, eq_pos, new_frame_of_reference,
+        rm_m31_coord, m31_sep, m31_theta,
+        cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta,
+        L_m31, bg_condition, m31_condition,
+        bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs,
+        rm_pos_gal_lat, rm_pos_gal_lat_bg,
+        rm_bg, m31_sep_bg, err_bg,
+        rm_m31, m31_sep_Rvir, err_m31
+    )
+
+#Calling out all (intial) required variables
+(RM_lat, RM_lon, rm, rm_err,
+        position, eq_pos, new_frame_of_reference,
+        rm_m31_coord, m31_sep, m31_theta,
+        cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta,
+        L_m31, bg_condition, m31_condition,
+        bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs,
+        rm_pos_gal_lat, rm_pos_gal_lat_bg,
+        rm_bg, m31_sep_bg, err_bg,
+        rm_m31, m31_sep_Rvir, err_m31
+        ) = vars_before_correction()
+    
+#Calculating polar angles (#More variable declarations)
+shift = 180*u.deg
+PA_bg = m31_theta[bg_condition] + shift
+PA_rm = m31_theta[m31_condition] + shift
+PA_m33 = m33_theta + shift
+
+print(f"{args.bg_corr=}")
+def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_corr, **kw):
     """
     Perform background subtraction on Rotation Measure (RM) values using 
     RectBivariateSpline interpolation.
@@ -135,12 +239,16 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, **kw):
         Sky coordinates of background RM measurements.
     bg_values : np.ndarray
         RM values at background positions.
-
+    bg_corr   : bool
+        Returns uncorrected RM if False (given by argument parsing --bg-corr)
     Returns:
     --------
     np.ndarray
         Background-corrected RM values.
     """
+    
+    if not bg_corr: #no Backgorund correction with spline fit
+        return rm_values
     
     Spline_order = 1
 
@@ -151,21 +259,21 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, **kw):
     rm_x = rm_coords.ra.deg  #(M,)
     rm_y = rm_coords.dec.deg  #(M,)
     
-    # Define a regular grid for interpolation
-    grid_res = kw["grid_res"] if "grid_res" in kw.keys() else 50 #len(x_bg)*1 # the "N" #The true modifying variable... Spline_order really doesnt do much...
+    #Define a regular grid for interpolation
+    grid_res = kw["grid_res"] if "grid_res" in kw.keys() else 50 #len(x_bg)*1 #the "N" #The true modifying variable... Spline_order really doesnt do much...
     x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res) #(N,)
     y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res) #(N,)
     X_grid, Y_grid = np.meshgrid(x_grid, y_grid) #each having dimensions (N,N)
     
     #Ensuring griddata inputs have correct dimensions
-    bg_points = np.column_stack((x_bg, y_bg))  # (N,2) format required by griddata
-    grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))  # (N*N,2)
+    bg_points = np.column_stack((x_bg, y_bg))  #(N,2) format required by griddata
+    grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))  #(N*N,2)
     
     #Interpolating background values onto grid
-    bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')  # (N*N,)
-    bg_grid = bg_grid.reshape(X_grid.shape)  # Reshape back to (N,N)
+    bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')  #(N*N,)
+    bg_grid = bg_grid.reshape(X_grid.shape)  #Reshape back to (N,N)
     
-    # Handle NaNs (replace with nearest-neighbor interpolation)
+    #Handle NaNs (replace with nearest-neighbor interpolation)
     if np.isnan(bg_grid).any():
         bg_grid = griddata(bg_points, bg_values, grid_points, method='nearest')
         bg_grid = bg_grid.reshape(X_grid.shape)
@@ -182,15 +290,45 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, **kw):
     
     return rm_corrected
 
-#Conducting backgroudn subtraction.  
+#Conducting background subtraction.  
 rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg)
 rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg) #Doing same for background itself
 #Validation/Sanity Check
-# print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
+#print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
-bin_num = 22
+#print(f"{len(m31_sep_Rvir)=}")
+#Note that the positions of RM must be changed based on the use of the function and will be changed back to ICRS coordinates
+#imposing |b|>5 deg jsut after spline correction only for M31 since b_limit_small is used.
+#Note, function also takes care of similar format for the background region.
+
+(rm_pos_gal_lat, rm_m31_lon, rm_m31, err_m31, m31_sep_Rvir, PA_rm,
+ rm_pos_gal_lat_bg, rm_bg_lon, rm_bg, err_bg, m31_sep_bg, PA_bg
+                                                                ) = galactic_cut(RM_lat=rm_pos_gal_lat,
+                                                                        RM_lon=rm_pos_icrs.galactic.l.deg, 
+                                                                        rm=rm_m31, rm_err=err_m31,
+                                                                        BG_data= (
+                                                                            rm_pos_gal_lat_bg,
+                                                                            bg_pos_icrs.galactic.l.deg, 
+                                                                            rm_bg, err_bg
+                                                                        ),
+                                                                        extra=( #Other data that needs be stripped to have the same number of data points
+                                                                            m31_sep_Rvir, PA_rm,
+                                                                            m31_sep_bg, PA_bg
+                                                                        ),
+                                                                        b_limit=args.b_limit_small
+                                                                        )
+#print(f"{rm_pos_gal_lat[0]=}"); import sys; sys.exit()
+rm_pos_gal = SkyCoord(l=rm_m31_lon, b=rm_pos_gal_lat, unit="deg", frame="galactic")
+bg_pos_gal = SkyCoord(l=rm_bg_lon, b=rm_pos_gal_lat_bg, unit="deg", frame="galactic")
+rm_pos_icrs = rm_pos_gal.icrs
+bg_pos_icrs = bg_pos_gal.icrs
+# print(f"{len(m31_sep_Rvir)=}") 
+
+#IMPORTANT
+bin_num = 10
+
 #Calculate mean of RM values within Rvir of M31
-bin_means, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
+bin_means, bin_edges_mean_m31, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'mean', bins = bin_num)
 
 #Calculate mean of RM values within Rvir of M31 (inclusive of background RM for R_vir)
 (bin_means_past_rvir, 
@@ -208,10 +346,10 @@ binnumber_past_rvir )= stats.binned_statistic(
     np.concatenate([rm_m31,rm_bg]), 
     statistic = 'median', bins = bin_num)
 
-bin_med, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
+bin_med, bin_edges_median_m31, binnumber = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic = 'median', bins = bin_num)
 
-bin_width = (bin_edges[1] - bin_edges[0])
-bin_centers = bin_edges[1:] - bin_width/2
+bin_width = (bin_edges_mean_m31[1] - bin_edges_mean_m31[0])
+bin_centers = bin_edges_mean_m31[1:] - bin_width/2
 
 #Convert angles to linear projected distances (No longer takes to account small angle approximation)
 get_projected_d = lambda ang, d: (d * np.tan(ang.to(u.rad))).to(u.kpc)
@@ -227,9 +365,10 @@ get_angle_sep_from_distance_reverse = lambda Ang, d: np.tan(Ang.to(u.rad)) * d.t
 d_bg = get_projected_d(m31_sep_bg, d_m31)
 d_rm = get_projected_d(m31_sep_Rvir, d_m31) #Is only for within R_vir
 d_m33 = get_projected_d(m33_sep, d_m31)
+
 d_bin_centers = get_projected_d(bin_centers*u.deg, d_m31)
 
-# SEMed = lambda sig, N: 1.253*sig/N #Using a bootstrap method of calculating standard error of median
+#SEMed = lambda sig, N: 1.253*sig/N #Using a bootstrap method of calculating standard error of median
 
 #Using standard error of mean for error bars: 
 bin_std, bin_edges, binnumber = stats.binned_statistic(m31_sep_Rvir, 
@@ -245,21 +384,161 @@ binnumber_past_rvir )= stats.binned_statistic(
     np.concatenate([rm_m31,rm_bg]), 
     statistic = lambda rm_m31: stats.sem(rm_m31), #Standard Error ofMean
     bins = bin_num) 
-    
-#Calculating polar angles
-shift = 180*u.deg
-PA_bg = m31_theta[bg_condition] + shift
-PA_rm = m31_theta[m31_condition] + shift
-PA_m33 = m33_theta + shift
 
-# =============================================================================
-# M33 Radial distance from M31 --> d_m33
-# M33 Angular distance from M31 --> m33_sep 
-# Background RM Radial distance from M31 --> d_bg
-# Background RM Angular distance from M31 --> m31_sep_bg
-# R_vir RM Radial distance from M31 --> d_rm 
-# R_vir RM Angular distance from M31 --> m31_sep_Rvir
-# =============================================================================
+
+#=============================================================================
+#M33 Radial distance from M31 --> d_m33
+#M33 Angular distance from M31 --> m33_sep 
+#Background RM Radial distance from M31 --> d_bg
+#Background RM Angular distance from M31 --> m31_sep_bg
+#R_vir RM Radial distance from M31 --> d_rm 
+#R_vir RM Angular distance from M31 --> m31_sep_Rvir
+#=============================================================================
+
+
+#The following variables below are for M33 Aanlysis alone (Not interpolated from M31)
+
+"""Given by: https://watermark.silverchair.com/sty1946.pdf?token=AQECAHi208BE49Ooan9kkhW_Ercy7Dm3ZL_9Cf3qfKAc485ysgAAA1MwggNPBgkqhkiG9w0BBwagggNAMIIDPAIBADCCAzUGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMZOR9nxmNwLQ-n5xaAgEQgIIDBkOA2_nPRhEoUdyVWWdH7HjcxkZI91FVxVd10MSR2B8JJzz4o19U3CHtrPc6xBwZV5tkx5Rn_QxT82lUN9jD7TMupO4NOSNc-QMHGiXmwMKV3QD9Q742oJ2-nsU6LP3-LDkfkuj9IlIWs1iBz3VwHJv1uUJw1ec5gomXmkmSfC338C5SuOM05Iifv7RzQON3BAPcK4kyL_L4imLPEKkIbtPvNH24gxal7OyYKvfQ6G0wnPrNFBJUAOYvpApZkq-YBpcFp35zPstuBI6pR_ngTAlU5PBY3yXsXyKZp9BYzcICEu1cUkgIELIb-2OAPk2PvytZfXPqmzq6G_fURukCPKje1zFO03UZ5_PSr1VNPv5WPNTIkXdzRGnkivyeQlg48b3skkv5Ox9yJH8qr_TOe8qmZf2fP_eDO14RVsEfu6Is_Kx7AWEbdTaRukvWNnbYsTWMZNDn8d-jcYDtSoAxDVF8y8TrYVFS6prrip_ZmnBABoAjJ2O91BV4nddoTub3XsSkWDhStt9_N-Su0FxZFLjyHTcYSZUf4nW4nykzAl5KlyHdtcQguv8b5HWuBNoJ1867irDVGNDzHPcksBmxA0ftVBvlvCtJ8TCPq5Gux0EZctAMzL_Qv7_Pwg7uDrqt9d7mBIdNKUgDbUIi4ssBarnv4vWFoN5TnbaRf0VUjxaw8pWHGKqMyXotZWWSdy9tpyd2d52lG4itwUATBhbPl9pbGfYBM0GR8rrS5eYjcOyMnk_VozW23Nc5vI3QO8NfxZ8Jd9ETQEOzXUzsa0ppsSK6AQbir3h1dGGCVMzxyyYNQM1je14NO98daWiRozsKXK6l8r8BsyOKBOqagjBDSCfC-5DGGGUZ1jx1ZICv_776aLw3b6iEv9awF6C6DUfbFxE1yntrG0cRTgZ11kYrB8ABA4LXBmUBV7FXl-f7gsNIvuhklBqIOFUXDv-R_pBeVu6K6KN1N26AzHgR-Is4-wU6TpS3ugdJRpIMezkZ9fgzVX4q5Aqlj64jLHilUeciIDnXeUr2xQ
+On page 1885 (Figure 1)"""
+d_m33 = 794 * u.kpc
+R_vir_m33 = 160 * u.kpc
+
+cutoff_m33 = cutoff * (R_vir_m33 / R_vir)
+
+def vars_before_correction_m33(eq_pos, rm, rm_err, position, R_vir_m33, d_m33, cutoff_m33):
+    
+    m33_pos = SkyCoord("23.462042 30.660222", unit="deg", frame='icrs')
+    new_frame_of_reference = m33_pos.skyoffset_frame()
+    rm_m33_coord = eq_pos.transform_to(new_frame_of_reference)
+
+    #M33 separations
+    m33_sep_new = eq_pos.separation(m33_pos)
+    m33_theta = eq_pos.position_angle(m33_pos)
+
+    #Virial radius angular size
+    L_m33 = (np.arctan(R_vir_m33 / d_m33) * u.rad.to(u.deg)).value
+
+    #Conditions
+    bg_condition_m33 = (m33_sep_new.deg > L_m33) & (m33_sep_new.deg < cutoff_m33.value)
+    m33_condition = m33_sep_new.deg <= L_m33
+
+    #Filtered positions
+    bg_pos_m33 = rm_m33_coord[bg_condition_m33]
+    bg_pos_icrs_m33 = bg_pos_m33.transform_to("icrs")
+    rm_pos_m33 = rm_m33_coord[m33_condition]
+    rm_pos_icrs_m33 = rm_pos_m33.transform_to("icrs")
+
+    #Galactic latitudes
+    rm_pos_gal_lat_m33 = position.b.deg[m33_condition]
+    rm_pos_gal_lat_bg_m33 = position.b.deg[bg_condition_m33]
+
+    #RM and error values
+    rm_bg_m33 = rm[bg_condition_m33]
+    m33_sep_bg = (m33_sep_new.deg[bg_condition_m33]) * u.deg
+    err_bg_m33 = rm_err[bg_condition_m33]
+
+    rm_m33 = rm[m33_condition]
+    m33_sep_Rvir = (m33_sep_new.deg[m33_condition]) * u.deg
+    err_m33 = rm_err[m33_condition]
+
+    return (
+        new_frame_of_reference, rm_m33_coord,
+        m33_sep_new, m33_theta,
+        L_m33, bg_condition_m33, m33_condition,
+        bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
+        rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
+        rm_bg_m33, m33_sep_bg, err_bg_m33,
+        rm_m33, m33_sep_Rvir, err_m33
+    )
+
+(new_frame_of_reference, rm_m33_coord,
+        m33_sep_new, m33_theta,
+        L_m33, bg_condition_m33, m33_condition,
+        bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
+        rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
+        rm_bg_m33, m33_sep_bg, err_bg_m33,
+        rm_m33, m33_sep_Rvir, err_m33
+    ) = vars_before_correction_m33(eq_pos, rm, rm_err, position, R_vir_m33, d_m33, cutoff_m33)
+
+rm_m33 = BG_correction(rm_pos_icrs_m33, rm_m33, bg_pos_icrs_m33, rm_bg_m33)
+rm_bg_m33 = BG_correction(bg_pos_icrs_m33, rm_bg_m33, bg_pos_icrs_m33, rm_bg_m33) #Doing same for background itself
+
+#Imposing |b|>5 deg, right after Spline fitting for m33 (similar to M31)
+#print(f"{len(m33_sep_Rvir)=}")
+(rm_pos_gal_lat_m33, rm_m33_lon, rm_m33, err_m33, m33_sep_Rvir,
+ rm_pos_gal_lat_bg_m33, rm_bg_lon_m33, rm_bg_m33, err_bg_m33, m33_sep_bg
+                                                            )= galactic_cut(RM_lat=rm_pos_gal_lat_m33,
+                                                                            RM_lon=rm_pos_icrs_m33.galactic.l.deg, 
+                                                                            rm=rm_m33, rm_err=err_m33,
+                                                                            BG_data= (
+                                                                                bg_pos_icrs_m33.galactic.b.deg,
+                                                                                bg_pos_icrs_m33.galactic.l.deg, 
+                                                                                rm_bg_m33, err_bg_m33
+                                                                                ),
+                                                                            extra=( #Other data that needs be stripped to have the same number of data points
+                                                                                m33_sep_Rvir,
+                                                                                m33_sep_bg
+                                                                                ),
+                                                                                b_limit=args.b_limit_small
+                                                                                )
+#print(f"{len(m33_sep_Rvir)=}") ; import sys; sys.exit()
+rm_pos_gal_m33 = SkyCoord(l=rm_m33_lon, b=rm_pos_gal_lat_m33, unit="deg", frame="galactic")
+bg_pos_gal_m33 = SkyCoord(l=rm_bg_lon_m33, b=rm_pos_gal_lat_bg_m33, unit="deg", frame="galactic")
+rm_pos_icrs_m33 = rm_pos_gal.icrs
+bg_pos_icrs_m33 = bg_pos_gal.icrs
+
+d_bg_m33 = get_projected_d(m33_sep_bg, d_m33)
+d_rm_m33 = get_projected_d(m33_sep_Rvir, d_m33) #Is only for within R_vir
+
+bin_num_m33 = bin_num #Same number of bins as for M31
+
+#Calculate mean of RM values within Rvir of M33
+bin_means_m33, bin_edges_m33, binnumber_m33 = stats.binned_statistic(m33_sep_Rvir, rm_m33, statistic = 'mean', bins = bin_num_m33)
+
+#Using standard error of mean for error bars: 
+bin_std_m33, bin_edges_m33, binnumber_m33 = stats.binned_statistic(m33_sep_Rvir, 
+    rm_m33, 
+    statistic = lambda rm_m33: stats.sem(rm_m33), #Standard Error ofMean
+    bins = bin_num_m33)  
+
+def plot_m31_stats(ax, d_bin_cent=d_bin_centers, **kw):
+
+    which = kw.get("title", "both")
+    color = kw.get("color", "r")
+    alpha = 1
+    #Extract values from Astropy Quantity objects if they exist
+    d_bin_cent_values = d_bin_cent.value if hasattr(d_bin_cent, 'value') else d_bin_cent
+    bin_means_values = np.absolute(bin_means.value) if hasattr(bin_means, 'value') else np.absolute(bin_means)
+    bin_med_values = np.absolute(bin_med.value) if hasattr(bin_med, 'value') else np.absolute(bin_med)
+    bin_std_values = bin_std.value if hasattr(bin_std, 'value') else bin_std
+
+    #Determine markeredgecolor based on the color value
+    if color == "white": markeredgecolor = "k"
+    elif color == "k": markeredgecolor = "white"
+    else: markeredgecolor = "k" if which != "both" else None
+
+    #Save Mean values to file
+    if which == "both" or which == "Mean":
+        ax.errorbar(d_bin_cent_values, bin_means_values, yerr=bin_std_values, 
+                    color=color, fmt='.-', alpha=alpha, label="M31 mean", capsize=3, 
+                    markeredgecolor=markeredgecolor
+                   )
+        #Save Mean values in a text file with appropriate units
+        mean_filename = f"m31_mean_values_{bin_num}_bins.txt"
+        header_mean = "Bin Center [kpc], Mean |RM| Value [rad/m^2], |RM| err [rad/m^2]"
+        np.savetxt(mean_filename, np.column_stack((d_bin_cent_values, bin_means_values, bin_std_values)),
+                   header=header_mean, fmt='%0.6f')
+
+    #Save Median values to file
+    if which == "both" or which == "Median":
+        ax.errorbar(d_bin_cent_values, bin_med_values, yerr=bin_std_values, 
+                    color=kw.get("color", 'r' if "title" in kw else 'orange'), fmt='.-', capsize=3, 
+                    markeredgecolor=markeredgecolor, alpha=alpha, label="M31 median")
+        #Save Median values in a text file with appropriate units
+        median_filename = f"m31_median_values_{bin_num}_bins.txt"
+        header_median = "Bin Center [kpc], Median |RM| Value [rad/m^2], |RM| err [rad/m^2]"
+        np.savetxt(median_filename, np.column_stack((d_bin_cent_values, bin_med_values, bin_std_values)),
+                   header=header_median, fmt='%0.6f')
 
 def get_wcs(filename):
     hdu = fits.open(filename)[0]
@@ -312,7 +591,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
     #Parametric equation of ellipse in polar coordinates
     r = (major_axis * minor_axis) / np.sqrt((minor_axis * np.cos(theta))**2 + (major_axis * np.sin(theta))**2)
     
-    # Rotate ellipse
+    #Rotate ellipse
     x = r * np.cos(theta)
     y = r * np.sin(theta)
     x_rot = x * np.cos(PA_rad) - y * np.sin(PA_rad)
@@ -325,7 +604,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
     #plot ellipse
     if ax_small: ax.plot(theta_rot, r_rot, label='ellipse')
     
-    # Plotting major axis line
+    #Plotting major axis line
     if ax_small: 
         major_line_r = np.array([0, major_axis])
         major_line_radians = np.array([PA_rad, PA_rad])
@@ -334,7 +613,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
         major_line_r = np.array([0, 30])
         major_line_radians = np.array([np.pi+PA_rad, np.pi+PA_rad])
         ax.plot(major_line_radians, major_line_r, color='purple', linestyle='-')
-        # print(f"{np.rad2deg(major_line_radians)-180=}")
+        #print(f"{np.rad2deg(major_line_radians)-180=}")
     
         major_line_radians = np.array([PA_rad, PA_rad])
         ax.plot(major_line_radians, major_line_r, color='purple', linestyle='-')#, label='Major Axis (Extended)')
@@ -350,7 +629,7 @@ def plot_ellipse(ax, major_axis, minor_axis, PA, ax_small=False):
         minor_line_r = np.array([0, 30])
         minor_line_radians = np.array([PA_rad + np.pi/2 + np.pi, PA_rad + np.pi/2 + np.pi]) #at an angle of 90 degrees
         ax.plot(minor_line_radians, minor_line_r, color='r', linestyle='-')
-        # print(f"{np.rad2deg(minor_line_radians)-180}=")
+        #print(f"{np.rad2deg(minor_line_radians)-180}=")
     
         minor_line_radians = np.array([PA_rad, PA_rad])
 
@@ -366,13 +645,13 @@ def convert_txt_to_Skycoord(file, withNames=False):
         RA, DEC, NAME = False, False, False
         
         for row in reader:
-            if not row:  # Skip empty lines
+            if not row:  #Skip empty lines
                 continue
             if row[0] == "RA": RA, DEC, NAME = True, False, False ; continue
             elif row[0] == "DEC": RA, DEC, NAME = False, True, False; continue
             elif row[0] == "NAME": RA, DEC, NAME = False, False, True; continue
             
-            if RA: ra_list.append(row[0].strip())  # Strip any extra spaces
+            if RA: ra_list.append(row[0].strip())  #Strip any extra spaces
             elif DEC: dec_list.append(row[0].strip())
             elif NAME and withNames: name_list.append(row[0].strip())
 
@@ -406,7 +685,7 @@ def ra_dec_to_pixels(RA, Dec, **kw):
 
     return np.array(X_pixels), np.array(Y_pixels)
 
-def print_smoothing_scale(delts, std_x, std_y, nsig):
+def get_smoothing_scale(delts, std_x, std_y, nsig):
     """
     Computes kernel width in pixels and smoothing scale in degrees.
 
@@ -435,27 +714,42 @@ def print_smoothing_scale(delts, std_x, std_y, nsig):
     print(f"Smoothing scale (X): {smoothing_scale_x:.3f} degrees")
     print(f"Smoothing scale (Y): {smoothing_scale_y:.3f} degrees")
 
+    return smoothing_scale_x, smoothing_scale_y #For file naming when saving plot
+
 def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=5000, nsig=1):
 
     im = np.zeros((imsize, imsize), dtype=float)
 
     x0s, y0s = ra_dec_to_pixels(ra, dec, fitfile=fitfile)
-    
+
+    sft = .8 #Parametre for lightly shifting position
+    x0s += sft; y0s += sft #Slight shift to be in sync with wcs axis wehn plotting RM_smoothing.py
+
     std_x, std_y = tuple(map(np.std,(x0s, y0s)))
+    
+    #Making them the same from now on: 
+    std = max(np.std(x0s), np.std(y0s))
+    std_x = std_y = std
     # print(f"{std_x=}")
     # print(f"{std_y=}")
 
     """IMPORTANT"""
-    smooth = 1.1 #Factor for smoothing scatter plot via 2d guassian
+    if args.elliptic_CGM:
+        smooth = 1.2
+        #For half major axis
+        # smooth = 2.5 #Factor for smoothing scatter plot via 2d guassian
+    else:
+        smooth = 1.1 #Factor for smoothing scatter plot via 2d guassian
+
     std_x, std_y = smooth*std_x, smooth*std_y
     
     DELTS = fits.open('LGSNLGSR.SQLGBB.FITS')[0].header['CDELT*'][:2]
-    print_smoothing_scale(DELTS, std_x=std_x, std_y=std_y, nsig=nsig)
+    kernel_deg = get_smoothing_scale(DELTS, std_x=std_x, std_y=std_y, nsig=nsig)
     
-    # rm_m31_normalized = np.where(rm_m31 < 0, -1, np.where(rm_m31 > 0, 1, 0))
+    #rm_m31_normalized = np.where(rm_m31 < 0, -1, np.where(rm_m31 > 0, 1, 0))
     
     sxs = [std_x]*len(x0s)
-    sys = [std_y]*len(x0s)
+    sys = [std_y]*len(y0s)
     amps = rm_m31
         
     for x0, y0, sx, sy, amp in zip(x0s, y0s, sxs, sys, amps):
@@ -467,18 +761,17 @@ def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=5000, nsig=1):
         ylo = max(ylo, 0)
         yhi = min(yhi, imsize)
 
-        # Generate grids of x and y coordinates
+        #Generate grids of x and y coordinates
         imx, imy = np.meshgrid(np.arange(xlo, xhi), np.arange(ylo, yhi))
 
-        # Ensure dimensions match
+        #Ensure dimensions match
         if imx.size == 0 or imy.size == 0:
             continue
 
-        # Calculate Gaussian distribution and add toimage
+        #Calculate Gaussian distribution and add toimage
         im[ylo:yhi, xlo:xhi] += gauss2d(imx, imy, amp, x0, y0, sx, sy)
 
-    return im
-
+    return im, kernel_deg
 
 def get_width_midpoints(patchname): 
     
@@ -486,7 +779,7 @@ def get_width_midpoints(patchname):
     vert = patchname.get_path().vertices
     vertices = patchname.get_patch_transform().transform(vert) 
     
-    # Calculate lengths of all edges
+    #Calculate lengths of all edges
     edges = [
         (vertices[0], vertices[1]),
         (vertices[1], vertices[2]),
@@ -511,70 +804,70 @@ def points_inOrOut_patch(p, patchname, mask, rm_s, rm_errs, In=True, **kw):
     """
     Handle points near poles, reflecting RA when declination approaches 90 or -90.
     """
-    val_ra = 360  # RA range (0 to 360 degrees)
-    tolerance = 1e-6  # Small tolerance to avoid boundary issues
+    val_ra = 360  #RA range (0 to 360 degrees)
+    tolerance = 1e-6  #Small tolerance to avoid boundary issues
 
     def _points_in_or_out_with_mirrored_RA(x, y, patch):
-        # Transform vertices of patch
+        #Transform vertices of patch
         patch_vertices = patch.get_path().vertices
         patch_vertices_transformed = patch.get_patch_transform().transform(patch_vertices)
 
-        ra_vertices = patch_vertices_transformed[:, 0]  # RA vertices
-        dec_vertices = patch_vertices_transformed[:, 1]  # Dec vertices
+        ra_vertices = patch_vertices_transformed[:, 0]  #RA vertices
+        dec_vertices = patch_vertices_transformed[:, 1]  #Dec vertices
 
-        # Determine where dec is greater than 90 or less than -90
+        #Determine where dec is greater than 90 or less than -90
         near_north_pole = dec_vertices > 90
         near_south_pole = dec_vertices < -90
 
-        # Collect paths for standard points inside patch
+        #Collect paths for standard points inside patch
         patch_path = Path(patch_vertices_transformed)
-        x_wrapped = np.mod(x, val_ra)  # Wrap RA to [0, 360)
+        x_wrapped = np.mod(x, val_ra)  #Wrap RA to [0, 360)
 
-        # Fix points near RA=360 boundary
+        #Fix points near RA=360 boundary
         x_wrapped = np.where(np.abs(x_wrapped - val_ra) < tolerance, 0, x_wrapped)
 
-        # Initial mask: points within patch
+        #Initial mask: points within patch
         combined_mask = patch_path.contains_points(np.vstack((x_wrapped, y)).T)
 
-        # If patch is near North Pole
+        #If patch is near North Pole
         if np.any(near_north_pole):
-            # Reflect RA points for dec > 90
+            #Reflect RA points for dec > 90
             mirrored_ra_vertices = (val_ra - ra_vertices[near_north_pole]) % val_ra
-            mirrored_dec_vertices = 180 - dec_vertices[near_north_pole]  # Reflect dec across 90
+            mirrored_dec_vertices = 180 - dec_vertices[near_north_pole]  #Reflect dec across 90
 
             mirrored_patch_vertices = np.column_stack((mirrored_ra_vertices, mirrored_dec_vertices))
             mirrored_patch_path = Path(mirrored_patch_vertices)
 
-            # Apply mask for points within mirrored region
+            #Apply mask for points within mirrored region
             mirrored_mask = mirrored_patch_path.contains_points(np.vstack((x_wrapped, y)).T)
             combined_mask = np.logical_or(combined_mask, mirrored_mask)
 
-        # If patch is near South Pole
+        #If patch is near South Pole
         if np.any(near_south_pole):
-            # Reflect RA points for dec < -90
+            #Reflect RA points for dec < -90
             mirrored_ra_vertices = (val_ra - ra_vertices[near_south_pole]) % val_ra
-            mirrored_dec_vertices = -180 - dec_vertices[near_south_pole]  # Reflect dec across -90
+            mirrored_dec_vertices = -180 - dec_vertices[near_south_pole]  #Reflect dec across -90
 
             mirrored_patch_vertices = np.column_stack((mirrored_ra_vertices, mirrored_dec_vertices))
             mirrored_patch_path = Path(mirrored_patch_vertices)
 
-            # Apply mask for points within mirrored region
+            #Apply mask for points within mirrored region
             mirrored_mask = mirrored_patch_path.contains_points(np.vstack((x_wrapped, y)).T)
             combined_mask = np.logical_or(combined_mask, mirrored_mask)
 
         return combined_mask if In else np.logical_not(combined_mask)
 
-    # Apply check for points inside patch and with mirrored RA
+    #Apply check for points inside patch and with mirrored RA
     inside_mask = _points_in_or_out_with_mirrored_RA(
         p.ra.deg[mask],
         p.dec.deg[mask],
         patchname
     )
 
-    # Select points inside region
+    #Select points inside region
     p_inside = p[mask][inside_mask]
 
-    # RM values and errors of those points
+    #RM values and errors of those points
     rm_value_inside = rm_s[mask][inside_mask]
     rm_err_inside = rm_errs[mask][inside_mask]
 
@@ -623,33 +916,33 @@ def confining_circle(ax, ra, dec, radius, polar_angle, positions,
     """
     rm_s, rm_errs = kw["rm_s"], kw["rm_errs"]
     
-    # Create a circle (patch) for defining region
+    #Create a circle (patch) for defining region
     circle = Circle((ra, dec), radius=radius, edgecolor='k', fill=False, linestyle='-', 
                     linewidth=1.1, transform=ax.get_transform('world'))
     
-    if plot[0]: ax.add_patch(circle)  # To plot circle
+    if plot[0]: ax.add_patch(circle)  #To plot circle
     
-    if plot[1]:  # To plot scatter points in red and blue depending on pos or neg
+    if plot[1]:  #To plot scatter points in red and blue depending on pos or neg
         alpha = 1
-        # Getting positive positions and their RM values inside region
+        #Getting positive positions and their RM values inside region
         pos_in_region, rm_value_pos, _ = points_inOrOut_patch(positions, circle, pos_mask, rm_s, rm_errs, typ='circle')
         ax.scatter(pos_in_region.ra, pos_in_region.dec,
                    transform=ax.get_transform(transform), marker='o', 
                    s=1, color=color_pos, alpha=alpha)
         
-        # Getting negative positions and their RM values inside region
+        #Getting negative positions and their RM values inside region
         neg_in_region, rm_value_neg, _ = points_inOrOut_patch(positions, circle, neg_mask, rm_s, rm_errs, typ='circle')
         ax.scatter(neg_in_region.ra, neg_in_region.dec,
                    transform=ax.get_transform(transform), marker='o', 
                    s=1, color=color_neg, alpha=alpha)
     
-    # Get positive positions and their RM values inside region without plotting
+    #Get positive positions and their RM values inside region without plotting
     pos_in_region, rm_value_pos, rm_err_pos = points_inOrOut_patch(positions, circle, pos_mask, rm_s, rm_errs, typ='circle')
-    # Get negative positions and their RM values inside region without plotting
+    #Get negative positions and their RM values inside region without plotting
     neg_in_region, rm_value_neg, rm_err_neg = points_inOrOut_patch(positions, circle, neg_mask, rm_s, rm_errs, typ='circle')
     
     if return_data:
-        if return_err:  # Return errors (default)
+        if return_err:  #Return errors (default)
             return (pos_in_region, rm_value_pos, rm_err_pos, 
                     neg_in_region, rm_value_neg, rm_err_neg)
         else:
@@ -663,7 +956,7 @@ def confining_rectangle(ax, ra, dec, width, height, angle, polar_angle, position
 
     rm_s, rm_errs = kw["rm_s"], kw["rm_errs"]
     
-    # Createrectangle (patch) for defining region
+    #Createrectangle (patch) for defining region
     #Note that position of rectangel is at bottom corner
     #But box should be shifted so that point chosen is same as center of box
     bottom_left_x = ra - width / 2
@@ -672,32 +965,32 @@ def confining_rectangle(ax, ra, dec, width, height, angle, polar_angle, position
                      angle=angle + polar_angle, transform=ax.get_transform('world'))
 
     if plot[1]: #to plot scatter in red and blue depending on pos or neg.
-        # Plottingrectangle
+        #Plottingrectangle
         alpha = 1
         
         marker_size = kw["marker_size"] if "marker_size" in kw else 1
         
-        # Getting positive positions and their RM values inside region
+        #Getting positive positions and their RM values inside region
         pos_in_region, rm_value_pos, _ = points_inOrOut_patch(positions, rect, pos_mask, rm_s, rm_errs)
         
-        # Getting negative positions and their RM values inside region
+        #Getting negative positions and their RM values inside region
         neg_in_region, rm_value_neg, _ = points_inOrOut_patch(positions, rect, neg_mask, rm_s, rm_errs)
        
-        vmin, vmax = -50, 50  # Maximum and minimum RM limits
-        # Plotting RM positions inside region
+        vmin, vmax = -50, 50  #Maximum and minimum RM limits
+        #Plotting RM positions inside region
         sctt = ax.scatter(np.concatenate([neg_in_region.ra.deg, pos_in_region.ra.deg]), 
                           np.concatenate([neg_in_region.dec.deg, pos_in_region.dec.deg]), 
                           transform=ax.get_transform(transform), marker='o',
                           cmap='brg_r', vmin=vmin, vmax=vmax,
-                          c=np.concatenate([rm_value_neg, rm_value_pos]))  # Color by RM values
+                          c=np.concatenate([rm_value_neg, rm_value_pos]))  #Color by RM values
         
-        rotation = -90  # Rotation for colorbar labels
-        cbars_pad = 0.01  # Padding for colorbars
-        labelpad = 20  # Padding for colorbar labels
-        cbar_lab_size = 17  # Font size for cbar labels
-        l_s = 14  # label size for ticklabels (numerical)
+        rotation = -90  #Rotation for colorbar labels
+        cbars_pad = 0.01  #Padding for colorbars
+        labelpad = 20  #Padding for colorbar labels
+        cbar_lab_size = 17  #Font size for cbar labels
+        l_s = 14  #label size for ticklabels (numerical)
 
-        # Colorbar for scatter plot (for all positive or negative points)
+        #Colorbar for scatter plot (for all positive or negative points)
         sctt_cbar = plt.colorbar(sctt, ax=ax, fraction=0.06, pad=cbars_pad)
         sctt_cbar.set_label("RM scatter (capped)", rotation=rotation,
                             labelpad=labelpad, fontsize=cbar_lab_size)
@@ -707,9 +1000,9 @@ def confining_rectangle(ax, ra, dec, width, height, angle, polar_angle, position
         sctt_cbar.set_ticklabels(ticklabels)
         sctt_cbar.ax.tick_params(labelsize=l_s)
     
-    # Getting positive positions and their RM values inside region without plotting
+    #Getting positive positions and their RM values inside region without plotting
     pos_in_region, rm_value_pos, rm_err_pos = points_inOrOut_patch(positions, rect, pos_mask, rm_s, rm_errs)
-    # Getting negative positions and their RM values inside region without plotting
+    #Getting negative positions and their RM values inside region without plotting
     neg_in_region, rm_value_neg, rm_err_neg = points_inOrOut_patch(positions, rect, neg_mask, rm_s, rm_errs)
 
     h,w=.19,.4 #Minor shifts to encapuslate outer chosen points
@@ -741,12 +1034,12 @@ def fit_and_plot_damped_sine_wave(X, Y, initial_guess, ax, color, prime):
     ax.plot(x_fit, y_fit, color=color, 
             label = rf"RM = $({A_opt:.3g}) e^{{-({gamma_opt:.3g}) {prime}'}} \cdot \sin\left[{omega_opt:.3g} {prime}' + ({phi_opt:.3g})\right]$")
 
-    # #Calculating residuals and reduced chi-square
-    # residuals = Y - func(X, *popt)
-    # chi_squared = np.sum(residuals ** 2)
-    # dof = len(Y) - len(popt)  # Degrees of freedom
-    # reduced_chi_square = chi_squared / dof
-    # print(f"Reduced Chi-Square: {reduced_chi_square}")
+    ##Calculating residuals and reduced chi-square
+    #residuals = Y - func(X, *popt)
+    #chi_squared = np.sum(residuals ** 2)
+    #dof = len(Y) - len(popt)  #Degrees of freedom
+    #reduced_chi_square = chi_squared / dof
+    #print(f"Reduced Chi-Square: {reduced_chi_square}")
     
 def axis_transformation(points, RA_range, DEC_range):
 
@@ -781,56 +1074,56 @@ def dens_verses_rm(ra, dec, rm_values, rm_errors, above_zero=True):
     filename = 'LGSNLGSR.SQLGBB.FITS'
     hdu = fits.open(filename)[0]
     
-    # Extracting HI density data
+    #Extracting HI density data
     HI_dens_data = hdu.data[0, 0, :, :]
     
-    # Extract RM data positions and magnitudes
+    #Extract RM data positions and magnitudes
     RM_RA, RM_Dec = ra, dec
     
-    # Converting RM positions to pixel coordinates
+    #Converting RM positions to pixel coordinates
     RM_pix_x, RM_pix_y = ra_dec_to_pixels(RM_RA, RM_Dec, fitfile=filename)
     
     RM_pix_x = np.round(RM_pix_x).astype(int)
     RM_pix_y = np.round(RM_pix_y).astype(int)
     
-    # Getting shape of HI density data array
+    #Getting shape of HI density data array
     shape = HI_dens_data.shape
     
-    # Finding minimum non-NaN HI density value
+    #Finding minimum non-NaN HI density value
     min_HI_dens_value = np.nanmin(HI_dens_data)
     
-    # Creating an empty array to store HI_dens_values
+    #Creating an empty array to store HI_dens_values
     HI_dens_values = np.full_like(rm_values, min_HI_dens_value, dtype=float)
     
-    # Mask for valid coordinates of RM. Valid meaning within BT04 data
+    #Mask for valid coordinates of RM. Valid meaning within BT04 data
     valid_mask = (RM_pix_x >= 0) & (RM_pix_x < shape[1]) & (RM_pix_y >= 0) & (RM_pix_y < shape[0])
 
-    # #This calculation shows 99% of RM points were rettained.    
-    # print(sum(valid_mask)/len(valid_mask)); import sys; sys.exit() 
+    ##This calculation shows 99% of RM points were rettained.    
+    #print(sum(valid_mask)/len(valid_mask)); import sys; sys.exit() 
     
-    # Getting valid coordinates that only within BT04 fit file
+    #Getting valid coordinates that only within BT04 fit file
     valid_x = RM_pix_x[valid_mask]
     valid_y = RM_pix_y[valid_mask]
     
-    # Fetching HI density values at those valid RM positions
+    #Fetching HI density values at those valid RM positions
     valid_HI_dens_values = HI_dens_data[valid_y, valid_x]
     
-    # Handling RM Positions with NaN column density are overwritten to have minimum value possible based on fit file's minimum column density
+    #Handling RM Positions with NaN column density are overwritten to have minimum value possible based on fit file's minimum column density
     valid_HI_dens_values = np.where(np.isnan(valid_HI_dens_values), min_HI_dens_value, valid_HI_dens_values)
     
-    # Assign back to HI_dens_values array with overwritten valid_HI_dens_values
+    #Assign back to HI_dens_values array with overwritten valid_HI_dens_values
     HI_dens_values[valid_mask] = valid_HI_dens_values
     
     result_tuples = list(zip(rm_values, HI_dens_values))
     
-    # Extract rm and HI_dens_values from result_tuples
+    #Extract rm and HI_dens_values from result_tuples
     rm_values, HI_dens_values = zip(*result_tuples)
     
-    # #this shows that 87% of RM within BT04 data was flagged as Nan.
-    # count = np.sum(np.array(HI_dens_values)< 14)
-    # print(100*(1 - count/sum(valid_mask))); import sys; sys.exit()
+    ##this shows that 87% of RM within BT04 data was flagged as Nan.
+    #count = np.sum(np.array(HI_dens_values)< 14)
+    #print(100*(1 - count/sum(valid_mask))); import sys; sys.exit()
     
-    # print(min(HI_dens_values), max(HI_dens_values)); import sys; sys.exit()
+    #print(min(HI_dens_values), max(HI_dens_values)); import sys; sys.exit()
     fmt = "bs" if above_zero else "rs"
     plt.errorbar(HI_dens_values, rm_values, yerr=rm_errors, fmt=fmt, 
                  markersize=3, capsize=3, ecolor='k')
@@ -843,14 +1136,14 @@ def dens_verses_rm(ra, dec, rm_values, rm_errors, above_zero=True):
     
     if above_zero in [True, None]:
         plt.plot(n, -A * np.sin(2 * np.pi * f * n - phi) + 65)#,
-                 # label=r"$(-A) \cdot \sin\left(2\pi f \cdot x - \phi\right) +65$")
+                 #label=r"$(-A) \cdot \sin\left(2\pi f \cdot x - \phi\right) +65$")
     if above_zero in [False, None]:
         plt.plot(n, A * np.sin(2 * np.pi * f * n - phi) - 104)#,
-                 # label=r"$A \cdot \sin\left(2\pi f \cdot x - \phi\right) -104$")
+                 #label=r"$A \cdot \sin\left(2\pi f \cdot x - \phi\right) -104$")
     
-    # string = f'A = {A}, f = {f}, ' + r"$\phi=$ " + f"${phi}$"
-    # plt.text(0.6, 1.03, string, transform=plt.gca().transAxes, fontsize=14,
-    #          bbox=dict(facecolor='none', edgecolor='none', boxstyle='round,pad=0'))
+    #string = f'A = {A}, f = {f}, ' + r"$\phi=$ " + f"${phi}$"
+    #plt.text(0.6, 1.03, string, transform=plt.gca().transAxes, fontsize=14,
+    #         bbox=dict(facecolor='none', edgecolor='none', boxstyle='round,pad=0'))
 
 def characterize_densVersesRM():
     plt.xlabel(r'$\log_{10}(N_H)$' + ' ' + '$[cm^{-2}]$', fontsize=14, rotation='horizontal')
@@ -881,16 +1174,16 @@ def characterize_densVersesRM():
 
 #make sure to change title if you change data being given by confining_rectangle() function.
 def assessing_boxScatter_with_HI(title):
-    # OpeningFITS file and extracting data
+    #OpeningFITS file and extracting data
     filename = 'LGSNLGSR.SQLGBB.FITS'
     hdu = fits.open(filename)[0]
     
-    # Setting upWCS projection usingheader
+    #Setting upWCS projection usingheader
     wcs = WCS(hdu.header)
     
     positive_mask = rm_m31 > 0 ; negative_mask = rm_m31 < 0
     
-    # Creating figure and axis with WCS projection
+    #Creating figure and axis with WCS projection
     fig, ax = plt.subplots(figsize=(10, 6))
     ax = fig.add_subplot(111, projection=wcs, slices=('x', 'y', 0, 0))
     
@@ -949,180 +1242,115 @@ def curr_dir_path():
     """Returns the folder path of the currently running script."""
     return os.path.dirname(os.path.abspath(__file__)) + "/"
 
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.interpolate import griddata, RectBivariateSpline
+def get_distinct_colors(n, cmap_name='tab20b'):
+    #Was meant to be used for RM vs PA plot
+    """
+    Returns `n` visually distinct colors using a qualitative matplotlib colormap.
 
-def BG_correction_checking(rm_coords, rm_values, bg_coords, bg_values, **kw):
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from astropy.io import fits
-    from astropy.wcs import WCS
-    from scipy.interpolate import griddata
-    from matplotlib.colors import Normalize
+    If n > base colormap size, it interpolates smoothly across the full range of the colormap.
+    """
+    cmap = plt.get_cmap(cmap_name)
 
-    curr_dir_path = lambda: '/home/amani/Documents/MASTERS_UCT/GitHub_stuff/Andromeda-Ionized-CGM/'
+    if hasattr(cmap, "colors"):  #For tab10, tab20, etc.
+        base_colors = cmap.colors
+        base_n = len(base_colors)
 
-    def get_wcs(filename):
-        hdu = fits.open(filename)[0]
-        return WCS(hdu.header)
+        if n <= base_n:
+            return base_colors[:n]
+        else:
+            indices = np.linspace(0, base_n - 1, n)
+            colors = [base_colors[int(i)] for i in indices]
+            return colors
+    else:
+        #Continuous colormap fallback (like viridis)
+        return [cmap(i / (n - 1)) for i in range(n)]
 
-    def plot_BG_density(rm_coords, bg_coords, bg_values, fits_file, **kw):
-        """
-        Plots:
-        - Background RM density using interpolation.
-        - Background RM positions as scatter points.
-        - Uses WCS projection from FITS file.
+def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None, for_PA_or_b_plot=False):
+    """
+    Bins x data, assigns y values/errors to bins, 
+    and returns structured dictionaries. 
+    Very useful for Annulus analysis.
+    """
+    
+    #bin_data = np.asarray(bin_data) #making sure its numpy
 
-        Parameters:
-        -----------
-        rm_coords : SkyCoord
-            Sky coordinates of RM measurements.
-        bg_coords : SkyCoord
-            Sky coordinates of background RM measurements.
-        bg_values : np.ndarray
-            RM values at background positions.
-        fits_file : str
-            Path to the FITS file for WCS projection.
+    #(bin_data=m31_distances, 
+    #data=(rm_pos_gal_lat, rm_m31), 
+    #bin_num=bin_num_from_main+1, 
+    #for_PA_or_b_plot=True)
 
-        Returns:
-        --------
-        None
-        """
-        # Convert coordinates to degrees
-        x_bg = bg_coords.ra.deg
-        y_bg = bg_coords.dec.deg
+    assert len(bin_data) == len(data[0]) == len(data[1]), "bins are not same length in create_annuli_binning_structure()"
 
-        # Invert RA greater than 180 to negative RA + 180
-        x_bg = np.where(x_bg > 180, x_bg - 360, x_bg)
+    #Binning edges and indices for annuli
+    bin_edges = np.linspace(min(bin_data), max(bin_data), bin_num)
+    bin_indices = np.digitize(bin_data, bins=bin_edges)  #Bins indexed from 1 to bin_num-1
 
-        # Define grid
-        grid_res = int(kw.get("grid_res", 50))
-        # print(f"{grid_res=}")
-        x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res)
-        y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res)
-        X_grid, Y_grid = np.meshgrid(x_grid, y_grid)
+    #Compute bin areas
+    annul_area = np.pi * (bin_edges[1:]**2 - bin_edges[:-1]**2)  #Now a NumPy array
+    if not for_PA_or_b_plot: bin_edges = bin_edges[:-1]  #Maintaining same number of elements as area
 
-        # Interpolate using cubic method
-        bg_points = np.column_stack((x_bg, y_bg))
-        grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))
-        bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')
-        bg_grid = bg_grid.reshape(X_grid.shape)
+    #Initialize storage dictionaries
+    Dicts = []
+    for j in range(len(data)):  #In case it's for x and y axis for non-histogram/bar plots
+        y_per_bin = {i: [] for i in range(0, bin_num+1)}  #Bin indices go from 1 to bin_num (instead of bin_num-1)
+        if data_errs is not None:
+            y_err_per_bin = {i: [] for i in range(0, bin_num+1)}
+            Dicts.append([y_per_bin, y_err_per_bin])
+        else:
+            Dicts.append([y_per_bin,])
 
-        # Handle NaNs with nearest-neighbor interpolation
-        if np.isnan(bg_grid).any():
-            bg_grid = griddata(bg_points, bg_values, grid_points, method='nearest')
-            bg_grid = bg_grid.reshape(X_grid.shape)
+    #Assigning values to bins
+    for i, bin_idx in enumerate(bin_indices):
+        if bin_idx < bin_num:  #Ensure no out-of-range errors
+            for idx, dicts in enumerate(Dicts):
+                dicts[0][bin_idx].append(data[idx][i])
+                if data_errs is not None:
+                    dicts[1][bin_idx].append(data_errs[idx][i])
 
-        # Plot
-        fig, ax = plt.subplots(figsize=(10, 10))
+    #Convert lists to NumPy arrays (filtering out empty bins)
+    for dicts in Dicts:
+        dicts[0] = {k: np.array([val.value if hasattr(val, "unit") else val for val in v]) for k, v in dicts[0].items() if len(v) > 0}
+        if len(dicts) > 1:
+            dicts[1] = {k: np.array([val.value if hasattr(val, "unit") else val for val in dicts[1][k]]) for k in dicts[0]}
 
-        # Density plot (background)
-        norm = Normalize(vmin=np.nanmin(bg_grid), vmax=np.nanmax(bg_grid))
-        im = ax.imshow(bg_grid, extent=[x_bg.min(), x_bg.max(), y_bg.min(), y_bg.max()], 
-                    origin='lower', cmap='viridis', norm=norm)
+    if data_errs is not None:
+        return [dicts for dicts in Dicts], annul_area, bin_edges
+    return [dicts[0] for dicts in Dicts], annul_area, bin_edges
 
-        # Scatter plot of background RM points (foreground)
-        ax.scatter(x_bg, y_bg, color='red', s=0.4, label="RM Background Points", alpha=0.6)
+def apply_plot_attributes(push_title_up = 1.3, leg=True, xlim=(0,180),**kw):
+    """
+    Primarily used in plot_binned_PA() 
+    but can also be used for plot_binned_gal_lat() amongst others...
+    """
+    plt.xlabel(kw.get("xlabel",
+                      
+                      #Default is meant for plotting binned PA
+                      "Polar Angle " r"$(\theta)$ [$^{\circ}$] " + "(Anticlockwise from North - 37.7" + r"$^{\circ}$)"
+                      ),
+                      fontsize = kw["axis_lab_f_size"][0] if "axis_lab_f_size" in kw else 12)
+    plt.ylabel("Rotation Measure " + r"[rad m$^{-2}$]",
+                      fontsize = kw["axis_lab_f_size"][1] if "axis_lab_f_size" in kw else 12)
+    if leg:
+        plt.legend(fontsize = kw.get("fontsize", 9), 
+                   loc = 'upper center', 
+                   bbox_to_anchor = kw.get("bbox",(1.13, push_title_up)),
+                    framealpha = kw.get("framealpha",0), 
+                    ncols = kw.get("ncols", 6))
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.minorticks_on() 
+    if xlim is not None: plt.xlim(xlim)
+    if "ylim" in kw: 
+        if kw["ylim"] is not None: plt.ylim(*kw["ylim"])
 
-        # Set RA limits from -180 to 180
-        ax.set_xlim(-40, 60)
+def get_discrete_colors(data_limits, n_bins, cmap_name):
+    
+    radial_lims = data_limits
+    bin_edges = np.linspace(*radial_lims, n_bins)
+    bin_width = bin_edges[1] - bin_edges[0]
+    #bin_centers = bin_edges[:-1] + bin_width / 2  #Bin centers
 
-        # Set the plot limits to the range of background coordinates
-        ax.set_ylim(y_bg.min(), y_bg.max())
+    #Creating a discrete version of the colormap
+    base_cmap = plt.get_cmap(cmap_name)
+    cmap = base_cmap(np.linspace(0, 1, n_bins))  #n_bins distinct colors
+    return plt.matplotlib.colors.ListedColormap(cmap) #referencing this with the variable "cmap_discrete"
 
-        # Axis labels & title
-        ax.set_xlabel("RA (deg)")
-        ax.set_ylabel("Dec (deg)")
-        ax.set_title(f"Grid resolution: {grid_res}")
-
-        # Add legend
-        ax.legend(bbox_to_anchor=(0.35, 1.3))
-
-        # Add colorbar
-        plt.colorbar(im, ax=ax, label="Background RM Density", shrink=.5)
-
-        # Save the figure
-        path = curr_dir_path() + "Results/BG_Res_Test/"
-        plt.savefig(f"{path}BG_grid_res={grid_res}.png", dpi=600, bbox_inches="tight")
-
-
-    plot_BG_density(rm_coords, bg_coords, bg_values, "LGSNLGSR.SQLGBB.FITS", grid_res=kw["grid_res"])
-
-# BG_correction_checking(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, grid_res = 50)
-
-# for N in np.linspace(1,50, 51):
-#     BG_correction_checking(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, grid_res = N)
-
-    # for N in np.linspace(10,1000,80):
-#     BG_correction_checking(bg_pos_icrs, rm_bg, grid_res = N)
-
-# def BG_correction_checking(bg_coords, bg_values, **kw):
-#     import numpy as np
-#     import matplotlib.pyplot as plt
-#     from astropy.io import fits
-#     from astropy.wcs import WCS
-#     from scipy.interpolate import griddata
-#     from matplotlib.colors import Normalize
-
-#     curr_dir_path = lambda: '/home/amani/Documents/MASTERS_UCT/GitHub_stuff/Andromeda-Ionized-CGM/'
-
-#     def get_wcs(filename):
-#         hdu = fits.open(filename)[0]
-#         return WCS(hdu.header)
-
-#     def plot_BG_density(bg_coords, bg_values, fits_file, **kw):
-#         # Convert coordinates to degrees
-#         x_bg = bg_coords.ra.deg
-#         y_bg = bg_coords.dec.deg
-
-#         # Define grid
-#         grid_res = int(kw.get("grid_res", 50))
-#         print(f"{grid_res=}")
-#         x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res)
-#         y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res)
-#         X_grid, Y_grid = np.meshgrid(x_grid, y_grid)
-
-#         # Interpolate using cubic method
-#         bg_points = np.column_stack((x_bg, y_bg))
-#         grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))
-#         bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')
-#         bg_grid = bg_grid.reshape(X_grid.shape)
-
-#         # Handle NaNs with nearest-neighbor interpolation
-#         if np.isnan(bg_grid).any():
-#             bg_grid = griddata(bg_points, bg_values, grid_points, method='nearest')
-#             bg_grid = bg_grid.reshape(X_grid.shape)
-
-#         # WCS projection from FITS file
-#         wcs = get_wcs(fits_file)
-
-#         # Plot
-#         fig = plt.figure(figsize=(16, 10))
-#         ax = fig.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-
-#         # Density plot (background)
-#         im = ax.imshow(bg_grid, origin='lower', cmap='viridis', transform=ax.get_transform('world'))
-
-#         # Scatter plot of background RM points (foreground)
-#         ax.scatter(x_bg, y_bg, color='red', s=0.4, label="RM Background Points", alpha=0.6, transform=ax.get_transform('world'))
-
-#         # Axis labels & titles
-#         ax.set_xlabel("RA (deg)")
-#         ax.set_ylabel("Dec (deg)")
-#         ax.set_title(f"{grid_res=}")
-#         ax.legend()
-
-#         # Add colorbar
-#         plt.colorbar(im, ax=ax, label="Background RM Density")
-
-#         # Save the figure
-#         path = curr_dir_path() + "Results/BG_Res_Test/"
-#         plt.savefig(f"{path}wcs_attempt.png", dpi=600, bbox_inches="tight")
-
-
-#     plot_BG_density(bg_coords, bg_values, "LGSNLGSR.SQLGBB.FITS", grid_res=kw["grid_res"])
-# BG_correction_checking(bg_pos_icrs, rm_bg, grid_res = 10)
-
-# # for N in np.linspace(10,1000,80):
-# #     BG_correction_checking(bg_pos_icrs, rm_bg, grid_res = N)

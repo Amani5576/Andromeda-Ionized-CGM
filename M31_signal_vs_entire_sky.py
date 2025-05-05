@@ -1,7 +1,6 @@
 from scipy.interpolate import interp1d
 import seaborn as sns
 import os
-import argparse
 import matplotlib.animation as animation
 import glob
 import matplotlib.cm as cm
@@ -10,50 +9,21 @@ from scipy.optimize import curve_fit
 from numpy.polynomial.polynomial import Polynomial
 import pickle
 from concurrent.futures import ThreadPoolExecutor
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
-    parser.add_argument('--save-plot', action='store_true', help='Saves the plot to Results folder rather than just showing the plot (To be used with --original-plot)')
-    parser.add_argument('--pickling', action='store_true', help='Overwrites the pickled data where new random patches are produced and processed. (Save manually from jupyter ilifu to local)')
-    parser.add_argument('--test-patches', action='store_true', help='Testing by showing patches on sphere as they get smaller')
-    parser.add_argument('--show-dispersion', action='store_true', help='Also give dispersion plot of Rotation Measure within Halo of Andromeda')
-    parser.add_argument('--annuli-anal', action='store_true', help='Conducting annulus analysis with histograms of RANDOM patches in the sky')
-    parser.add_argument('--annuli-video', action='store_true', help='Creating video of change in Rm per annulus for mean and median')
-    parser.add_argument('--m31-annuli-anal', action='store_true', help='Conducting annulus analysis with histograms for M31 halo')
-    parser.add_argument('--overplot', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
-    parser.add_argument('--seaborn-hist', action='store_true', help='Enable overplotting; All radial annuli histograms on one plot. (only works if --annuli-anal is set)')
-    parser.add_argument('--rm-vs-azimuth', action='store_true', help='plot RM as a function of polar/azimuthal angle in the anticlockwise direction with M31 as the reference frame')
-    parser.add_argument('--m31-ks-test', action='store_true', help='Perform KS-Test Between random regions in the sky and that of M31')
-    parser.add_argument('--rm-vs-gal-lat', action='store_true', help='Plotting RM against galactic latitude for M31 (inclusive of its background)')
-    parser.add_argument('--rm-per-patch-hist', action='store_true', help='Histogram of how many RM points landed in each Random Virial Radius')
-    parser.add_argument('--cdf-anal', action='store_true', help='Making a Cumulative Density Plot for Random RM sources in the sky and m31')
-
-    args = parser.parse_args()
-
-    #Ensuring some arguments are only used when --annuli-anal is enabled
-    if not args.annuli_anal and not args.m31_annuli_anal:
-        if args.overplot:
-            parser.error("--overplot requires --annuli-anal or --m31-annuli-anal to be set.")
-        if args.annuli_video:
-            parser.error("--annuli-video requires --annuli-anal to be set.") #At leas tfor now it does... could expand to m31_annuli_anal....
-    elif args.overplot and args.annuli_video: #Only make a video if not overplotting (or superimposing plots)
-        parser.error("--overplot cannot be done with --annuli-video")
-    if args.seaborn_hist and not args.overplot:
-        parser.error("--seaborn-hist can only be used with --m31-annuli-anal")
-
-    if args.annuli_anal and args.m31_annuli_anal:
-        parser.error("To lessen confusion please either use --annuli_anal or --m31-annuli-anal. Not Both")
+from matplotlib.ticker import MaxNLocator
+import pandas as pd
+from tabulate import tabulate
 
 from main import (
 #Importing alias'
-np, u, SkyCoord, plt, stats, WCS, warnings, fits,
+np, u, SkyCoord, plt, stats, WCS, warnings, fits, Patch,
 
 #importing variables
 d_bin_centers as d_bin_centers_m31,
 bin_means as bin_means_m31,
 bin_med as bin_med_m31,
 bin_std as bin_std_m31,
+bin_edges_mean_m31,
+bin_edges_median_m31,
 rm, #RM values of the entrie sky
 rm_err, 
 eq_pos,#RM coordinates of the entrie sky in ICRS coordinates
@@ -62,10 +32,8 @@ m31_sep_bg, rm_bg, err_bg,
 bin_num as bin_num_from_main,
 bin_std_past_rvir, L_m31, cutoff,
 bin_num as bin_num_main,
-m31_theta, #Polar angle of M31
-PA_rm as PA_rm_rad,
-PA_bg as PA_rm_rad_bg,
-R_vir, #Virial radius of M31 in astropyu.units of kpc
+PA_rm, PA_bg,
+R_vir, #Virial radius of M31 in astropy.units of kpc
 d_m31, #Distance to Andormeda in kpc
 L_m31, #Rvir in degrees
 cutoff, #Cutoff value for background region limit in degrees
@@ -73,11 +41,20 @@ rm_pos_gal_lat, #Galactic Latitudes of RM's within virial radius
 rm_pos_gal_lat_bg, #Galactic Latitudes of RM's for M31's Background
 #These are statisics for the entire sepration from m31 center to all 
 bin_means_past_rvir, bin_meds_past_rvir,
-m31_pos, #Position of M31 (in ICRS coordinates)
+m31_lat, #Galactic Latitude of M31 in degrees
+b_upper_lim, #Limit of |b|>5 degrees
+args,
 
 #importing functions
 get_projected_d, get_sep_angle,
- confining_circle, get_wcs, BG_correction, curr_dir_path
+confining_circle, get_wcs, 
+BG_correction, curr_dir_path, 
+create_annuli_binning_structure,
+apply_plot_attributes,
+get_discrete_colors,
+plot_m31_stats,
+curr_dir_path,
+get_discrete_colors,
 )
 
 #Hanlding unnneccesary clutter of printing from warnings
@@ -109,10 +86,11 @@ sizes = lambda vals: 30 #np.abs(vals) * 2.3
 #If overlap = False then minimum separation distance between points must be given
 #this is used for the real data points too
 #NOTE: The global vairable patch_size is used in here as min_distance_deg
-def get_random_points(num=30000, ra_range=(0, 360), dec_range=(-1, 1), 
+def get_random_points(num=30_000, ra_range=(0, 360), dec_range=(-1, 1), 
                       for_test=False, overlap=True, **kw):
     
-    ra_range = [ra_range[0], ra_range[1]] #In degrees
+    num_fake = num
+    ra_range = list(ra_range) #Should be in degrees (without the units)
     if dec_range != (-1, 1):  #Handling custom Dec range
         dec_range = np.deg2rad(dec_range) #Conversion to rads
         dec_range = np.sin(dec_range) #conversion to sin(dec)
@@ -120,46 +98,53 @@ def get_random_points(num=30000, ra_range=(0, 360), dec_range=(-1, 1),
         if for_test:
             L = []
             # Generating random RA and Dec points
-            ra_vals = np.random.uniform(*ra_range, num) * u.deg  # RA points in degrees
+            ra = np.random.uniform(*ra_range, num) * u.deg  # RA points in degrees
             
             # Ensuring that arcsin is within [-1, 1]
-            dec_vals_clipped = np.clip(np.random.uniform(*dec_range, num), -1, 1)
-            dec_vals = np.rad2deg(np.arcsin(dec_vals_clipped)) * u.deg  # Dec points
-            L.append(ra_vals)
-            L.append(dec_vals)
+            dec_vals = np.random.uniform(*dec_range, num)
+            dec_vals_clipped = np.clip(dec_vals, -1, 1)
+            dec = np.rad2deg(np.arcsin(dec_vals_clipped)) * u.deg  # Dec points
+            L.append(ra)
+            L.append(dec)
 
             # Dummy RM values and errors for testing
             L.append(np.random.choice([-1, 1], size=num))  # Random RM signs (-1 or 1)
             L.append(np.random.uniform(-0.01, 0.01, num))  # Random small errors
 
         else:
-            valid_ra, valid_dec = [], []
-            radius = kw["radius"] if "radius" in kw else 0
+            valid_dec = []
+            radius = kw.get("radius", 10) #Radius of Random patch to be in DEGREES
             count = 0
-            min_distance_deg = kw["min_distance_deg"] if "min_distance_deg" in kw else 0
-            while len(valid_ra) < num:
+            min_distance_rad = np.deg2rad(kw.get("min_distance_deg", 0))
+            while len(valid_dec) < num: #Keep on filling up the vlaid RA and DEC lists with values
                 
-                remaining = num - len(valid_ra)  # How many more points to generate
-                ra = np.random.uniform(*ra_range, remaining)  # Random RA points
-                
-                #Esuring dec values are valid for arcsin and the ENTIRE patch is above -40 dec
-                sin_dec_min = np.sin(np.radians(-40)) + np.radians(min_distance_deg)
-                dec_vals_clipped = np.clip(np.random.uniform(*dec_range, remaining), sin_dec_min, 1)
-                dec = np.arcsin(dec_vals_clipped)  # Random Dec points in radians
+                dec_vals = np.random.uniform(*dec_range, size = num_fake)
+                dec_rad = np.arcsin(dec_vals)  # Random Dec points in radians
 
-                # #Making sure the circle patches dont include the empty Dec region
-                # #Their centres are alsready never in this region but their areas might be, so this mucst be handeled
-                # if n:=sum(dec - np.radians(min_distance_deg) < np.sin(-40)) > 0: continue#Hence num value remains the same in next loop
-                
-                valid_mask = (np.rad2deg(dec) + radius <= 90) & (np.rad2deg(dec) - radius >= -90)
-                # if not (n:= np.sum(valid_mask)): print(n) ; import sys; sys.exit()
+                # Mask to exclude patches whose edge falls below -40 deg
+                valid_mask = dec_rad >= np.radians(-40 + radius)
 
-                dec = np.rad2deg(dec)  # Random Dec points
-                valid_ra.extend(ra[valid_mask])
-                valid_dec.extend(dec[valid_mask])
+                # #Ensuring dec values stay within valid celestial bounds
+                # valid_mask &= (np.rad2deg(dec) + radius <= 90)
+                # valid_mask &= (np.rad2deg(dec) - radius >= -90)
+
+                dec = np.rad2deg(dec_rad)  # Random Dec points
+                valid_dec = dec[valid_mask]
+
+                num_fake +=200
                 count += 1
-            L = np.array(valid_ra[:num]), np.array(valid_dec[:num])
-        
+                
+                # print(f"{num_fake=}")
+                # print(f"{len(valid_dec)=}")
+                # print(f"{count=}")
+                # print(f"_________________")
+            
+            ra = np.random.uniform(*ra_range, num_fake)  # Random RA points
+            L = np.array(ra[:num]), np.array(valid_dec[:num])
+            # print(f"{min(valid_dec)=}")
+            # print(f"{max(valid_dec)=}")
+            # import sys; sys.exit()
+            print(f"10000 Random centre points made. Discarded {num_fake-num} points")
         return L
     
     else: #If overlapping of pathces is prohibited
@@ -211,7 +196,7 @@ def get_random_points(num=30000, ra_range=(0, 360), dec_range=(-1, 1),
         return ra_values, dec_values
 
 def collection_of_points_from_WCS_sphere():#Placing patches on sphere with real RM values
-
+    
     for patch_ra, patch_dec in list(zip(patch_ra_points, patch_dec_points)):
         
         (patch_region_coord_pos,
@@ -268,6 +253,11 @@ def get_mean_and_med_stats(x_vals, y_vals, bin_num, x_is_r_proj=True, absol=True
     #Calculating mean and median of RM values within patch
     bin_means, bin_edges_mean, binnumber = stats.binned_statistic(x_vals, y_vals, statistic='mean', bins=bin_num)
     bin_med, bin_edges_med, binnumber = stats.binned_statistic(x_vals, y_vals, statistic='median', bins=bin_num)
+
+    #making bin_edges same as m31's bin edges:
+    bin_edges_mean = bin_edges_mean_m31
+    bin_edges_med = bin_edges_median_m31
+
     if x_is_r_proj: 
         bin_width_mean, bin_width_med = (bin_edges_mean[1] - bin_edges_mean[0]) , (bin_edges_med[1] - bin_edges_med[0])
         bin_centers_mean, bin_centers_med = bin_edges_mean[1:] - bin_width_mean / 2 , bin_edges_med[1:] - bin_width_med / 2
@@ -289,52 +279,6 @@ def get_mean_and_med_stats(x_vals, y_vals, bin_num, x_is_r_proj=True, absol=True
     
     else:
         return bin_centers_mean, bin_centers_med, bin_means, bin_med, bin_std, bin_edges
-
-
-def create_annuli_binning_structure(bin_data, data, bin_num, data_errs=None, for_azimuth_or_B_plot=False):
-    """
-    Bins x data, assigns y values/errors to bins, 
-    and returns structured dictionaries. 
-    Very useful for Annulus analysis.
-    """
-    
-    # bin_data = np.asarray(bin_data) #making sure its numpy
-
-    # Binning edges and indices for annuli
-    bin_edges = np.linspace(min(bin_data), max(bin_data), bin_num)
-    bin_indices = np.digitize(bin_data, bins=bin_edges)  # Bins indexed from 1 to bin_num-1
-
-    # Compute bin areas
-    annul_area = np.pi * (bin_edges[1:]**2 - bin_edges[:-1]**2)  # Now a NumPy array
-    if not for_azimuth_or_B_plot: bin_edges = bin_edges[:-1]  # Maintaining same number of elements as area
-
-    # Initialize storage dictionaries
-    Dicts = []
-    for j in range(len(data)):  # In case it's for x and y axis for non-histogram/bar plots
-        y_per_bin = {i: [] for i in range(0, bin_num+1)}  # Bin indices go from 1 to bin_num (instead of bin_num-1)
-        if data_errs is not None:
-            y_err_per_bin = {i: [] for i in range(0, bin_num+1)}
-            Dicts.append([y_per_bin, y_err_per_bin])
-        else:
-            Dicts.append([y_per_bin,])
-
-    # Assigning values to bins
-    for i, bin_idx in enumerate(bin_indices):
-        if bin_idx < bin_num:  # Ensure no out-of-range errors
-            for idx, dicts in enumerate(Dicts):
-                dicts[0][bin_idx].append(data[idx][i])
-                if data_errs is not None:
-                    dicts[1][bin_idx].append(data_errs[idx][i])
-
-    # Convert lists to NumPy arrays (filtering out empty bins)
-    for dicts in Dicts:
-        dicts[0] = {k: np.array([val.value if hasattr(val, "unit") else val for val in v]) for k, v in dicts[0].items() if len(v) > 0}
-        if len(dicts) > 1:
-            dicts[1] = {k: np.array([val.value if hasattr(val, "unit") else val for val in dicts[1][k]]) for k in dicts[0]}
-
-    if data_errs is not None:
-        return [dicts for dicts in Dicts], annul_area, bin_edges
-    return [dicts[0] for dicts in Dicts], annul_area, bin_edges
 
 
 def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
@@ -640,8 +584,6 @@ def annuli_analysis_m31(rm_m31=rm_m31, err_m31=err_m31, save_plot=False):
 
                         break
 
-
-                
                 scale = 1/annul_area
                 counts, _, patches = ax.hist(rm_per_annulus[bin_idx], bins=histbin, alpha=0.1, color="k")
 
@@ -879,49 +821,61 @@ def annuli_analysis_random(all_means_corr, all_medians_corr, save_plot=False, st
 def plot_binned_gal_lat(B, RM, bin_edges, save_plot=False):
     """Raw RM against galactic Latitude - with pretty colorbar :)"""
 
-    # gal_lat_bin_width = 18 #in degrees #to make 10 bins from -90 to 90
-    radial_bin_width = int(300/bin_num_from_main) #in kpc
-
-    #For distances
-    bin_width = bin_edges[1] - bin_edges[0]
-    bin_centers = bin_edges - bin_width / 2
-
-    #Normalizing bin_centers for colormap
-    norm = plt.Normalize(vmin=min(bin_centers), 
-                         vmax=max(bin_centers))
-    cmap = plt.cm.rainbow_r  # Using magma colormap
-
-    fig,ax = plt.subplots(1,1, figsize=(12, 6))
-
-    # Fitting a cosine
-    B_flat = np.hstack(list(B.values()))
-    RM_flat = np.hstack(list(RM.values()))
+    # Number of bins
+    n_bins = bin_num_from_main + 1
     
-    ax.scatter(rm_pos_gal_lat_bg, rm_bg, marker="s", alpha=1, s=1, c="k", label="BG") #Adding in backgorund region - Firstly
+    # Create bin edges as in Code 1
+    radial_lims = (0, 300)
+    bin_edges = np.linspace(*radial_lims, n_bins)
+    bin_width = bin_edges[1] - bin_edges[0]
+    bin_centers = bin_edges[:-1] + bin_width / 2  # Bin centers
 
+    # Create a discrete version of the colormap
+    base_cmap = plt.get_cmap("jet")
+    cmap = base_cmap(np.linspace(0, 1, n_bins))  # n_bins distinct colors
+    cmap_discrete = plt.matplotlib.colors.ListedColormap(cmap)
+
+    # Normalize the colorbar using the bin edges
+    norm_cb = plt.matplotlib.colors.BoundaryNorm(boundaries=bin_edges, ncolors=n_bins-1)
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+
+    # Plot background (black)
+    sctt = ax.scatter(rm_pos_gal_lat_bg, rm_bg, marker="x", alpha=.4, s=10, c="k", label="Background", linewidths=.5)
+
+    # Plot each bin with a distinct color
     for bin_idx in range(1, len(RM)+1):
         if bin_idx in RM:
-            ax.scatter(B[bin_idx], RM[bin_idx], marker=".", alpha=0.7, s=12,
-                        #label= f"{bin_centers[bin_idx]:.2f}"+ r"$[kpc]$",
-                        color=cmap(norm(bin_centers[bin_idx])))
-             
-    #Adding colorbar to indicate bin_centers values
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])  # Required for colorbar
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
+            # Using bin_centers as the colormap index
+            color_idx = np.argmin(np.abs(bin_centers - bin_centers[bin_idx-1]))
+            ax.scatter(B[bin_idx], RM[bin_idx], marker=".", alpha=1, s=24, edgecolors='none', color=cmap_discrete(color_idx))
 
-    ax.axvline(x=m31_lat.deg, linestyle="--", color="k", label=r"b$_{M31}$")
+    # Colorbar using the same discrete colormap
+    sm = plt.cm.ScalarMappable(cmap=cmap_discrete, norm=norm_cb)
+    sm.set_array([])
+
+    # Set the ticks at bin_centers and make sure the colorbar has proper boundaries
+    cbar = plt.colorbar(sm, ax=ax, boundaries=bin_edges)
+    cbar.set_ticks(bin_centers)  # Ensure ticks align with bin_centers
+
+    cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
+    cbar.ax.tick_params(size=3, which='both', length=0)
+
+    # Vertical line at M31's latitude
+    ax.axvline(x=m31_lat.deg, linestyle="--", color="k", label=r"$b_{M31}$")
+
+    ax.grid(True)
+    ax.legend()
 
     apply_plot_attributes(xlim=(-51,10), ylim=(-300,200), 
-                          #leg=False, 
                           xlabel="Galactic Latitude (b)" + r"[$^{\circ}$] ",
-                          push_title_up=1.1)
+                          bbox=(0.5,1.1), framealpha=1, ncols=2)
 
     if save_plot:
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}Galactic_Lat_bin_plots_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
+        plt.savefig(f"{path}Galactic_Lat_bin_plots_kpc.png", dpi=600, bbox_inches="tight")
         print(f"Galactic Latitude vs RM plot saved in {path}")
+
         plt.close()
     else:
         plt.show()
@@ -960,31 +914,13 @@ def fit_and_plot_cosine(x, y, guesses):
         print("Curve fitting failed")
 
 
-def apply_plot_attributes(push_title_up = 1.3, leg=True, xlim=(0,180),**kw):
-    """
-    Primarily used in plot_binned_azimuth() 
-    but can also be used for plot_binned_gal_lat()
-    """
-    if "xlabel" in kw: plt.xlabel(kw["xlabel"])
-    else: #Default is meant for plotting binned azimuth
-        plt.xlabel("Polar Angle " r"$(\theta)$ [$^{\circ}$] " + "(Anticlockwise from North - 37.7" + r"$^{\circ}$)")
-    plt.ylabel("Rotation Measure " + r"[rad m$^{-2}$]")
-    if leg:
-        plt.legend(fontsize = 9, loc = 'upper center', bbox_to_anchor = (0.5, push_title_up),
-                    framealpha = 0, ncols = 6)
-    plt.grid(True, linestyle='--', alpha=0.5)
-    plt.minorticks_on() 
-    if xlim is not None: plt.xlim(xlim)
-    if "ylim" in kw: 
-        if kw["ylim"] is not None: plt.ylim(*kw["ylim"])
-
-def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
+def plot_binned_PA(PA, RM, bin_edges, save_plot=False):
 
     """
-    Plots Rotation Measure (RM) as a function of polar angle/Azimuth (in the anticlockwise direction) according to binned distance from center of m31
+    Plots Rotation Measure (RM) as a function of polar angle/Polar_Angle (in the anticlockwise direction) according to binned distance from center of m31
     """
 
-    azimuth_bin_width = 30 #in degrees
+    PA_bin_width = 30 #in degrees
     radial_bin_width = int(300/bin_num_from_main) #in kpc
 
     #For distances
@@ -1005,9 +941,9 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
     for i in range(len(RM_new)): #Assuming ranges of RA and PA are equivalent
         
         if not (RM_new[i].shape == ()):  #Checking if its not empty or filled with NaNs
-            #Note , this inner binning is for a clean 30 bins due to 360 degrees azimuth
-            bin_cent_mean, bin_cent_med, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(PA_new[i],RM_new[i], bin_num=int(360/azimuth_bin_width) #360 divided by "bin_width_degrees"
-                                                                                                        , x_is_r_proj=False, bin_width_degrees=azimuth_bin_width, absol=False)
+            #Note , this inner binning is for a clean 30 bins due to 360 degrees PA
+            bin_cent_mean, bin_cent_med, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(PA_new[i],RM_new[i], bin_num=int(360/PA_bin_width) #360 divided by "bin_width_degrees"
+                                                                                                        , x_is_r_proj=False, bin_width_degrees=PA_bin_width, absol=False)
             bin_centers_mean_GMMStats.append(bin_cent_mean) #For x axis
             bin_centers_med_GMMStats.append(bin_cent_med) #For x axis
             bin_means_GMMStats.append(bin_mean) #For y-axis
@@ -1067,7 +1003,7 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
 
     if save_plot:
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}Azimuthal_bin_plots_median.png", dpi=600, bbox_inches="tight")
+        plt.savefig(f"{path}Polar_Angle_bin_plots_median.png", dpi=600, bbox_inches="tight")
     else:
         plt.show()
     
@@ -1090,62 +1026,125 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
                                    np.mean(bin_med_flat[no_nan_mask])))
 
     plt.legend()
-    plt.title(f"Median (bw_PA={azimuth_bin_width}" + r"$^{\circ}$" + f", bw_radial_proj = {radial_bin_width}"+r" $kpc$)")
+    plt.title(f"Median (bw_PA={PA_bin_width}" + r"$^{\circ}$" + f", bw_radial_proj = {radial_bin_width}"+r" $kpc$)")
     apply_plot_attributes(push_title_up=1.1, leg=False)
     
     if save_plot:
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}Azimuthal_bin_plots_median_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
+        plt.savefig(f"{path}Polar_Angle_bin_plots_median_bwPA_{PA_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
     else:
         plt.show()
     
-    #This section just plots the Raw RM against Azimuth - with pretty colorbar :)
+    #This section just plots the Raw RM against Polar_Angle - with pretty colorbar :)
     #____________________________________________________________________________
-    #Normalizing bin_centers for colormap
-    norm = plt.Normalize(vmin=0, #min(bin_centers), 
-                         vmax=max(bin_centers))
-    cmap = plt.cm.magma  # Using magma colormap
 
-    fig,ax = plt.subplots(1,1, figsize=(16, 8))
-    # print(f"{len(PA)=}")
-    # print(f"{len(bin_centers)=}") ; import sys ; sys.exit()
-
-    # Fitting a cosine
-    PA_flat = np.hstack(list(PA.values()))
-    RM_flat = np.hstack(list(RM.values()))
-    # fit_and_plot_cosine(x=PA_flat, 
-    #                     y=RM_flat, 
-    #                 guesses = (50, #Amplitude
-    #                             3, #Period
-    #                             10, #Horizontal shift
-    #                             np.mean(bin_med_flat[no_nan_mask] #vertical shift
-    #                                     )))
+    colormap_bg_combos = [
+    # ("brg", "k"),
+    # ("CMRmap", "#73e831"),
+    # ("coolwarm", "k"),
+    # ("gist_ncar", "k"),
+    # ("gist_rainbow", "k"),
+    # ("gnuplot2", "#73e831"),
+    # ("hsv", "k"),
+    ("jet", "k"),
+    # ("nipy_spectral", "k"),
+    # ("tab20", "#73e831"),
+    # ("tab20", "k")
+]
     
-    ax.scatter(PA_rm_deg_bg,rm_bg, marker="s", alpha=1, s=1, c="#73e831", label="Background") #Adding in backgorund region - Firstly
-    for bin_idx in range(1,len(RM)+1):
-         if bin_idx in RM:
-            ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=1, s=12,
-                        #label= f"{bin_centers[bin_idx]:.2f}"+ r"$[kpc]$",
-                        color=cmap(norm(bin_centers[bin_idx])))
-    
+    for cmap_name, bg_color in colormap_bg_combos:
+        print(f"Plotting with colormap_bg_color: {cmap_name}_{bg_color}")
+        
+        # Number of bins
+        n_bins = bin_num_from_main + 1
 
-    #Adding colorbar to indicate bin_centers values
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])  # Required for colorbar
-    cbar = plt.colorbar(sm, ax=ax)
-    cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
+        # Create bin edges as in Code 1
+        radial_lims = (0, 300)
+        bin_edges = np.linspace(*radial_lims, n_bins)
+        bin_width = bin_edges[1] - bin_edges[0]
+        bin_centers = bin_edges[:-1] + bin_width / 2  # Bin centers
+        # print(f'{len(bin_centers)=}')
+        # print(f'{RM.keys()}'); import sys; sys.exit()
 
-    apply_plot_attributes(push_title_up = 1.1, xlim=(0,360), ylim=(-300, 200))
-    ax.legend(bbox_to_anchor=(1.05, 1.1), loc="upper left", framealpha=0)  
+        cmap_discrete = get_discrete_colors(radial_lims, n_bins, cmap_name)
 
+        #Normalizing the colorbar using the bin edges
+        norm_cb = plt.matplotlib.colors.BoundaryNorm(boundaries=bin_edges, ncolors=n_bins-1)
+
+        fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+
+        #Background Points
+        ax.scatter(PA_rm_deg_bg, rm_bg, marker="x", alpha=.4, s=15, c=bg_color, label="Background", linewidths=.5)
+
+        #Plotting each bin with a distinct color
+        # counter = 0
+        # print(f"{[k for k, _ in RM.items()]=}")
+        # print(f"{len(RM)=}")
+        for bin_idx in range(1, len(RM)+1):
+            if bin_idx in RM:
+                # Using bin_centers as the colormap index
+                color_idx = np.argmin(np.abs(bin_centers - bin_centers[bin_idx-1]))  # Match index to bin_centers
+                ax.scatter(PA[bin_idx], RM[bin_idx], marker=".", alpha=1, s=12, color=cmap_discrete(color_idx))
+            #     counter += 1
+            # print(counter)
+        ax.set_xticks(np.arange(0, 361, 30))
+
+        # Colorbar using the same discrete colormap
+        sm = plt.cm.ScalarMappable(cmap=cmap_discrete, norm=norm_cb)
+        sm.set_array([])
+
+        # Set the ticks at bin_centers and make sure the colorbar has proper boundaries
+        cbar = plt.colorbar(sm, ax=ax, boundaries=bin_edges)
+        cbar.set_ticks(bin_centers)  # Ensure ticks align with bin_centers
+
+        cbar.set_label("Radial Distance [kpc]", rotation=-90, labelpad=20)
+        cbar.ax.tick_params(size=3, which='both', length=0)
+
+        # Apply plot attributes (title, axis limits, etc.)
+        apply_plot_attributes(push_title_up=1.1, xlim=(0, 360), ylim=(-200, 250))
+
+        ax.legend(bbox_to_anchor=(1.05, 1.1), loc="upper left", framealpha=0)
+
+
+        if save_plot:
+            path = curr_dir_path() + "Results/"
+            filename = f"{path}Polar_Angle_bin_colormap_{cmap_name}_{bg_color}_bwPA_{PA_bin_width}_bwrad_{radial_bin_width}kpc.png"
+            plt.savefig(filename, dpi=600, bbox_inches="tight")
+            plt.close()
+            
+            # break
+        # break
     if save_plot:
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}Azimuthal_bin_plots_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
+        plt.savefig(f"{path}Polar_Angle_bin_plots_bwPA_{PA_bin_width}_bwrad_{radial_bin_width}kpc.png", dpi=600, bbox_inches="tight")
+        print("Saving the values from RM vs PA to text files")
+        # Saving Polar Angle vs RM data
+        # Saving Polar Angle vs RM data
+        with open(f"{path}Polar_Angle_vs_RM_data.txt", "w") as f:
+            f.write("# PA_bin\tRadialBinCenter[kpc]\tPA[deg]\tRM[rad/m^2]\n")
+            for bin_idx in PA:
+                # Ensure bin_idx is within the length of bin_centers
+                if bin_idx < len(bin_centers) + 1:
+                    radial_bin_center = bin_centers[bin_idx -1]
+                else:
+                    # Falling back if out of range
+                    # (If this appears in txt file recheck code until it doesnt)
+                    radial_bin_center = -999 
+
+                for pa_val, rm_val in zip(PA[bin_idx], RM[bin_idx]):
+                    f.write(f"{bin_idx}\t{radial_bin_center:.2f}\t{pa_val:.4f}\t{rm_val:.4f}\n")
+
+        #Saving background region too
+        with open(f"{path}Polar_Angle_vs_RM_background.txt", "w") as f:
+            f.write("# PA[deg]\tRM[rad/m^2]\n")
+            for pa_bg, rm_bg_val in zip(PA_rm_deg_bg, rm_bg):
+                f.write(f"{pa_bg:.4f}\t{rm_bg_val:.4f}\n")
+
         plt.close()
     else:
         plt.show()
 
-    # #this section plots as above but for individual subplots (of RM vs Azimuth) per radial bin
+    # #this section plots as above but for individual subplots (of RM vs Polar_Angle) per radial bin
     # #_________________________________________________________________________________________
     
     # for bin_idx in range(1,len(RM)+1):
@@ -1158,7 +1157,7 @@ def plot_binned_azimuth(PA, RM, bin_edges, save_plot=False):
 
     #         if save_plot:
     #             path = curr_dir_path() + "Results/"
-    #             plt.savefig(f"{path}Azimuthal_bin_plots_bwPA_{azimuth_bin_width}_bwrad_{radial_bin_width}kpc_{bin_idx}.png", dpi=600, bbox_inches="tight")
+    #             plt.savefig(f"{path}Polar_Angle_bin_plots_bwPA_{PA_bin_width}_bwrad_{radial_bin_width}kpc_{bin_idx}.png", dpi=600, bbox_inches="tight")
     #             plt.close(fig)  # Close the figure after saving
     #         else:
     #             plt.show()
@@ -1172,23 +1171,16 @@ def plot_indidividual_patch_stats(ax, d_bin_centers, bin_mean, bin_med, bin_std)
     ax.errorbar(d_bin_centers, np.absolute(bin_mean), yerr=bin_std, fmt='k.-', alpha=.4)
     ax.errorbar(d_bin_centers, np.absolute(bin_med), yerr=bin_std, fmt='g.-', alpha=.4, capsize=2)
 
-def plot_m31_stats(ax):
-    ax.errorbar(d_bin_centers_m31, np.absolute(bin_means_m31), yerr = bin_std_m31, 
-                color="black", fmt = '.-', alpha=.6, label = "M31 mean")
-    ax.errorbar(d_bin_centers_m31, np.absolute(bin_med_m31), yerr=bin_std_m31, 
-                color='orange', fmt='.-', capsize=2, markeredgecolor="k", alpha=.6, label="M31 median")
-
-def plot_m31_dispersion(bin_num, save_plot=False):
+def plot_dispersion(bin_num, sep_vals, rm, centers, save_plot=False, **kw):
 
     plt.figure(figsize = (10, 6))
 
     #Dispersion of RM values in each bin (Standard Error of the Means)
-    bin_std, _, _ = stats.binned_statistic(m31_sep_Rvir, rm_m31, statistic=stats.sem, bins = bin_num)
-    plt.plot(d_bin_centers, bin_std, "ko")
-    plt.xlabel('Projected Separation from M31[kpc]')
-    plt.ylabel('$\sigma_{RM} [\mathrm{rad} \ \mathrm{m}^{-2}]$', rotation='horizontal', labelpad=60, fontsize=15)
-
-    x_values = np.linspace(0, 296, 1000)
+    bin_std, _, _ = stats.binned_statistic(sep_vals, rm, statistic=stats.sem, bins = bin_num)
+    plt.plot(centers, bin_std, "o", label="M31", color="blue")
+    if kw["bin_std_random"] is not None: plt.plot(centers, kw["bin_std_random"], "o", label=r"Random $R_{vir}$", color="r")
+    plt.xlabel('Projected Separation [kpc]')
+    plt.ylabel('$\sigma_{RM}$ \n $[\mathrm{rad} \ \mathrm{m}^{-2}]$', rotation='horizontal', labelpad=60, fontsize=15)
 
     plt.grid(True)
     plt.tight_layout()
@@ -1198,19 +1190,21 @@ def plot_m31_dispersion(bin_num, save_plot=False):
     # fit_line = np.poly1d(coefficients)
     # plt.plot(d_bin_centers.value, fit_line(d_bin_centers.value), 
     #             color = 'orange', linestyle = "--")
-
+    
     plt.title("Dispersion of RM values in each bin")
 
     #Mentioned on page 841 of https://doi.org/10.1093/mnras/stad2811
+    x_values = np.linspace(0, 296, 1000)
     plt.axhline(xmin=0, xmax = np.max(x_values), y=6, linestyle="--",
-                label="Observed $\sigma_{RM}$ indepenedent of Galactic Latitude")
+                label="(Böckmann et al. 2023)" #"Observed $\sigma_{RM}$ indepenedent of Galactic Latitude"
+                )
 
     plt.legend(fontsize = 12, loc = 'upper center', bbox_to_anchor = (0.5, 1.2),
-                framealpha = 0, ncols = (2,2))
+                framealpha = 0, ncols =3)
     
     if save_plot: 
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}" + "Dispersion_M31.png", dpi=600, bbox_inches="tight")#Saving as image
+        plt.savefig(f"{path}" + f"Dispersion{'_Mean' if args.mean else ('_Median' if args.median else '')}.png", dpi=600, bbox_inches="tight")#Saving as image
         print(f"Dispersion image saved in " + f"{path}")
         plt.clf() #clearing the figure (not deleting it)
     else:
@@ -1409,89 +1403,119 @@ def indiv_bg_corr(arr, bin_cent, absol=True):
 
     return np.abs(arr - BG) if absol else arr - BG
 
-def ks_test_random_vs_region(random_samples, region_sample, one_dim = True, save_plot=False, **kwargs):
-    
+
+def compare_distributions(random_samples,
+                          region_sample,
+                          name="",
+                          min_samples=50,
+                          qq_threshold=30,
+                          perm_n=10000,
+                          save_plot=False):
     """
-    Perform the Kolmogorov-Smirnov test between a list of random sky samples (sublists) 
-    and a specific region sample, ensuring both are 1D before testing.
+    Compare two datasets with adaptive testing:
+    1. KS test
+    2. Shapiro-Wilk normality on each sample
+    3. If region normal -> parametric: Q-Q & ECDF
+       If random normal but region not -> permutation test
+       If both non-normal -> Mann-Whitney U test
+    4. Anderson-Darling test
 
     Parameters:
-    - random_samples (list of lists or 2D array): Multiple sublists of random sky samples.
-    - region_sample (list or 1D array): Data from the specific region of interest.
-
-    Output:
-    Prints the KS statistic and p-value in a readable format.
+    - random_samples: list or 2D array of random sky values
+    - region_sample: list or 1D array for specific region
+    - name: label for printing and plots
+    - min_samples: threshold for warning about KS power
+    - qq_threshold: sample size below which Q-Q plotted
+    - perm_n: number of permutations for permutation test
+    - save_plot: whether to save Q-Q/ECDF plots
     """
-
-    name = kwargs["name" ]if "name" in kwargs else "" #Handling the names parametre
-
-    #Converting to 1D
-    if len(np.asarray(random_samples).shape) > 1: #checking if its not already in one dimension
-        if one_dim:
-            random_samples = np.concatenate(random_samples)#Falttening Sublists
-    region_sample = np.array(region_sample).flatten()#Ensuring its 1D for single m31 region
-
-    #Checking shapes (making sure theyre all 1D)
-    print(f"\nChecking Data Shapes:")
-    print(f"  - Combined Random Samples: {np.asarray(random_samples).shape}")
-    print(f"  - Specific Region Sample: {np.asarray(region_sample).shape}\n")
-
-    #Performing the Test
-    if one_dim:
-        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample, nan_policy='omit')
-    else:
-        ks_stat, p_value = stats.ks_2samp(random_samples, region_sample,
-                                          nan_policy='omit', 
-                                          axis=1 #broadcasting region_sample across all sublists of random_samples (or radnom patches) 
-                                          )
-        
-    if one_dim:
-        #Giving results in a clean format
-        print(f"  KS Statistic (K): {ks_stat}")
-        print(f"  P-value: {p_value:}")
-
-        #Interpreting the p-value
-        if p_value > 0.05:
-            print("The two datasets could come from the same distribution.")
-            print("   -> Your specific region is NOT significantly different from random sky samples.")
+    
+    if save_plot: plt.close() #stop any empty figures
+    # Flatten inputs
+    if isinstance(random_samples, (list, np.ndarray)) and hasattr(random_samples, '__len__'):
+        arr = np.asarray(random_samples)
+        if arr.ndim > 1:
+            rand = np.concatenate(arr)
         else:
-            print("The two datasets are likely different.")
-            print("   -> Your specific region is statistically distinct from random sky samples.")
+            rand = arr.flatten()
+    region = np.asarray(region_sample).flatten()
 
-        print("=" * 50)
-    else:
-        num_above_thresh = np.sum(p_value > 0.05)
-        num_below_thresh = len(p_value) - num_above_thresh  # Total minus above threshold
+    n_rand, n_reg = len(rand), len(region)
+    total_n = n_rand + n_reg
+    print(f"\n[{name} patch size {number_of_patches}] Sample sizes: random={n_rand}, region={n_reg} (total={total_n})")
+    if total_n < min_samples:
+        print(f"Warning: total sample size {total_n} < {min_samples}; KS may be underpowered.")
 
-        colors = np.where(p_value < 0.05, "blue", "red")  # Blue for below, Red for above
+    # 1. KS Test
+    ks_stat, ks_p = stats.ks_2samp(rand, region, nan_policy='omit')
+    print(f"\n▶ KS Test: statistic={ks_stat}, p-value={ks_p}")
 
-        fig, axes = plt.subplots(2, 1, figsize=(12, 6))
+    # 2. Shapiro-Wilk Normality
+    print("\n▶ Shapiro-Wilk Test for Normality:")
+    print("Parametric tests are suitable if Normality exists")
+    def run_shapiro(data, label):
+        if 3 <= len(data) <= 5000:
+            W, p = stats.shapiro(data)
+            print(f"  {label}: {W}, p={p} -> {'normal' if p>0.05 else 'not normal'}")
+            return p > 0.05
+        else:
+            print(f"  {label}: size {len(data)} out of range for Shapiro")
+            return False
+    rand_norm = run_shapiro(rand, "Random Samples")
+    reg_norm  = run_shapiro(region, "Region Sample")
 
-        # Plotting the p-value
-        scatter_p = axes[0].scatter(np.arange(1, len(random_samples) + 1), p_value, c=colors, marker=".")
-        axes[0].axhline(y=0.05, linestyle="--", color="red")
-        axes[0].set_ylabel("P-value")
-        axes[0].set_title(f"{name}")
-        axes[0].minorticks_on()
-        axes[0].legend(handles=[
-            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor="blue", markersize=8, label=f"Below thresh = {num_below_thresh}"),
-            plt.Line2D([0], [0], marker="o", color="w", markerfacecolor="red", markersize=8, label=f"Above thresh = {num_above_thresh}")
-        ])
-
-        # Plotting the K difference
-        scatter_ks = axes[1].scatter(np.arange(1, len(random_samples) + 1), ks_stat, c=colors, marker=".")
-        axes[1].set_xlabel("Patch index")
-        axes[1].set_ylabel("K difference")
-        axes[1].minorticks_on()
-
-        plt.tight_layout()
-
+    # 3. Conditional Testing
+    if reg_norm:
+        print("\nRegion is normal: proceeding with parametric visuals (Q-Q & ECDF).")
+        # Q-Q plots
+        if n_rand < qq_threshold or n_reg < qq_threshold:
+            for data, label in ((rand, 'Random'), (region, 'Region')):
+                stats.probplot(data, dist='norm', plot=plt)
+                plt.title(f"Q-Q Plot: {name} ({label})")
+                if save_plot:
+                    plt.savefig(f"Results/qq_{name}_{label}.png", dpi=300)
+                else:
+                    plt.show()
+        # ECDF plot
+        from statsmodels.distributions.empirical_distribution import ECDF
+        ecdf1, ecdf2 = ECDF(rand), ECDF(region)
+        plt.plot(ecdf1.x, ecdf1.y, label='Random')
+        plt.plot(ecdf2.x, ecdf2.y, label='Region')
+        plt.title(f"ECDF: {name}")
+        plt.legend(); plt.xlabel('Value'); plt.ylabel('ECDF')
         if save_plot:
-            path = curr_dir_path() + "Results/"
-            plt.savefig(f"{path}p_values_per_{name}_patch.png", dpi=600, bbox_inches="tight")
-            print(f"P_values per patch has been saved to {path}")
+            plt.savefig(f"Results/ecdf_{name}.png", dpi=300)
         else:
             plt.show()
+
+    elif rand_norm and not reg_norm:
+        print("\nRandom normal but region not")
+        print("Q-Q plots and ECDF plots have been skipped.")
+        print("Performing permutation test that resamples the data to assess significance of the observed difference between the two samples. \n(Doesn't rely on strict distributional assumptions)")
+        # permutation test on difference in means
+        obs_diff = np.abs(np.mean(rand) - np.mean(region))
+        pool = np.concatenate([rand, region])
+        count = 0
+        for _ in range(perm_n):
+            perm = np.random.permutation(pool)
+            if np.abs(np.mean(perm[:n_rand]) - np.mean(perm[n_rand:])) >= obs_diff:
+                count += 1
+        p_perm = count / perm_n
+        print(f"Permutation test p-value={p_perm}")
+
+    else:
+        print("\nBoth non-normal: using Mann-Whitney U (non-parametric).")
+        mw_stat, mw_p = stats.mannwhitneyu(rand, region, alternative='two-sided')
+        print(f"Mann-Whitney U: statistic={mw_stat}, p-value={mw_p}")
+
+    # 4. Anderson-Darling
+    print("\n▶ Anderson-Darling: \n To determine how closely region sample is drawn from random sample")
+    ad_res = stats.anderson_ksamp([rand, region],
+                                  method=stats.PermutationMethod() #Using full permutation distribution instead of default approximation to avoid flooring the p-value
+                                  )
+    ad_stat, ad_sig = ad_res.statistic, ad_res.significance_level/100
+    print(f"statistic={ad_stat}, p-value={ad_sig}")
+    print("="*50)
 
 """
 Note that it might take too long to fit patches that dont overlap each other 
@@ -1500,213 +1524,223 @@ if the number of patches are too many and/or the size of the patches are too big
 patch_size = 30 #in degrees (same as M31 Virial Radius)
 
 """IMPORTANT"""
-number_of_patches = int(1e4) #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+number_of_patches = args.patch_num #Creating laaaarge nubmer of patches (choose smaller vlue if you only want to see output features)
+    
+BINS = bin_num_from_main
 
+if args.pickle: #Then overwrite then process and overwrite existing pickled data
+    rm_s, rm_errs = get_real_rm_data()
+    
+    #Creating random center points for Random R_vir assessment
+    patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
+                                                    ra_range=(0,360),
+                                                    #(min(eq_pos.ra.deg), 
+                                                        #           max(eq_pos.ra.deg)),
+                                                    dec_range=(-90#(-40+patch_size #Ensuring dec values are valid for arcsin and the ENTIRE patch is above -40 dec
+                                                               ,90),
+                                                    # (min(eq_pos.dec.deg),
+                                                                # max(eq_pos.dec.deg)),
+                                                    overlap=True, #Allowing circles to overlap
+                                                    radius = patch_size, #in degrees
+                                                    min_distance_deg = patch_size #minimum separation of points in degrees
+                                                    )
 
-BINS = bin_num_main
+    Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
+    print("Random points converted to SkyCoord object")
 
-if __name__== "__main__":
-    if args.pickling: #Then overwrite then process and overwrite existing pickled data
-        rm_s, rm_errs = get_real_rm_data()
-        
-        #Creating random center points for Random R_vir assessment
-        patch_ra_points, patch_dec_points = get_random_points(num=number_of_patches, 
-                                                        ra_range=(min(eq_pos.ra.deg), 
-                                                                    max(eq_pos.ra.deg)),
-                                                        dec_range=(min(eq_pos.dec.deg),
-                                                                    max(eq_pos.dec.deg)),
-                                                        overlap=True, #Allowing circles to overlap
-                                                        radius = patch_size, #in degrees
-                                                        min_distance_deg = patch_size #minimum separation of points in degrees
-                                                        )
+    # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
+    # Same goes for RM_values_per_patch
+    RM_values_per_patch, RM_coords_per_patch = [], []
 
-        Patch_pos = SkyCoord(ra=patch_ra_points, dec=patch_dec_points, unit=(u.deg,u.deg), frame='icrs')
-        print("Saved random points as SkyCoord")
+    #Creating axis that will be used when doing WCS axis point collections
+    fig1 = plt.figure(figsize=(6, 5))
+    ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
+    fig1.clf() #No need to show figure. Only axis is needed
 
-        # RM_coords_per_patch will be filled with values when "collection_of_points_from_WCS_sphere()" is called
-        # Same goes for RM_values_per_patch
-        RM_values_per_patch, RM_coords_per_patch = [], []
+    print("(No longer plotting) but collecting of points from each circular patch has begun...")
+    collection_of_points_from_WCS_sphere() #IMPORTANT
+    print("Collection of points by each circular patch on WCS sphere is complete")
 
-        #Creating axis that will be used when doing WCS axis point collections
-        fig1 = plt.figure(figsize=(6, 5))
-        ax1 = fig1.add_subplot(111, projection=get_wcs("LGSNLGSR.SQLGBB.FITS"), slices=('x', 'y', 0, 0))
-        fig1.clf() #No need to show figure. Only axis is needed
+    print("Getting separation of RM from center of relative patch")
+    #Get separation of RM from center of relative patch.
+    RM_coords_sep = [rm_coords.separation(patch_pos) 
+                    for rm_coords, patch_pos in 
+                    list(zip(RM_coords_per_patch, Patch_pos))]
+    
+    #____________________________________________________________
+    #Capturing Data per patch to udergo proper background subtraction
+    #____________________________________________________________
+    # CGM_RM_coords_per_patch = [#Gathering coordinates of RM landing in Random R_vir
+    #      coords[mask]
+    #      for coords, mask in zip(RM_coords_per_patch, [sep < L_m31 * u.deg for sep in RM_coords_sep])
+    #  ]
+    # BG_RM_coords_per_patch = [#Gathering coordinates of RM landing in Random R_vir's BG region
+    #      coords[mask]
+    #      for coords, mask in zip(RM_coords_per_patch, [sep > L_m31 * u.deg for sep in RM_coords_sep])
+    #  ]
+    # CGM_RM_values_per_patch = [#Gathering values of RM landing in Random R_vir
+    #      np.asarray(values)[mask]
+    #      for values, mask in zip(RM_values_per_patch, [sep.value < L_m31 for sep in RM_coords_sep])
+    #  ]
+    # BG_RM_values_per_patch = [#Gathering values of RM landing in Random R_vir's BG region
+    #      np.asarray(values)[mask]
+    #      for values, mask in zip(RM_values_per_patch, [sep.value > L_m31 for sep in RM_coords_sep])
+    #  ]
 
-        print("(No longer plotting) but collecting of points from each circular patch has begun...")
-        collection_of_points_from_WCS_sphere() #IMPORTANT
-        print("Collection of points by each circular patch on WCS sphere is complete")
+    def filter_RM_coords(coords, sep, threshold, condition):
+        """Helper function to filter RM coordinates based on a condition."""
+        mask = condition(sep, threshold)
+        return coords[mask]
 
-        print("Getting separation of RM from center of relative patch")
-        #Get separation of RM from center of relative patch.
-        RM_coords_sep = [rm_coords.separation(patch_pos) 
-                        for rm_coords, patch_pos in 
-                        list(zip(RM_coords_per_patch, Patch_pos))]
-        
-        #____________________________________________________________
-        #Capturing Data per patch to udergo proper background subtraction
-        #____________________________________________________________
-        # CGM_RM_coords_per_patch = [#Gathering coordinates of RM landing in Random R_vir
-        #      coords[mask]
-        #      for coords, mask in zip(RM_coords_per_patch, [sep < L_m31 * u.deg for sep in RM_coords_sep])
-        #  ]
-        # BG_RM_coords_per_patch = [#Gathering coordinates of RM landing in Random R_vir's BG region
-        #      coords[mask]
-        #      for coords, mask in zip(RM_coords_per_patch, [sep > L_m31 * u.deg for sep in RM_coords_sep])
-        #  ]
-        # CGM_RM_values_per_patch = [#Gathering values of RM landing in Random R_vir
-        #      np.asarray(values)[mask]
-        #      for values, mask in zip(RM_values_per_patch, [sep.value < L_m31 for sep in RM_coords_sep])
-        #  ]
-        # BG_RM_values_per_patch = [#Gathering values of RM landing in Random R_vir's BG region
-        #      np.asarray(values)[mask]
-        #      for values, mask in zip(RM_values_per_patch, [sep.value > L_m31 for sep in RM_coords_sep])
-        #  ]
+    def filter_RM_values(values, sep, threshold, condition):
+        """Helper function to filter RM values based on a condition."""
+        mask = condition(sep.value, threshold)
+        return np.asarray(values)[mask]
 
-        def filter_RM_coords(coords, sep, threshold, condition):
-            """Helper function to filter RM coordinates based on a condition."""
-            mask = condition(sep, threshold)
-            return coords[mask]
-
-        def filter_RM_values(values, sep, threshold, condition):
-            """Helper function to filter RM values based on a condition."""
-            mask = condition(sep.value, threshold)
-            return np.asarray(values)[mask]
-
-        def process_patch(coords_list, values_list, sep_list, L_m31):
-            """Processes RM coordinates and values in parallel."""
-            with ThreadPoolExecutor() as executor:
-                CGM_RM_coords_per_patch = list(executor.map(
-                    filter_RM_coords, coords_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.less] * len(sep_list)
-                ))
-                BG_RM_coords_per_patch = list(executor.map(
-                    filter_RM_coords, coords_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.greater] * len(sep_list)
-                ))
-                CGM_RM_values_per_patch = list(executor.map(
-                    filter_RM_values, values_list, sep_list, [L_m31] * len(sep_list), [np.less] * len(sep_list)
-                ))
-                BG_RM_values_per_patch = list(executor.map(
-                    filter_RM_values, values_list, sep_list, [L_m31] * len(sep_list), [np.greater] * len(sep_list)
-                ))
-                CGM_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Smaller than L_m31)
-                    filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.less] * len(sep_list)
-                ))
-                BG_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Greater than L_m31)
-                    filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.greater] * len(sep_list)
-                ))
-
-            return (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
-                    CGM_RM_values_per_patch, BG_RM_values_per_patch,
-                    CGM_RM_coords_sep, BG_RM_coords_sep)
-
-    if args.pickling:
-        #Running in parallel
-        (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
-        CGM_RM_values_per_patch, BG_RM_values_per_patch,
-        CGM_RM_coords_sep, BG_RM_coords_sep) = process_patch(
-            RM_coords_per_patch, RM_values_per_patch, RM_coords_sep, L_m31
-        )
-        print("Data for Random R_vir's have been structured for Proper BG substraction")
-        pickle_filename = "../Structured_data_for_BG_Subtraction.pkl"
-        data_to_pickle = {
-                "RM_coords_sep": RM_coords_sep,
-                "CGM_RM_coords_sep": CGM_RM_coords_sep,
-                "BG_RM_coords_sep": BG_RM_coords_sep,
-                "CGM_RM_coords_per_patch": CGM_RM_coords_per_patch,
-                "CGM_RM_values_per_patch": CGM_RM_values_per_patch,
-                "BG_RM_coords_per_patch": BG_RM_coords_per_patch,
-                "BG_RM_values_per_patch": BG_RM_values_per_patch
-            }
-        with open(pickle_filename, "wb") as f:
-            pickle.dump(data_to_pickle, f)
-        print("Structured Data for Proper background subtraction has been saved successfully")
-
-    #Loading structured data for background subtraction
-    RM_coords_sep, CGM_RM_coords_sep, BG_RM_coords_sep, CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch = (
-        load_pickle("../Structured_data_for_BG_Subtraction.pkl", 
-                    "Structured Data for Proper background subtraction has been reloaded from pickle file successfully")
-    )
-
-    if args.pickling:
-        #____________________________________________________________
-        # Undergoing Proper BG Correction for each Random Patch (using multithreading)
-        #____________________________________________________________
-        # CGM_RM_values_per_patch_corr = [BG_correction(rm_coords, rm_values, bg_coords, bg_values)
-        #                            for rm_coords, rm_values,bg_coords, bg_values in
-        #                            zip(CGM_RM_coords_per_patch, CGM_RM_values_per_patch,
-        #                                BG_RM_coords_per_patch, BG_RM_values_per_patch)]
+    def process_patch(coords_list, values_list, sep_list, L_m31):
+        """Processes RM coordinates and values in parallel."""
         with ThreadPoolExecutor() as executor:
-            CGM_RM_values_per_patch_corr = list(executor.map(
-                BG_correction, CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch
+            CGM_RM_coords_per_patch = list(executor.map(
+                filter_RM_coords, coords_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.less] * len(sep_list)
             ))
-        print("Rotation Measures have been Corrected !! :)")
+            BG_RM_coords_per_patch = list(executor.map(
+                filter_RM_coords, coords_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.greater] * len(sep_list)
+            ))
+            CGM_RM_values_per_patch = list(executor.map(
+                filter_RM_values, values_list, sep_list, [L_m31] * len(sep_list), [np.less] * len(sep_list)
+            ))
+            BG_RM_values_per_patch = list(executor.map(
+                filter_RM_values, values_list, sep_list, [L_m31] * len(sep_list), [np.greater] * len(sep_list)
+            ))
+            CGM_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Smaller than L_m31)
+                filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.less] * len(sep_list)
+            ))
+            BG_RM_coords_sep = list(executor.map(#Filtering out separation lists as well (Greater than L_m31)
+                filter_RM_coords, sep_list, sep_list, [L_m31 * u.deg] * len(sep_list), [np.greater] * len(sep_list)
+            ))
 
-        pickle_filename = "../RM_Subtracted_with_spline.pkl"
-        data_to_pickle = {
-                "CGM_RM_values_per_patch_corr": CGM_RM_values_per_patch_corr,
-            }
-        with open(pickle_filename, "wb") as f:
-            pickle.dump(data_to_pickle, f)
-        print(" Properly Subtracted RM's have been dumped in pickle file successfully.")
+        return (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
+                CGM_RM_values_per_patch, BG_RM_values_per_patch,
+                CGM_RM_coords_sep, BG_RM_coords_sep)
 
-    #Loading properly subtracted RM values
-    (CGM_RM_values_per_patch_corr,) = (
-        load_pickle("../RM_Subtracted_with_spline.pkl", 
-                    "Properly Subtracted RM's have been reloaded from pickle file successfully")
+# if args.pickle:
+#     pickle_filename = "../Patch_pos.pkl"
+#     data_to_pickle = {
+#             "Patch_pos": Patch_pos
+#         }
+#     with open(pickle_filename, "wb") as f:
+#         pickle.dump(data_to_pickle, f)
+#     print("Random Patch Positions have been pickled individually") ; import sys; sys.exit()
+
+if args.pickle:
+    #Running in parallel
+    (CGM_RM_coords_per_patch, BG_RM_coords_per_patch, 
+    CGM_RM_values_per_patch, BG_RM_values_per_patch,
+    CGM_RM_coords_sep, BG_RM_coords_sep) = process_patch(
+        RM_coords_per_patch, RM_values_per_patch, RM_coords_sep, L_m31
     )
-
-    if args.pickling:
-        all_d_bin_centers=[] #For x-axis
-        all_means = []
-        all_medians = []
-        all_bin_stds = []
-        all_bin_edges = ''
-
-        fig2 = plt.figure(figsize=(10, 5))
-        ax2 = fig2.add_subplot(111)
-        print("Mean and Median calculations have begun")
-        for i in range(len(RM_coords_sep)): #Searching through each patch
-            
-            if not (CGM_RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
-                if not (CGM_RM_coords_per_patch[i].shape[0] < 30):  # Ensure sufficient number of points for stats module to work
-                    d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(CGM_RM_coords_sep[i], CGM_RM_values_per_patch_corr[i], bin_num=BINS)
-                    
-                    all_d_bin_centers.append(d_bin_centers) #For x axis
-                    all_means.append(bin_mean) #For y-axis
-                    all_medians.append(bin_med) #For y-axis
-                    all_bin_stds.append(bin_std)
-
-                    if i == 0 : #Only collect bin edges once
-                        all_bin_edges = bin_edges
-
-                    # #Background correction for the individual plots
-                    # bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
-                    # bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
-
-                    #This has been commented out to remove clatter
-                    #The they are all being collected and will be averaged to make a final one
-                    # plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
-                
-        # Data to pickle
-        data_to_pickle = {
-            "ax2": ax2,
-            "fig2": fig2,
+    print("Data for Random R_vir's have been structured for Proper BG substraction")
+    pickle_filename = "../Structured_data_for_BG_Subtraction.pkl"
+    data_to_pickle = {
             "RM_coords_sep": RM_coords_sep,
-            "all_d_bin_centers": all_d_bin_centers,
-            "all_means": all_means,
-            "all_medians": all_medians,
-            "all_bin_stds": all_bin_stds,
-            "all_bin_edges": all_bin_edges,
-            "rm_s": rm_s,
-            "rm_errs": rm_errs,
-            "patch_ra_points": patch_ra_points,
-            "patch_dec_points": patch_dec_points,
-            "Patch_pos": Patch_pos
+            "CGM_RM_coords_sep": CGM_RM_coords_sep,
+            "BG_RM_coords_sep": BG_RM_coords_sep,
+            "CGM_RM_coords_per_patch": CGM_RM_coords_per_patch,
+            "CGM_RM_values_per_patch": CGM_RM_values_per_patch,
+            "BG_RM_coords_per_patch": BG_RM_coords_per_patch,
+            "BG_RM_values_per_patch": BG_RM_values_per_patch
         }
+    with open(pickle_filename, "wb") as f:
+        pickle.dump(data_to_pickle, f)
+    print("Structured Data for Proper background subtraction has been saved successfully")
 
-        # Save to pickle file
-        with open("../RM_stats.pkl", "wb") as f:
-            pickle.dump(data_to_pickle, f)
-        print("Mean, Median calculations, and additional variables have been pickled successfully!")
+#Loading structured data for background subtraction
+RM_coords_sep, CGM_RM_coords_sep, BG_RM_coords_sep, CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch = (
+    load_pickle("../Structured_data_for_BG_Subtraction.pkl", 
+                "Structured Data for Proper background subtraction has been reloaded from pickle file successfully")
+)
+
+if args.pickle:
+    #____________________________________________________________
+    # Undergoing Proper BG Correction for each Random Patch (using multithreading)
+    #____________________________________________________________
+    # CGM_RM_values_per_patch_corr = [BG_correction(rm_coords, rm_values, bg_coords, bg_values)
+    #                            for rm_coords, rm_values,bg_coords, bg_values in
+    #                            zip(CGM_RM_coords_per_patch, CGM_RM_values_per_patch,
+    #                                BG_RM_coords_per_patch, BG_RM_values_per_patch)]
+    with ThreadPoolExecutor() as executor:
+        CGM_RM_values_per_patch_corr = list(executor.map(
+            BG_correction, CGM_RM_coords_per_patch, CGM_RM_values_per_patch, BG_RM_coords_per_patch, BG_RM_values_per_patch
+        ))
+    print("Rotation Measures have been Corrected !! :)")
+
+    pickle_filename = "../RM_Subtracted_with_spline.pkl"
+    data_to_pickle = {
+            "CGM_RM_values_per_patch_corr": CGM_RM_values_per_patch_corr,
+        }
+    with open(pickle_filename, "wb") as f:
+        pickle.dump(data_to_pickle, f)
+    print(" Properly Subtracted RM's have been dumped in pickle file successfully.")
+
+#Loading properly subtracted RM values
+(CGM_RM_values_per_patch_corr,) = (
+    load_pickle("../RM_Subtracted_with_spline.pkl", 
+                "Properly Subtracted RM's have been reloaded from pickle file successfully")
+)
+
+if args.pickle:
+    all_d_bin_centers=[] #For x-axis
+    all_means = []
+    all_medians = []
+    all_bin_stds = []
+    all_bin_edges = ''
+
+    fig2 = plt.figure(figsize=(10, 5))
+    ax2 = fig2.add_subplot(111)
+    print("Mean and Median calculations have begun")
+    for i in range(len(RM_coords_sep)): #Searching through each patch
+        
+        if not (CGM_RM_coords_per_patch[i].shape == ()):  #Checking if its not empty or filled with NaNs
+            if not (CGM_RM_coords_per_patch[i].shape[0] < 30):  # Ensure sufficient number of points for stats module to work
+                d_bin_centers, bin_mean, bin_med, bin_std, bin_edges = get_mean_and_med_stats(CGM_RM_coords_sep[i], CGM_RM_values_per_patch_corr[i], bin_num=BINS)
+                
+                all_d_bin_centers.append(d_bin_centers) #For x axis
+                all_means.append(bin_mean) #For y-axis
+                all_medians.append(bin_med) #For y-axis
+                all_bin_stds.append(bin_std)
+
+                if i == 0 : #Only collect bin edges once
+                    all_bin_edges = bin_edges
+
+                # #Background correction for the individual plots
+                # bin_mean_1 = indiv_bg_corr(bin_mean, d_bin_centers)
+                # bin_med_1 = indiv_bg_corr(bin_med, d_bin_centers)
+
+                #This has been commented out to remove clatter
+                #The they are all being collected and will be averaged to make a final one
+                #plot_indidividual_patch_stats(ax2, d_bin_centers, bin_mean_1, bin_med_1, bin_std)
+            
+    #Data to pickle
+    data_to_pickle = {
+        "ax2": ax2,
+        "fig2": fig2,
+        "RM_coords_sep": RM_coords_sep,
+        "all_d_bin_centers": all_d_bin_centers,
+        "all_means": all_means,
+        "all_medians": all_medians,
+        "all_bin_stds": all_bin_stds,
+        "all_bin_edges": all_bin_edges,
+        "rm_s": rm_s,
+        "rm_errs": rm_errs,
+        "patch_ra_points": patch_ra_points,
+        "patch_dec_points": patch_dec_points,
+        "Patch_pos": Patch_pos
+    }
+
+    #Save to pickle file
+    with open("../RM_stats.pkl", "wb") as f:
+        pickle.dump(data_to_pickle, f)
+    print("Mean, Median calculations, and additional variables have been pickled successfully!")
 
 #Loading RM statistics
 (ax2, fig2, RM_coords_sep, all_d_bin_centers, all_means, all_medians, 
@@ -1716,57 +1750,56 @@ patch_dec_points, Patch_pos) = load_pickle("../RM_stats.pkl",
 
 pickle_filename = os.path.join("..", "saved_data.pkl")
 
-if __name__ == "__main__":
-    if args.pickling:
-        D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                        max([max(centers) for centers in all_d_bin_centers]), 
-                                        num=BINS)
+if args.pickle:
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS)
 
-        Avg_means = np.mean(all_means, axis=0)
-        Avg_medians = np.mean(all_medians, axis=0)
-        Avg_means_std = np.std(all_means, axis=0)
-        Avg_medians_std= np.std(all_medians, axis=0)
+    Avg_means = np.mean(all_means, axis=0) #Average Means for spline corrected Random R_vir
+    Avg_medians = np.mean(all_medians, axis=0) #Average Medians for spline corrected Random R_vir
+    Avg_means_std = np.std(all_means, axis=0)
+    Avg_medians_std= np.std(all_medians, axis=0)
 
-        #Interpolating all data to have 100 poitns for more smoothness
-        #Default type of smoothing is via quadratic interpolation
-        Tup = ()
-        for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
-            Tup += (interpolate(data, num_points=100),)
-        int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
+    #Interpolating all data to have 100 poitns for more smoothness
+    #Default type of smoothing is via quadratic interpolation
+    Tup = ()
+    for data in [Avg_means, Avg_medians, Avg_means_std, Avg_medians_std]:
+        Tup += (interpolate(data, num_points=100),)
+    int_Avg_means, int_Avg_medians, int_Avg_means_std, int_Avg_medians_std = Tup
 
-        # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
-        D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                        max([max(centers) for centers in all_d_bin_centers]), 
-                                        num=BINS #BINS #Number of points for interpolation (smoothens it out)
-                                                #Must be same as bin_num parameter in function "get_mean_and_med_stats"
-                                        )
+    # Find a common range of D_bin_centers for non-interpolated data (BINS =30)
+    D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=BINS #BINS #Number of points for interpolation (smoothens it out)
+                                            #Must be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
 
-        # Find a common range of D_bin_centers for interpolation
-        int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
-                                        max([max(centers) for centers in all_d_bin_centers]), 
-                                        num=100 #BINS #Number of points for interpolation (smoothens it out)
-                                                #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
-                                        )
+    # Find a common range of D_bin_centers for interpolation
+    int_D_bin_centers = np.linspace(min([min(centers) for centers in all_d_bin_centers]), 
+                                    max([max(centers) for centers in all_d_bin_centers]), 
+                                    num=100 #BINS #Number of points for interpolation (smoothens it out)
+                                            #Msut be same as bin_num parameter in function "get_mean_and_med_stats"
+                                    )
 
-        # Variables to pickle
-        data_to_save = {
-            "D_bin_centers": D_bin_centers,
-            "Avg_means": Avg_means,
-            "Avg_medians": Avg_medians,
-            "Avg_means_std": Avg_means_std,
-            "Avg_medians_std": Avg_medians_std,
-            "int_Avg_means": int_Avg_means,
-            "int_Avg_medians": int_Avg_medians,
-            "int_Avg_means_std": int_Avg_means_std,
-            "int_Avg_medians_std": int_Avg_medians_std,
-            "int_D_bin_centers": int_D_bin_centers
-        }
+    # Variables to pickle
+    data_to_save = {
+        "D_bin_centers": D_bin_centers,
+        "Avg_means": Avg_means,
+        "Avg_medians": Avg_medians,
+        "Avg_means_std": Avg_means_std,
+        "Avg_medians_std": Avg_medians_std,
+        "int_Avg_means": int_Avg_means,
+        "int_Avg_medians": int_Avg_medians,
+        "int_Avg_means_std": int_Avg_means_std,
+        "int_Avg_medians_std": int_Avg_medians_std,
+        "int_D_bin_centers": int_D_bin_centers
+    }
 
-        # Save data to pickle file
-        with open(pickle_filename, "wb") as f:
-            pickle.dump(data_to_save, f)
+    # Save data to pickle file
+    with open(pickle_filename, "wb") as f:
+        pickle.dump(data_to_save, f)
 
-        print(f"Data for M31_vs_entire sky plotting saved to {pickle_filename}")
+    print(f"Data for M31_vs_entire sky plotting saved to {pickle_filename}")
 
 # Load the data immediately
 with open(pickle_filename, "rb") as f:
@@ -1788,8 +1821,6 @@ del loaded_data
 print("Data reloaded for original M31_vs_entire_sky plot.")
 
 if __name__ == "__main__": #continue (this makes it easier to excecute "M31_signal_density.py" file)
-
-    m31_lat = m31_pos.transform_to('galactic').b
 
     if args.original_plot:
         plot_m31_stats(ax2) #Plots the data from intial starterkit (So nothing new here)
@@ -1836,9 +1867,14 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     if args.test_patches: #show patches on sphere as they get smaller
         test_patches_on_sphere()
 
-    if args.show_dispersion:
+    if args.CGM_dispersion:
         from main import d_bin_centers
-        plot_m31_dispersion(bin_num_from_main, save_plot=True)
+        plot_dispersion(bin_num=bin_num_from_main, 
+                        sep_vals=m31_sep_Rvir,
+                        rm=rm_m31,
+                        centers=d_bin_centers,
+                        save_plot=args.save_plot,
+                        bin_std_random=Avg_medians_std if args.median else (Avg_means_std if args.mean else None))
 
     if args.annuli_anal: 
         annuli_analysis_random(all_means, all_medians, save_plot=True)
@@ -1846,130 +1882,272 @@ if __name__ == "__main__": #continue (this makes it easier to excecute "M31_sign
     elif args.m31_annuli_anal:
         annuli_analysis_m31(save_plot=True)
     
-    if args.rm_vs_azimuth or args.rm_vs_gal_lat:
+    if args.rm_vs_PA or args.rm_vs_gal_lat:
         Sep_vals = np.concatenate([m31_sep_Rvir, m31_sep_bg])
         RM_and_BG = np.concatenate([rm_m31, rm_bg])
         m31_distances = tuple(map(get_projected_d, m31_sep_Rvir, [d_m31]*len(m31_sep_Rvir))) #from separated distance in degrees - within CGM of M31 - to kpc
-        m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances))
+        m31_distances = list(map(lambda m31_d: m31_d.value, m31_distances)) #Capturing only their value
     
-    if args.rm_vs_azimuth: 
-        PA_rm_deg = (PA_rm_rad.to(u.deg).value -37.7) %360 #Converting from radians to degrees
-        PA_rm_deg_bg = (PA_rm_rad_bg.to(u.deg).value -37.7) %360 #Converting from radians to degrees
+    if args.rm_vs_PA: 
+        PA_rm_deg = (PA_rm.deg -37.7) %360 #Converting from radians to degrees
+        PA_rm_deg_bg = (PA_bg.deg -37.7) %360 #Converting from radians to degrees
         PA_rm_degs = np.concatenate([PA_rm_deg, PA_rm_deg_bg]) #Including the Background
 
+        # print(f"{len(m31_distances)=}")
+        # print(f"{len(PA_rm_deg)=}")
+        # print(f"{len(rm_m31)=}")
         [distance_per_PA_bin, rm_per_PA_bin], _, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, 
                                                                                              data=(PA_rm_deg, rm_m31), 
                                                                                              bin_num=bin_num_from_main+1, 
-                                                                                             for_azimuth_or_B_plot=True)
-        plot_binned_azimuth(distance_per_PA_bin, rm_per_PA_bin, bin_edges, save_plot=True)
+                                                                                             for_PA_or_b_plot=True)
+        plot_binned_PA(distance_per_PA_bin, rm_per_PA_bin, bin_edges, save_plot=True)
 
     if args.rm_vs_gal_lat: 
         rm_pos_gal_lats = np.concatenate([rm_pos_gal_lat, rm_pos_gal_lat_bg]) #Inclusive of its background (if used...)
         # print(rm_pos_gal_lats); import sys; sys.exit()'
             
-        [distance_per_B_bin, rm_per_B_bin], _, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, 
+        [distance_per_b_bin, rm_per_b_bin], _, bin_edges = create_annuli_binning_structure(bin_data=m31_distances, 
                                                                                              data=(rm_pos_gal_lat, rm_m31), 
                                                                                              bin_num=bin_num_from_main+1, 
-                                                                                             for_azimuth_or_B_plot=True)
-        plot_binned_gal_lat(distance_per_B_bin, rm_per_B_bin, bin_edges, save_plot=True)
+                                                                                             for_PA_or_b_plot=True)
+        plot_binned_gal_lat(distance_per_b_bin, rm_per_b_bin, bin_edges, save_plot=True)
         
     if args.m31_ks_test:
+        """
+        Actually does more than a KS Test Depending on the data of the two smamples.
+        Tests for Normalcy of the data and a series of conditions are added for further tests if KS cannot be conducted
+        """
+        if args.mean or not (args.mean or args.median): #Mean or both
+            compare_distributions(Avg_means, bin_means_m31, name="Mean RM", save_plot=args.save_plot)
+        if args.median or not (args.mean or args.median): #Mean or both
+            compare_distributions(Avg_medians, bin_med_m31, name="Median RM", save_plot=args.save_plot)
 
-        print("=" * 50)
-        print(f"  Kolmogorov-Smirnov Test Results")
-        print("=" * 50)
- 
-        print("-" * 50)
-        print(f"Mean RM of M31 with mean RM of sky relative to {BINS} bins")
-        ks_test_random_vs_region(Avg_means, bin_means_m31)
+    if args.print_ks_test:
+
+        headers = ["Test Type", "10 R_vir", "100 R_vir", "1K R_vir", "10K R_vir"]
+        index_labels = ["KS Test (stat, p)", "Shapiro - Random (W, p)", "Shapiro - Region (W, p)", "Permutation (p-value)", "Anderson-Darling (stat, p)"]
+
+        # Mean RM test values
+        mean_data = [
+            ["1.0, 1.08e-05"] * 4,
+            ["0.978, 0.953", "0.934, 0.485", "0.918, 0.340", "0.934, 0.485"],
+            ["0.827, 0.031"] * 4,
+            ["0.0"] * 4,
+            ["9.857, 1e-06"] * 4
+        ]
+
+        # Median RM test values
+        median_data = [
+            ["1.0, p=1.08e-05"] * 4,
+            ["0.923, 0.383", "0.986, 0.990", "0.988, 0.994", "0.923, 0.383"],
+            ["0.868, 0.094"] * 4,
+            ["-", "-", "-", "-"],
+            ["9.857, 1e-06"] * 4
+        ]
+
+        # Create DataFrames
+        mean_df = pd.DataFrame(mean_data, columns=headers[1:], index=index_labels)
+        mean_df.insert(0, headers[0], index_labels)
+
+        median_df = pd.DataFrame(median_data, columns=headers[1:], index=index_labels)
+        median_df.insert(0, headers[0], index_labels)
+
+        # Print tables nicely
+        print("\nMean")
+        print(tabulate(mean_df, headers='keys', tablefmt='fancy_grid', showindex=False))
+
+        print("\nMedian")
+        print(tabulate(median_df, headers='keys', tablefmt='fancy_grid', showindex=False))
+
+    if args.rm_per_patch_hist or args.plot_random_cosdec:
+
+        # Step 1: Convert patch center points to Galactic latitude (B)
+        Random_cent_points_b = Patch_pos.galactic.b.deg
+
+        # Step 2: Count RM values per patch
+        rm_counts_per_patch = np.array([len(rm) for rm in CGM_RM_values_per_patch])
+
+        if args.b_limit_small:
+            filtered_latitudes = Random_cent_points_b
+            filtered_rm_counts = rm_counts_per_patch
+        else:#If using |b| > 5 even before spline correction
+            mask = np.abs(Random_cent_points_b) >= b_upper_lim.value
+            filtered_latitudes = Random_cent_points_b[mask]
+            filtered_rm_counts = rm_counts_per_patch[mask]
         
-        print("-" * 50)
-        print(f"Median RM of M31 with median RM of sky relative to {BINS} bins")
-        ks_test_random_vs_region(Avg_medians, bin_med_m31)
-    
+        m31_lat_deg = m31_lat.deg
+        def generate_lat_labels(rm_binned, cos_lat_bins, m31_lat_deg, m31_mark=True):
+            """
+            Generate cos(b) bin labels including count info and optional M31 b tag.
+            """
+            cos_m31 = abs(np.cos(np.deg2rad(m31_lat_deg)))
+            labels = []
+            for i in range(len(cos_lat_bins) - 1):
+                count = len(rm_binned[i])
+                label = f"{cos_lat_bins[i]:.2f} < cos(b) < {cos_lat_bins[i + 1]:.2f} [{count}]"
+                if m31_mark:
+                    if cos_lat_bins[i] <= cos_m31 < cos_lat_bins[i + 1]:
+                        label += r"  ($b_{M31} \approx " + f"{m31_lat_deg:.2f}" + r"^\circ$)"
+                labels.append(label)
+            return labels
+        
+        # Step 3: Define cos(b) bins (absolute value, so from 0 to 1)
+        bins = 10
+        cos_lat_bins = np.linspace(0, 1, bins + 1)
+
+        # Step 4: Initialize binned RM container
+        rm_binned = [[] for _ in range(len(cos_lat_bins) - 1)]
+
+        # Step 5: Separate positive and negative latitude RM counts into bins
+        rm_binned_pos = [[] for _ in range(len(cos_lat_bins) - 1)]
+        rm_binned_neg = [[] for _ in range(len(cos_lat_bins) - 1)]
+
+        for i in range(len(filtered_rm_counts)):
+            lat = filtered_latitudes[i]
+            cos_lat = abs(np.cos(np.deg2rad(lat)))
+            for j in range(len(cos_lat_bins) - 1):
+                if cos_lat_bins[j] <= cos_lat < cos_lat_bins[j + 1]:
+                    if lat >= 0:
+                        rm_binned_pos[j].append(filtered_rm_counts[i])
+                    else:
+                        rm_binned_neg[j].append(filtered_rm_counts[i])
+                    break
+            
     if args.rm_per_patch_hist:
         """
         Creating Histogram plot of Number Random of Patches that have a certian number of collected RM points
         """
-        # Convert patch center points to Galactic latitude (B)
-        Random_cent_points_B = [patch_pos_B.transform_to('galactic').b.deg for patch_pos_B in Patch_pos]
 
-        # Flatten the RM values per patch
-        rm_flat = np.array([len(rm) for rm in RM_values_per_patch])
-        Random_cent_points_B = np.array(Random_cent_points_B)
-        
-        m31_lat_deg = m31_lat.deg #Galactic Latitude of M31 in degrees
-        
-        # Define Galactic latitude (B) bins
-        lat_bins = np.arange(-90,91,15)
-        lat_labels = [
-            f"{lat_bins[i]}" +r"$^{\circ}$" + f"< b < {lat_bins[i+1]}" +r"$^{\circ}$ " + (r"($b_{M31}\approx$ " + f"{m31_lat_deg:.2f}" +r"$^{\circ}$)" if lat_bins[i] <= m31_lat_deg < lat_bins[i+1] else "")
-            for i in range(len(lat_bins) - 1)
-        ]
-        
-        colors = [
-            "#440154",  # Dark Purple  
-            "#472D7B",  # Indigo  
-            "#3B528B",  # Deep Blue  
-            "#2C728E",  # Teal Blue  
-            "#21918C",  # Greenish Teal (Where B coordinate for M31 also resides)  
-            "#5DC863",  # Light Green  
-            "#AADC32",  # Yellow-Green  
-            "#FDE725",  # Bright Yellow  
-            "#FDAE61",  # Orange  
-            "#F46D43",  # Red-Orange  
-            "#D73027",  # Deep Red  
-            "#A50026",  # Dark Red  
-        ]
+        #Step 6
+        lat_labels_neg = generate_lat_labels(rm_binned_neg, cos_lat_bins, m31_lat_deg)
+        lat_labels_pos = generate_lat_labels(rm_binned_pos, cos_lat_bins, m31_lat_deg, m31_mark=False)
 
-        #Grouping RM counts based on latitude bins
-        rm_binned = [[] for _ in range(len(lat_bins) - 1)]
-        for i in range(len(rm_flat)):
-            for j in range(len(lat_bins) - 1):
+        # Step 7: Get colors
+        colors = get_discrete_colors((0, 1), len(rm_binned_pos), cmap_name="tab20").colors
 
-                if lat_bins[j] <= Random_cent_points_B[i] < lat_bins[j + 1]:
-                    rm_binned[j].append(rm_flat[i])
-                    break  #Stop once the correct bin is found
+        # Step 8: Plot in two subplots
+        fig, axs = plt.subplots(1, 2, figsize=(16, 6), sharey=True)
 
-        plt.figure(figsize=(12,9))
-        # Create the stacked histogram
-        plt.hist(rm_binned, bins=30, stacked=True, color=colors, edgecolor='black', label=lat_labels)
+        axs[0].hist(
+            rm_binned_neg,
+            bins=bins,
+            stacked=True,
+            color=colors,
+            edgecolor='black',
+            label=lat_labels_neg,
+            linewidth=0.3
+        )
 
-        plt.xlabel("RM points")
-        plt.ylabel("Number of Random" + r" R$_{vir}$")
-        plt.legend(title="Galactic Latitude Bins")
+        axs[0].set_title("Negative Galactic Latitude")
+        axs[0].set_xlabel("RM Count")
+        axs[0].set_ylabel("Frequency")
+        axs[0].grid(True, axis="y", which="both")
 
+        axs[1].hist(
+            rm_binned_pos,
+            bins=bins,
+            stacked=True,
+            color=colors,
+            edgecolor='black',
+            label=lat_labels_pos,
+            linewidth=0.3
+        )
+
+        axs[1].set_title("Positive Galactic Latitude")
+        axs[1].set_xlabel("RM Count")
+        axs[1].grid(True, axis="y", which="both")
+
+        for ax in axs:
+            ax.legend(
+                fontsize='small',
+                title="Galactic latitude " + r"[$^{\circ}$] " + " (|b|>" + f"{b_upper_lim.value:.1f}" + r"$^{\circ}$)",
+            )
+        plt.tight_layout(rect=[0, 0.05, 1, 1])
+
+        # Save
         path = curr_dir_path() + "Results/"
-        plt.savefig(f"{path}Stacked_Histogram_rVir_vs_RMpoints.png", dpi=600, bbox_inches="tight")
+        plt.savefig(f"{path}Stacked_Histogram_Frequency_of_RMcounts.png", dpi=600, bbox_inches="tight")
         print(f"Stacked Histogram plot saved to {path}")
 
+    if args.plot_random_cosdec:
+        def plot_random_points_sin_dec(Patch_pos):
+
+            # Step 1: Get Dec values in degrees from the random patch positions
+            dec_vals = Patch_pos.dec.rad
+            dec_vals = Patch_pos.transform_to('galactic').b.rad
+
+            # Step 2: Calculate sin(dec) values
+            sin_dec_vals = np.cos(dec_vals)
+
+            # Step 3: Define bins for sin(dec), from -1 to 1
+            bins = np.linspace(-1, 1, 20 + 1)  # 0.1 bins
+
+            # Step 4: Separate sin(dec) into positive and negative parts
+            sin_dec_neg = sin_dec_vals[dec_vals < 0]
+            sin_dec_pos = sin_dec_vals[dec_vals >= 0]
+
+            # Step 5: Plot
+            fig, axs = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+
+            axs[0].hist(sin_dec_neg, bins=bins, color='skyblue', edgecolor='black')
+            axs[0].set_title("Negative Galactic Latitude")
+            axs[0].set_xlabel(r"$\sin(b)$")
+            axs[0].set_ylabel("Number of Random Points")
+            axs[0].set_xlim(-1,0)
+            axs[0].grid(True)
+
+            axs[1].hist(sin_dec_pos, bins=bins, color='salmon', edgecolor='black')
+            axs[1].set_title("Positive Galactic Latitude")
+            axs[1].set_xlabel(r"$\sin(b)$")
+            axs[0].set_xlim(-1,1)
+            axs[1].grid(True)
+            plt.show()
+
+        plt.close()
+        plot_random_points_sin_dec(Patch_pos)
+
     if args.cdf_anal: #Cumulative Density Function (Different from CDF of RM Denisty plots)
+        
+        def plot_cdf(rm_m31, rm_sky, label_suffix="Means"):
 
-        # Flatten the list of RM values for the sky (excluding M31)
-        rm_sky = np.concatenate(CGM_RM_values_per_patch_corr)
+            plt.close() #Incase a random figure appears.
+            """
+            Plots the cumulative distribution of the absolute RM values for M31 and the sky.
+            
+            Parameters:
+            - rm_m31: array-like, RM values for M31 region
+            - rm_sky: array-like, RM values for the rest of the sky
+            - label_suffix: str, optional label suffix for distinguishing plot legends
+            """
 
-        # Get the absolute values of RM
-        rm_m31_abs = np.abs(rm_m31)
-        rm_sky_abs = np.abs(rm_sky)
+            # Take absolute values
+            rm_m31_abs = np.abs(rm_m31)
+            rm_sky_abs = np.abs(rm_sky)
 
-        # Sort the RM values
-        rm_m31_sorted = np.sort(rm_m31_abs)
-        rm_sky_sorted = np.sort(rm_sky_abs)
+            # Sort values
+            rm_m31_abs_sorted = np.sort(rm_m31_abs)
+            rm_sky_abs_sorted = np.sort(rm_sky_abs)
 
-        # Normalize by total number of sources to get cumulative distribution
-        cumulative_m31 = np.arange(1, len(rm_m31_sorted) + 1) / len(rm_m31_sorted)
-        cumulative_sky = np.arange(1, len(rm_sky_sorted) + 1) / len(rm_sky_sorted)
+            # Cumulative sum normalized
+            cumulative_m31 = np.cumsum(rm_m31_abs_sorted) / np.sum(rm_m31_abs_sorted)
+            cumulative_sky = np.cumsum(rm_sky_abs_sorted) / np.sum(rm_sky_abs_sorted)
 
-        # Plot the cumulative distributions
-        plt.figure(figsize=(10, 6))
-        plt.plot(rm_m31_sorted, cumulative_m31, label="M31 (|RM| < 300 kpc)", color="blue")
-        plt.plot(rm_sky_sorted, cumulative_sky, label="Rest of the sky", color="red", linestyle="--")
+            plt.figure(figsize=(10, 6))
+            ls = 15
+            plt.plot(rm_m31_abs_sorted, cumulative_m31, 
+                    label=f"M31 ({label_suffix})", color="blue")
+            plt.plot(rm_sky_abs_sorted, cumulative_sky, 
+                    label=f"Rest of the Sky - {label_suffix}", color="red", linestyle="--")
 
-        # Labels and legend
-        plt.xlabel("|RM| (rad m$^{-2}$)")
-        plt.ylabel("Cumulative Fraction")
-        plt.title("Cumulative Distribution of |RM| values")
-        plt.legend()
-        plt.grid(True, alpha=0.5)
-        plt.show()
+            plt.xlabel("|RM| [rad m$^{-2}$]", fontsize=ls)
+            plt.ylabel("Cumulative Fraction", fontsize=ls)
+            plt.legend(fontsize=12)
+            plt.xlim(0,)
+            plt.ylim(0,)
+            plt.grid(True, alpha=0.5)
+            plt.show()
+
+        plot_cdf(bin_means_m31, Avg_means, label_suffix="Means")
+        plot_cdf(bin_med_m31, Avg_medians, label_suffix="Medians")
+
         
