@@ -8,6 +8,7 @@ def build_parser():
     parser.add_argument('--b-limit', action='store_true', help='|b|> 5 degrees before Correction and Analysis')
     parser.add_argument('--b-limit-small', action='store_true', help='|b|> 5 degrees are only taking to account after background spline-fit corrections')
     parser.add_argument('--elliptic-CGM', action='store_true', help='Apply an Elliptic CGM to Andromeda. (not inclusive to Random R_vir)')
+    parser.add_argument('--elliptic-CGM-bg', action='store_true', help='Optionally apply an elliptic region for the background only when --elliptic-CGM is activated')    
     parser.add_argument('--patch-num', type=int, default=int(1e4),
                         help='Declare number of patches (default is 10,000)')
     parser.add_argument('--original-plot', action='store_true', help='Plots the original plot from Honours (RM against projected distance of M31)')
@@ -44,6 +45,7 @@ def build_parser():
     parser.add_argument('--_485mhz', action='store_true', help='Non-filled contours for the 485 MHz')
     parser.add_argument('--HI', action='store_true', help='Adding in the log_10(HI) contours')
     parser.add_argument('--scatter', action='store_true', help='Adding in scatter of RM and its BG on WCS axis plot')
+    parser.add_argument('--bg', action='store_true', help='Displaying the background data points in plots')
 
 
     return parser
@@ -68,3 +70,6 @@ if args.annuli_anal and args.m31_annuli_anal:
 
 if args.b_limit and args.b_limit_small:
     parser.error("Cant use both galactic latitude limits.")
+
+if args.elliptic_CGM_bg and not args.elliptic_CGM:
+    parser.error("Can't use elliptical background region for non-elliptical/ circular CGM")

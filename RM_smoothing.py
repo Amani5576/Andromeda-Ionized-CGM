@@ -176,11 +176,11 @@ im, kernel = smooth_2d_image(ra, dec, imsize=450, nsig = .09, fitfile=filename, 
 im_clipped = im #np.clip(im, -5000, 5000) #manually clipping based off of what i can see on defualt colorbar
 # x0s_pos, y0s_pos = ra_dec_to_pixels(ra[positive_mask], dec[positive_mask], filename=filename)
 # x0s_neg, y0s_neg = ra_dec_to_pixels(ra[negative_mask], dec[negative_mask], filename=filename)
-# x0s_bg, y0s_bg = ra_dec_to_pixels(ra_bg, dec_bg, filename=filename)
+if args.bg: x0s_bg, y0s_bg = ra_dec_to_pixels(ra_bg, dec_bg, filename=filename)
 # #image 'im' is already trnsformed intowcs.ax's 'world'
 # ax.scatter(x0s_pos, y0s_pos, marker='o', color="b", s=2)
 # ax.scatter(x0s_neg, y0s_neg, marker='o', color="r", s=2)
-# ax.scatter(x0s_bg, y0s_bg, marker='x', s=.05, color='k', alpha=.6)
+if args.bg: ax.scatter(x0s_bg, y0s_bg, marker='x', s=.05, color='k', alpha=.6)
 
 if args.smoothed:
     RM_dens = ax.imshow(im, cmap='jet_r', origin='lower', alpha=0.5, zorder=-1, vmin=vmin, vmax=vmax)

@@ -12,7 +12,7 @@ is commented out or not in main.py
 from main import (
 bin_num, d_bg, R_vir, 
 d_bin_centers,
-bin_means, d_m31,
+bin_means, d_m31, L_m31,
 args,
 
 #Importing functions
@@ -20,14 +20,16 @@ BG_correction, curr_dir_path,
 create_annuli_binning_structure, 
 apply_plot_attributes,
 get_projected_d,
-vars_before_correction
+get_data_from_catalogue,
+get_CGM_and_BG_masks,
+apply_CGM_and_BG_masks
 )
 
 (RM_lat, RM_lon, rm, rm_err,
         position, eq_pos, new_frame_of_reference,
         rm_m31_coord, m31_sep, m31_theta,
         cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta,
-        L_m31, bg_condition, m31_condition,
+        bg_condition, m31_condition,
         bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs,
         rm_pos_gal_lat, rm_pos_gal_lat_bg,
         rm_bg, m31_sep_bg, err_bg,
