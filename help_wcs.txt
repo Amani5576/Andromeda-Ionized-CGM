@@ -1,0 +1,1878 @@
+Python Library Documentation: WCS in module astropy.wcs.wcs object
+
+class WWCCSS(astropy.wcs.wcsapi.fitswcs.FITSWCSAPIMixin, astropy.wcs.WCSBase)
+ |  WCS(header=None, fobj=None, key=' ', minerr=0.0, relax=True, naxis=None, keysel=None, colsel=None, fix=True, translate_units='', _do_set=True)
+ |  
+ |  WCS objects perform standard WCS transformations, and correct for
+ |  `SIP`_ and `distortion paper`_ table-lookup transformations, based
+ |  on the WCS keywords and supplementary data read from a FITS file.
+ |  
+ |  See also: https://docs.astropy.org/en/stable/wcs/
+ |  
+ |  Parameters
+ |  ----------
+ |  header : `~astropy.io.fits.Header`, `~astropy.io.fits.hdu.image.PrimaryHDU`, `~astropy.io.fits.hdu.image.ImageHDU`, str, dict-like, or None, optional
+ |      If *header* is not provided or None, the object will be
+ |      initialized to default values.
+ |  
+ |  fobj : `~astropy.io.fits.HDUList`, optional
+ |      It is needed when header keywords point to a `distortion
+ |      paper`_ lookup table stored in a different extension.
+ |  
+ |  key : str, optional
+ |      The name of a particular WCS transform to use.  This may be
+ |      either ``' '`` or ``'A'``-``'Z'`` and corresponds to the
+ |      ``"a"`` part of the ``CTYPEia`` cards.  *key* may only be
+ |      provided if *header* is also provided.
+ |  
+ |  minerr : float, optional
+ |      The minimum value a distortion correction must have in order
+ |      to be applied. If the value of ``CQERRja`` is smaller than
+ |      *minerr*, the corresponding distortion is not applied.
+ |  
+ |  relax : bool or int, optional
+ |      Degree of permissiveness:
+ |  
+ |      - `True` (default): Admit all recognized informal extensions
+ |        of the WCS standard.
+ |  
+ |      - `False`: Recognize only FITS keywords defined by the
+ |        published WCS standard.
+ |  
+ |      - `int`: a bit field selecting specific extensions to accept.
+ |        See :ref:`astropy:relaxread` for details.
+ |  
+ |  naxis : int or sequence, optional
+ |      Extracts specific coordinate axes using
+ |      :meth:`~astropy.wcs.Wcsprm.sub`.  If a header is provided, and
+ |      *naxis* is not ``None``, *naxis* will be passed to
+ |      :meth:`~astropy.wcs.Wcsprm.sub` in order to select specific
+ |      axes from the header.  See :meth:`~astropy.wcs.Wcsprm.sub` for
+ |      more details about this parameter.
+ |  
+ |  keysel : sequence of str, optional
+ |      A sequence of flags used to select the keyword types
+ |      considered by wcslib.  When ``None``, only the standard image
+ |      header keywords are considered (and the underlying wcspih() C
+ |      function is called).  To use binary table image array or pixel
+ |      list keywords, *keysel* must be set.
+ |  
+ |      Each element in the list should be one of the following
+ |      strings:
+ |  
+ |      - 'image': Image header keywords
+ |  
+ |      - 'binary': Binary table image array keywords
+ |  
+ |      - 'pixel': Pixel list keywords
+ |  
+ |      Keywords such as ``EQUIna`` or ``RFRQna`` that are common to
+ |      binary table image arrays and pixel lists (including
+ |      ``WCSNna`` and ``TWCSna``) are selected by both 'binary' and
+ |      'pixel'.
+ |  
+ |  colsel : sequence of int, optional
+ |      A sequence of table column numbers used to restrict the WCS
+ |      transformations considered to only those pertaining to the
+ |      specified columns.  If `None`, there is no restriction.
+ |  
+ |  fix : bool, optional
+ |      When `True` (default), call `~astropy.wcs.Wcsprm.fix` on
+ |      the resulting object to fix any non-standard uses in the
+ |      header.  `FITSFixedWarning` Warnings will be emitted if any
+ |      changes were made.
+ |  
+ |  translate_units : str, optional
+ |      Specify which potentially unsafe translations of non-standard
+ |      unit strings to perform.  By default, performs none.  See
+ |      `WCS.fix` for more information about this parameter.  Only
+ |      effective when ``fix`` is `True`.
+ |  
+ |  Raises
+ |  ------
+ |  MemoryError
+ |       Memory allocation failed.
+ |  
+ |  ValueError
+ |       Invalid key.
+ |  
+ |  KeyError
+ |       Key not found in FITS header.
+ |  
+ |  ValueError
+ |       Lookup table distortion present in the header but *fobj* was
+ |       not provided.
+ |  
+ |  Notes
+ |  -----
+ |  1. astropy.wcs supports arbitrary *n* dimensions for the core WCS
+ |     (the transformations handled by WCSLIB).  However, the
+ |     `distortion paper`_ lookup table and `SIP`_ distortions must be
+ |     two dimensional.  Therefore, if you try to create a WCS object
+ |     where the core WCS has a different number of dimensions than 2
+ |     and that object also contains a `distortion paper`_ lookup
+ |     table or `SIP`_ distortion, a `ValueError`
+ |     exception will be raised.  To avoid this, consider using the
+ |     *naxis* kwarg to select two dimensions from the core WCS.
+ |  
+ |  2. The number of coordinate axes in the transformation is not
+ |     determined directly from the ``NAXIS`` keyword but instead from
+ |     the highest of:
+ |  
+ |         - ``NAXIS`` keyword
+ |  
+ |         - ``WCSAXESa`` keyword
+ |  
+ |         - The highest axis number in any parameterized WCS keyword.
+ |           The keyvalue, as well as the keyword, must be
+ |           syntactically valid otherwise it will not be considered.
+ |  
+ |     If none of these keyword types is present, i.e. if the header
+ |     only contains auxiliary WCS keywords for a particular
+ |     coordinate representation, then no coordinate description is
+ |     constructed for it.
+ |  
+ |     The number of axes, which is set as the ``naxis`` member, may
+ |     differ for different coordinate representations of the same
+ |     image.
+ |  
+ |  3. When the header includes duplicate keywords, in most cases the
+ |     last encountered is used.
+ |  
+ |  4. `~astropy.wcs.Wcsprm.set` is called immediately after
+ |     construction, so any invalid keywords or transformations will
+ |     be raised by the constructor, not when subsequently calling a
+ |     transformation method.
+ |  
+ |  Method resolution order:
+ |      WCS
+ |      astropy.wcs.wcsapi.fitswcs.FITSWCSAPIMixin
+ |      astropy.wcs.wcsapi.low_level_api.BaseLowLevelWCS
+ |      astropy.wcs.wcsapi.high_level_api.HighLevelWCSMixin
+ |      astropy.wcs.wcsapi.high_level_api.BaseHighLevelWCS
+ |      astropy.wcs.WCSBase
+ |      builtins.object
+ |  
+ |  Methods defined here:
+ |  
+ |  ____ccooppyy____(self)
+ |  
+ |  ____ddeeeeppccooppyy____(self, memo)
+ |  
+ |  ____ggeettiitteemm____(self, item)
+ |  
+ |  ____iinniitt____(self, header=None, fobj=None, key=' ', minerr=0.0, relax=True, naxis=None, keysel=None, colsel=None, fix=True, translate_units='', _do_set=True)
+ |      Initialize self.  See help(type(self)) for accurate signature.
+ |  
+ |  ____iitteerr____(self)
+ |  
+ |  ____rreedduuccee____(self)
+ |      Support pickling of WCS objects.  This is done by serializing
+ |      to an in-memory FITS file and dumping that as a string.
+ |  
+ |  ____rreepprr____(self)
+ |      Return a short description. Simply porting the behavior from
+ |      the `printwcs()` method.
+ |  
+ |  aallll__ppiixx22wwoorrlldd(self, *args, **kwargs)
+ |      Transforms pixel coordinates to world coordinates.
+ |      
+ |      Performs all of the following in series:
+ |      
+ |          - Detector to image plane correction (if present in the
+ |            FITS file)
+ |      
+ |          - `SIP`_ distortion correction (if present in the FITS
+ |            file)
+ |      
+ |          - `distortion paper`_ table-lookup correction (if present
+ |            in the FITS file)
+ |      
+ |          - `wcslib`_ "core" WCS transformation
+ |      
+ |      Parameters
+ |      ----------
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *naxis* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |          For a transformation that is not two-dimensional, the
+ |          two-argument form must be used.
+ |      
+ |      
+ |      ra_dec_order : bool, optional
+ |          When `True` will ensure that world coordinates are always given
+ |          and returned in as (*ra*, *dec*) pairs, regardless of the order of
+ |          the axes specified by the in the ``CTYPE`` keywords.  Default is
+ |          `False`.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the sky coordinates, in degrees.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Notes
+ |      -----
+ |      The order of the axes for the result is determined by the
+ |      ``CTYPEia`` keywords in the FITS header, therefore it may not
+ |      always be of the form (*ra*, *dec*).  The
+ |      `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+ |      `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+ |      members can be used to determine the order of the axes.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      SingularMatrixError
+ |          Linear transformation matrix is singular.
+ |      
+ |      InconsistentAxisTypesError
+ |          Inconsistent or unrecognized coordinate axis types.
+ |      
+ |      ValueError
+ |          Invalid parameter value.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      ValueError
+ |          x- and y-coordinate arrays are not the same size.
+ |      
+ |      InvalidTransformError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      InvalidTransformError
+ |          Ill-conditioned coordinate transformation parameters.
+ |  
+ |  aallll__wwoorrlldd22ppiixx(self, *args, tolerance=0.0001, maxiter=20, adaptive=False, detect_divergence=True, quiet=False, **kwargs)
+ |      all_world2pix(*arg, tolerance=1.0e-4, maxiter=20,
+ |      adaptive=False, detect_divergence=True, quiet=False)
+ |      
+ |      Transforms world coordinates to pixel coordinates, using
+ |      numerical iteration to invert the full forward transformation
+ |      `~astropy.wcs.WCS.all_pix2world` with complete
+ |      distortion model.
+ |      
+ |      
+ |      Parameters
+ |      ----------
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *naxis* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |          For a transformation that is not two-dimensional, the
+ |          two-argument form must be used.
+ |      
+ |      
+ |      ra_dec_order : bool, optional
+ |          When `True` will ensure that world coordinates are always given
+ |          and returned in as (*ra*, *dec*) pairs, regardless of the order of
+ |          the axes specified by the in the ``CTYPE`` keywords.  Default is
+ |          `False`.
+ |      
+ |      
+ |      tolerance : float, optional (default = 1.0e-4)
+ |          Tolerance of solution. Iteration terminates when the
+ |          iterative solver estimates that the "true solution" is
+ |          within this many pixels current estimate, more
+ |          specifically, when the correction to the solution found
+ |          during the previous iteration is smaller
+ |          (in the sense of the L2 norm) than ``tolerance``.
+ |      
+ |      maxiter : int, optional (default = 20)
+ |          Maximum number of iterations allowed to reach a solution.
+ |      
+ |      quiet : bool, optional (default = False)
+ |          Do not throw :py:class:`NoConvergence` exceptions when
+ |          the method does not converge to a solution with the
+ |          required accuracy within a specified number of maximum
+ |          iterations set by ``maxiter`` parameter. Instead,
+ |          simply return the found solution.
+ |      
+ |      Other Parameters
+ |      ----------------
+ |      adaptive : bool, optional (default = False)
+ |          Specifies whether to adaptively select only points that
+ |          did not converge to a solution within the required
+ |          accuracy for the next iteration. Default is recommended
+ |          for HST as well as most other instruments.
+ |      
+ |          .. note::
+ |             The :py:meth:`all_world2pix` uses a vectorized
+ |             implementation of the method of consecutive
+ |             approximations (see ``Notes`` section below) in which it
+ |             iterates over *all* input points *regardless* until
+ |             the required accuracy has been reached for *all* input
+ |             points. In some cases it may be possible that
+ |             *almost all* points have reached the required accuracy
+ |             but there are only a few of input data points for
+ |             which additional iterations may be needed (this
+ |             depends mostly on the characteristics of the geometric
+ |             distortions for a given instrument). In this situation
+ |             it may be advantageous to set ``adaptive`` = `True` in
+ |             which case :py:meth:`all_world2pix` will continue
+ |             iterating *only* over the points that have not yet
+ |             converged to the required accuracy. However, for the
+ |             HST's ACS/WFC detector, which has the strongest
+ |             distortions of all HST instruments, testing has
+ |             shown that enabling this option would lead to a about
+ |             50-100% penalty in computational time (depending on
+ |             specifics of the image, geometric distortions, and
+ |             number of input points to be converted). Therefore,
+ |             for HST and possibly instruments, it is recommended
+ |             to set ``adaptive`` = `False`. The only danger in
+ |             getting this setting wrong will be a performance
+ |             penalty.
+ |      
+ |          .. note::
+ |             When ``detect_divergence`` is `True`,
+ |             :py:meth:`all_world2pix` will automatically switch
+ |             to the adaptive algorithm once divergence has been
+ |             detected.
+ |      
+ |      detect_divergence : bool, optional (default = True)
+ |          Specifies whether to perform a more detailed analysis
+ |          of the convergence to a solution. Normally
+ |          :py:meth:`all_world2pix` may not achieve the required
+ |          accuracy if either the ``tolerance`` or ``maxiter`` arguments
+ |          are too low. However, it may happen that for some
+ |          geometric distortions the conditions of convergence for
+ |          the method of consecutive approximations used by
+ |          :py:meth:`all_world2pix` may not be satisfied, in which
+ |          case consecutive approximations to the solution will
+ |          diverge regardless of the ``tolerance`` or ``maxiter``
+ |          settings.
+ |      
+ |          When ``detect_divergence`` is `False`, these divergent
+ |          points will be detected as not having achieved the
+ |          required accuracy (without further details). In addition,
+ |          if ``adaptive`` is `False` then the algorithm will not
+ |          know that the solution (for specific points) is diverging
+ |          and will continue iterating and trying to "improve"
+ |          diverging solutions. This may result in ``NaN`` or
+ |          ``Inf`` values in the return results (in addition to a
+ |          performance penalties). Even when ``detect_divergence``
+ |          is `False`, :py:meth:`all_world2pix`, at the end of the
+ |          iterative process, will identify invalid results
+ |          (``NaN`` or ``Inf``) as "diverging" solutions and will
+ |          raise :py:class:`NoConvergence` unless the ``quiet``
+ |          parameter is set to `True`.
+ |      
+ |          When ``detect_divergence`` is `True`,
+ |          :py:meth:`all_world2pix` will detect points for which
+ |          current correction to the coordinates is larger than
+ |          the correction applied during the previous iteration
+ |          **if** the requested accuracy **has not yet been
+ |          achieved**. In this case, if ``adaptive`` is `True`,
+ |          these points will be excluded from further iterations and
+ |          if ``adaptive`` is `False`, :py:meth:`all_world2pix` will
+ |          automatically switch to the adaptive algorithm. Thus, the
+ |          reported divergent solution will be the latest converging
+ |          solution computed immediately *before* divergence
+ |          has been detected.
+ |      
+ |          .. note::
+ |             When accuracy has been achieved, small increases in
+ |             current corrections may be possible due to rounding
+ |             errors (when ``adaptive`` is `False`) and such
+ |             increases will be ignored.
+ |      
+ |          .. note::
+ |             Based on our testing using HST ACS/WFC images, setting
+ |             ``detect_divergence`` to `True` will incur about 5-20%
+ |             performance penalty with the larger penalty
+ |             corresponding to ``adaptive`` set to `True`.
+ |             Because the benefits of enabling this
+ |             feature outweigh the small performance penalty,
+ |             especially when ``adaptive`` = `False`, it is
+ |             recommended to set ``detect_divergence`` to `True`,
+ |             unless extensive testing of the distortion models for
+ |             images from specific instruments show a good stability
+ |             of the numerical method for a wide range of
+ |             coordinates (even outside the image itself).
+ |      
+ |          .. note::
+ |             Indices of the diverging inverse solutions will be
+ |             reported in the ``divergent`` attribute of the
+ |             raised :py:class:`NoConvergence` exception object.
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the pixel coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Notes
+ |      -----
+ |      The order of the axes for the input world array is determined by
+ |      the ``CTYPEia`` keywords in the FITS header, therefore it may
+ |      not always be of the form (*ra*, *dec*).  The
+ |      `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+ |      `~astropy.wcs.Wcsprm.lattyp`, and
+ |      `~astropy.wcs.Wcsprm.lngtyp`
+ |      members can be used to determine the order of the axes.
+ |      
+ |      Using the method of fixed-point iterations approximations we
+ |      iterate starting with the initial approximation, which is
+ |      computed using the non-distortion-aware
+ |      :py:meth:`wcs_world2pix` (or equivalent).
+ |      
+ |      The :py:meth:`all_world2pix` function uses a vectorized
+ |      implementation of the method of consecutive approximations and
+ |      therefore it is highly efficient (>30x) when *all* data points
+ |      that need to be converted from sky coordinates to image
+ |      coordinates are passed at *once*. Therefore, it is advisable,
+ |      whenever possible, to pass as input a long array of all points
+ |      that need to be converted to :py:meth:`all_world2pix` instead
+ |      of calling :py:meth:`all_world2pix` for each data point. Also
+ |      see the note to the ``adaptive`` parameter.
+ |      
+ |      Raises
+ |      ------
+ |      NoConvergence
+ |          The method did not converge to a
+ |          solution to the required accuracy within a specified
+ |          number of maximum iterations set by the ``maxiter``
+ |          parameter. To turn off this exception, set ``quiet`` to
+ |          `True`. Indices of the points for which the requested
+ |          accuracy was not achieved (if any) will be listed in the
+ |          ``slow_conv`` attribute of the
+ |          raised :py:class:`NoConvergence` exception object.
+ |      
+ |          See :py:class:`NoConvergence` documentation for
+ |          more details.
+ |      
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      SingularMatrixError
+ |          Linear transformation matrix is singular.
+ |      
+ |      InconsistentAxisTypesError
+ |          Inconsistent or unrecognized coordinate axis types.
+ |      
+ |      ValueError
+ |          Invalid parameter value.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      ValueError
+ |          x- and y-coordinate arrays are not the same size.
+ |      
+ |      InvalidTransformError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      InvalidTransformError
+ |          Ill-conditioned coordinate transformation parameters.
+ |      
+ |      Examples
+ |      --------
+ |      >>> import astropy.io.fits as fits
+ |      >>> import astropy.wcs as wcs
+ |      >>> import numpy as np
+ |      >>> import os
+ |      
+ |      >>> filename = os.path.join(wcs.__path__[0], 'tests/data/j94f05bgq_flt.fits')
+ |      >>> hdulist = fits.open(filename)
+ |      >>> w = wcs.WCS(hdulist[('sci',1)].header, hdulist)
+ |      >>> hdulist.close()
+ |      
+ |      >>> ra, dec = w.all_pix2world([1,2,3], [1,1,1], 1)
+ |      >>> print(ra)  # doctest: +FLOAT_CMP
+ |      [ 5.52645627  5.52649663  5.52653698]
+ |      >>> print(dec)  # doctest: +FLOAT_CMP
+ |      [-72.05171757 -72.05171276 -72.05170795]
+ |      >>> radec = w.all_pix2world([[1,1], [2,1], [3,1]], 1)
+ |      >>> print(radec)  # doctest: +FLOAT_CMP
+ |      [[  5.52645627 -72.05171757]
+ |       [  5.52649663 -72.05171276]
+ |       [  5.52653698 -72.05170795]]
+ |      >>> x, y = w.all_world2pix(ra, dec, 1)
+ |      >>> print(x)  # doctest: +FLOAT_CMP
+ |      [ 1.00000238  2.00000237  3.00000236]
+ |      >>> print(y)  # doctest: +FLOAT_CMP
+ |      [ 0.99999996  0.99999997  0.99999997]
+ |      >>> xy = w.all_world2pix(radec, 1)
+ |      >>> print(xy)  # doctest: +FLOAT_CMP
+ |      [[ 1.00000238  0.99999996]
+ |       [ 2.00000237  0.99999997]
+ |       [ 3.00000236  0.99999997]]
+ |      >>> xy = w.all_world2pix(radec, 1, maxiter=3,
+ |      ...                      tolerance=1.0e-10, quiet=False)
+ |      Traceback (most recent call last):
+ |      ...
+ |      NoConvergence: 'WCS.all_world2pix' failed to converge to the
+ |      requested accuracy. After 3 iterations, the solution is
+ |      diverging at least for one input point.
+ |      
+ |      >>> # Now try to use some diverging data:
+ |      >>> divradec = w.all_pix2world([[1.0, 1.0],
+ |      ...                             [10000.0, 50000.0],
+ |      ...                             [3.0, 1.0]], 1)
+ |      >>> print(divradec)  # doctest: +FLOAT_CMP
+ |      [[  5.52645627 -72.05171757]
+ |       [  7.15976932 -70.8140779 ]
+ |       [  5.52653698 -72.05170795]]
+ |      
+ |      >>> # First, turn detect_divergence on:
+ |      >>> try:  # doctest: +FLOAT_CMP
+ |      ...   xy = w.all_world2pix(divradec, 1, maxiter=20,
+ |      ...                        tolerance=1.0e-4, adaptive=False,
+ |      ...                        detect_divergence=True,
+ |      ...                        quiet=False)
+ |      ... except wcs.wcs.NoConvergence as e:
+ |      ...   print("Indices of diverging points: {0}"
+ |      ...         .format(e.divergent))
+ |      ...   print("Indices of poorly converging points: {0}"
+ |      ...         .format(e.slow_conv))
+ |      ...   print("Best solution:\n{0}".format(e.best_solution))
+ |      ...   print("Achieved accuracy:\n{0}".format(e.accuracy))
+ |      Indices of diverging points: [1]
+ |      Indices of poorly converging points: None
+ |      Best solution:
+ |      [[  1.00000238e+00   9.99999965e-01]
+ |       [ -1.99441636e+06   1.44309097e+06]
+ |       [  3.00000236e+00   9.99999966e-01]]
+ |      Achieved accuracy:
+ |      [[  6.13968380e-05   8.59638593e-07]
+ |       [  8.59526812e+11   6.61713548e+11]
+ |       [  6.09398446e-05   8.38759724e-07]]
+ |      >>> raise e
+ |      Traceback (most recent call last):
+ |      ...
+ |      NoConvergence: 'WCS.all_world2pix' failed to converge to the
+ |      requested accuracy.  After 5 iterations, the solution is
+ |      diverging at least for one input point.
+ |      
+ |      >>> # This time turn detect_divergence off:
+ |      >>> try:  # doctest: +FLOAT_CMP
+ |      ...   xy = w.all_world2pix(divradec, 1, maxiter=20,
+ |      ...                        tolerance=1.0e-4, adaptive=False,
+ |      ...                        detect_divergence=False,
+ |      ...                        quiet=False)
+ |      ... except wcs.wcs.NoConvergence as e:
+ |      ...   print("Indices of diverging points: {0}"
+ |      ...         .format(e.divergent))
+ |      ...   print("Indices of poorly converging points: {0}"
+ |      ...         .format(e.slow_conv))
+ |      ...   print("Best solution:\n{0}".format(e.best_solution))
+ |      ...   print("Achieved accuracy:\n{0}".format(e.accuracy))
+ |      Indices of diverging points: [1]
+ |      Indices of poorly converging points: None
+ |      Best solution:
+ |      [[ 1.00000009  1.        ]
+ |       [        nan         nan]
+ |       [ 3.00000009  1.        ]]
+ |      Achieved accuracy:
+ |      [[  2.29417358e-06   3.21222995e-08]
+ |       [             nan              nan]
+ |       [  2.27407877e-06   3.13005639e-08]]
+ |      >>> raise e
+ |      Traceback (most recent call last):
+ |      ...
+ |      NoConvergence: 'WCS.all_world2pix' failed to converge to the
+ |      requested accuracy.  After 6 iterations, the solution is
+ |      diverging at least for one input point.
+ |  
+ |  ccaallcc__ffoooottpprriinntt(self, header=None, undistort=True, axes=None, center=True)
+ |      Calculates the footprint of the image on the sky.
+ |      
+ |      A footprint is defined as the positions of the corners of the
+ |      image on the sky after all available distortions have been
+ |      applied.
+ |      
+ |      Parameters
+ |      ----------
+ |      header : `~astropy.io.fits.Header` object, optional
+ |          Used to get ``NAXIS1`` and ``NAXIS2``
+ |          header and axes are mutually exclusive, alternative ways
+ |          to provide the same information.
+ |      
+ |      undistort : bool, optional
+ |          If `True`, take SIP and distortion lookup table into
+ |          account
+ |      
+ |      axes : (int, int), optional
+ |          If provided, use the given sequence as the shape of the
+ |          image.  Otherwise, use the ``NAXIS1`` and ``NAXIS2``
+ |          keywords from the header that was used to create this
+ |          `WCS` object.
+ |      
+ |      center : bool, optional
+ |          If `True` use the center of the pixel, otherwise use the corner.
+ |      
+ |      Returns
+ |      -------
+ |      coord : (4, 2) array of (*x*, *y*) coordinates.
+ |          The order is clockwise starting with the bottom left corner.
+ |  
+ |  ccooppyy(self)
+ |      Return a shallow copy of the object.
+ |      
+ |      Convenience method so user doesn't have to import the
+ |      :mod:`copy` stdlib module.
+ |      
+ |      .. warning::
+ |          Use `deepcopy` instead of `copy` unless you know why you need a
+ |          shallow copy.
+ |  
+ |  ddeeeeppccooppyy(self)
+ |      Return a deep copy of the object.
+ |      
+ |      Convenience method so user doesn't have to import the
+ |      :mod:`copy` stdlib module.
+ |  
+ |  ddeett22iimm(self, *args)
+ |      Convert detector coordinates to image plane coordinates using
+ |      `distortion paper`_ table-lookup correction.
+ |      
+ |      The output is in absolute pixel coordinates, not relative to
+ |      ``CRPIX``.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *2* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the pixel coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |  
+ |  ddrrooppaaxxiiss(self, dropax)
+ |      Remove an axis from the WCS.
+ |      
+ |      Parameters
+ |      ----------
+ |      wcs : `~astropy.wcs.WCS`
+ |          The WCS with naxis to be chopped to naxis-1
+ |      dropax : int
+ |          The index of the WCS to drop, counting from 0 (i.e., python convention,
+ |          not FITS convention)
+ |      
+ |      Returns
+ |      -------
+ |      `~astropy.wcs.WCS`
+ |          A new `~astropy.wcs.WCS` instance with one axis fewer
+ |  
+ |  ffiixx(self, translate_units='', naxis=None)
+ |      Perform the fix operations from wcslib, and warn about any
+ |      changes it has made.
+ |      
+ |      Parameters
+ |      ----------
+ |      translate_units : str, optional
+ |          Specify which potentially unsafe translations of
+ |          non-standard unit strings to perform.  By default,
+ |          performs none.
+ |      
+ |          Although ``"S"`` is commonly used to represent seconds,
+ |          its translation to ``"s"`` is potentially unsafe since the
+ |          standard recognizes ``"S"`` formally as Siemens, however
+ |          rarely that may be used.  The same applies to ``"H"`` for
+ |          hours (Henry), and ``"D"`` for days (Debye).
+ |      
+ |          This string controls what to do in such cases, and is
+ |          case-insensitive.
+ |      
+ |          - If the string contains ``"s"``, translate ``"S"`` to
+ |            ``"s"``.
+ |      
+ |          - If the string contains ``"h"``, translate ``"H"`` to
+ |            ``"h"``.
+ |      
+ |          - If the string contains ``"d"``, translate ``"D"`` to
+ |            ``"d"``.
+ |      
+ |          Thus ``''`` doesn't do any unsafe translations, whereas
+ |          ``'shd'`` does all of them.
+ |      
+ |      naxis : int array, optional
+ |          Image axis lengths.  If this array is set to zero or
+ |          ``None``, then `~astropy.wcs.Wcsprm.cylfix` will not be
+ |          invoked.
+ |  
+ |  ffoooottpprriinntt__ccoonnttaaiinnss(self, coord, **kwargs)
+ |      Determines if a given SkyCoord is contained in the wcs footprint.
+ |      
+ |      Parameters
+ |      ----------
+ |      coord : `~astropy.coordinates.SkyCoord`
+ |          The coordinate to check if it is within the wcs coordinate.
+ |      **kwargs :
+ |         Additional arguments to pass to `~astropy.coordinates.SkyCoord.to_pixel`
+ |      
+ |      Returns
+ |      -------
+ |      response : bool
+ |         True means the WCS footprint contains the coordinate, False means it does not.
+ |  
+ |  ffoooottpprriinntt__ttoo__ffiillee(self, filename='footprint.reg', color='green', width=2, coordsys=None)
+ |      Writes out a `ds9`_ style regions file. It can be loaded
+ |      directly by `ds9`_.
+ |      
+ |      Parameters
+ |      ----------
+ |      filename : str, optional
+ |          Output file name - default is ``'footprint.reg'``
+ |      
+ |      color : str, optional
+ |          Color to use when plotting the line.
+ |      
+ |      width : int, optional
+ |          Width of the region line.
+ |      
+ |      coordsys : str, optional
+ |          Coordinate system. If not specified (default), the ``radesys``
+ |          value is used. For all possible values, see
+ |          http://ds9.si.edu/doc/ref/region.html#RegionFileFormat
+ |  
+ |  ggeett__aaxxiiss__ttyyppeess(self)
+ |      Similar to `self.wcsprm.axis_types <astropy.wcs.Wcsprm.axis_types>`
+ |      but provides the information in a more Python-friendly format.
+ |      
+ |      Returns
+ |      -------
+ |      result : list of dict
+ |      
+ |          Returns a list of dictionaries, one for each axis, each
+ |          containing attributes about the type of that axis.
+ |      
+ |          Each dictionary has the following keys:
+ |      
+ |          - 'coordinate_type':
+ |      
+ |            - None: Non-specific coordinate type.
+ |      
+ |            - 'stokes': Stokes coordinate.
+ |      
+ |            - 'celestial': Celestial coordinate (including ``CUBEFACE``).
+ |      
+ |            - 'spectral': Spectral coordinate.
+ |      
+ |          - 'scale':
+ |      
+ |            - 'linear': Linear axis.
+ |      
+ |            - 'quantized': Quantized axis (``STOKES``, ``CUBEFACE``).
+ |      
+ |            - 'non-linear celestial': Non-linear celestial axis.
+ |      
+ |            - 'non-linear spectral': Non-linear spectral axis.
+ |      
+ |            - 'logarithmic': Logarithmic axis.
+ |      
+ |            - 'tabular': Tabular axis.
+ |      
+ |          - 'group'
+ |      
+ |            - Group number, e.g. lookup table number
+ |      
+ |          - 'number'
+ |      
+ |            - For celestial axes:
+ |      
+ |              - 0: Longitude coordinate.
+ |      
+ |              - 1: Latitude coordinate.
+ |      
+ |              - 2: ``CUBEFACE`` number.
+ |      
+ |            - For lookup tables:
+ |      
+ |              - the axis number in a multidimensional table.
+ |      
+ |          ``CTYPEia`` in ``"4-3"`` form with unrecognized algorithm code will
+ |          generate an error.
+ |  
+ |  pp44__ppiixx22ffoocc(self, *args)
+ |      Convert pixel coordinates to focal plane coordinates using
+ |      `distortion paper`_ table-lookup correction.
+ |      
+ |      The output is in absolute pixel coordinates, not relative to
+ |      ``CRPIX``.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *2* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the focal coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |  
+ |  ppiixx22ffoocc(self, *args)
+ |      Convert pixel coordinates to focal plane coordinates using the
+ |      `SIP`_ polynomial distortion convention and `distortion
+ |      paper`_ table-lookup correction.
+ |      
+ |      The output is in absolute pixel coordinates, not relative to
+ |      ``CRPIX``.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *2* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the focal coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |  
+ |  pprriinnttwwccss(self)
+ |  
+ |  pprroojj__ppllaannee__ppiixxeell__aarreeaa(self)
+ |      For a **celestial** WCS (see `astropy.wcs.WCS.celestial`), returns pixel
+ |      area of the image pixel at the ``CRPIX`` location once it is projected
+ |      onto the "plane of intermediate world coordinates" as defined in
+ |      `Greisen & Calabretta 2002, A&A, 395, 1061 <https://ui.adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_.
+ |      
+ |      .. note::
+ |          This function is concerned **only** about the transformation
+ |          "image plane"->"projection plane" and **not** about the
+ |          transformation "celestial sphere"->"projection plane"->"image plane".
+ |          Therefore, this function ignores distortions arising due to
+ |          non-linear nature of most projections.
+ |      
+ |      .. note::
+ |          This method only returns sensible answers if the WCS contains
+ |          celestial axes, i.e., the `~astropy.wcs.WCS.celestial` WCS object.
+ |      
+ |      Returns
+ |      -------
+ |      area : `~astropy.units.Quantity`
+ |          Area (in the projection plane) of the pixel at ``CRPIX`` location.
+ |      
+ |      Raises
+ |      ------
+ |      ValueError
+ |          Pixel area is defined only for 2D pixels. Most likely the
+ |          `~astropy.wcs.Wcsprm.cd` matrix of the `~astropy.wcs.WCS.celestial`
+ |          WCS is not a square matrix of second order.
+ |      
+ |      Notes
+ |      -----
+ |      Depending on the application, square root of the pixel area can be used to
+ |      represent a single pixel scale of an equivalent square pixel
+ |      whose area is equal to the area of a generally non-square pixel.
+ |      
+ |      See Also
+ |      --------
+ |      astropy.wcs.utils.proj_plane_pixel_area
+ |  
+ |  pprroojj__ppllaannee__ppiixxeell__ssccaalleess(self)
+ |      Calculate pixel scales along each axis of the image pixel at
+ |      the ``CRPIX`` location once it is projected onto the
+ |      "plane of intermediate world coordinates" as defined in
+ |      `Greisen & Calabretta 2002, A&A, 395, 1061 <https://ui.adsabs.harvard.edu/abs/2002A%26A...395.1061G>`_.
+ |      
+ |      .. note::
+ |          This method is concerned **only** about the transformation
+ |          "image plane"->"projection plane" and **not** about the
+ |          transformation "celestial sphere"->"projection plane"->"image plane".
+ |          Therefore, this function ignores distortions arising due to
+ |          non-linear nature of most projections.
+ |      
+ |      .. note::
+ |          This method only returns sensible answers if the WCS contains
+ |          celestial axes, i.e., the `~astropy.wcs.WCS.celestial` WCS object.
+ |      
+ |      Returns
+ |      -------
+ |      scale : list of `~astropy.units.Quantity`
+ |          A vector of projection plane increments corresponding to each
+ |          pixel side (axis).
+ |      
+ |      See Also
+ |      --------
+ |      astropy.wcs.utils.proj_plane_pixel_scales
+ |  
+ |  rreeoorriieenntt__cceelleessttiiaall__ffiirrsstt(self)
+ |      Reorient the WCS such that the celestial axes are first, followed by
+ |      the spectral axis, followed by any others.
+ |      Assumes at least celestial axes are present.
+ |  
+ |  ssiipp__ffoocc22ppiixx(self, *args)
+ |      Convert focal plane coordinates to pixel coordinates using the
+ |      `SIP`_ polynomial distortion convention.
+ |      
+ |      FITS WCS `distortion paper`_ table lookup distortion
+ |      correction is not applied, even if that information existed in
+ |      the FITS file that initialized this `~astropy.wcs.WCS` object.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *2* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the pixel coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |  
+ |  ssiipp__ppiixx22ffoocc(self, *args)
+ |      Convert pixel coordinates to focal plane coordinates using the
+ |      `SIP`_ polynomial distortion convention.
+ |      
+ |      The output is in pixel coordinates, relative to ``CRPIX``.
+ |      
+ |      FITS WCS `distortion paper`_ table lookup correction is not
+ |      applied, even if that information existed in the FITS file
+ |      that initialized this :class:`~astropy.wcs.WCS` object.  To
+ |      correct for that, use `~astropy.wcs.WCS.pix2foc` or
+ |      `~astropy.wcs.WCS.p4_pix2foc`.
+ |      
+ |      Parameters
+ |      ----------
+ |      
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *2* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the focal coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |  
+ |  sslliiccee(self, view, numpy_order=True)
+ |      Slice a WCS instance using a Numpy slice. The order of the slice should
+ |      be reversed (as for the data) compared to the natural WCS order.
+ |      
+ |      Parameters
+ |      ----------
+ |      view : tuple
+ |          A tuple containing the same number of slices as the WCS system.
+ |          The ``step`` method, the third argument to a slice, is not
+ |          presently supported.
+ |      numpy_order : bool, default: True
+ |          Use numpy order, i.e. slice the WCS so that an identical slice
+ |          applied to a numpy array will slice the array and WCS in the same
+ |          way. If set to `False`, the WCS will be sliced in FITS order,
+ |          meaning the first slice will be applied to the *last* numpy index
+ |          but the *first* WCS axis.
+ |      
+ |      Returns
+ |      -------
+ |      wcs_new : `~astropy.wcs.WCS`
+ |          A new resampled WCS axis
+ |  
+ |  ssuubb(self, axes=None)
+ |      sub(axes)
+ |      
+ |      Extracts the coordinate description for a subimage from a
+ |      `~astropy.wcs.WCS` object.
+ |      
+ |      The world coordinate system of the subimage must be separable in the
+ |      sense that the world coordinates at any point in the subimage must
+ |      depend only on the pixel coordinates of the axes extracted.  In
+ |      practice, this means that the ``PCi_ja`` matrix of the original image
+ |      must not contain non-zero off-diagonal terms that associate any of the
+ |      subimage axes with any of the non-subimage axes.
+ |      
+ |      `sub` can also add axes to a wcsprm object.  The new axes will be
+ |      created using the defaults set by the Wcsprm constructor which produce
+ |      a simple, unnamed, linear axis with world coordinates equal to the
+ |      pixel coordinate.  These default values can be changed before
+ |      invoking `set`.
+ |      
+ |      Parameters
+ |      ----------
+ |      axes : int or a sequence.
+ |      
+ |          - If an int, include the first *N* axes in their original order.
+ |      
+ |          - If a sequence, may contain a combination of image axis numbers
+ |            (1-relative) or special axis identifiers (see below).  Order is
+ |            significant; ``axes[0]`` is the axis number of the input image
+ |            that corresponds to the first axis in the subimage, etc.  Use an
+ |            axis number of 0 to create a new axis using the defaults.
+ |      
+ |          - If ``0``, ``[]`` or ``None``, do a deep copy.
+ |      
+ |          Coordinate axes types may be specified using either strings or
+ |          special integer constants.  The available types are:
+ |      
+ |          - ``'longitude'`` / ``WCSSUB_LONGITUDE``: Celestial longitude
+ |      
+ |          - ``'latitude'`` / ``WCSSUB_LATITUDE``: Celestial latitude
+ |      
+ |          - ``'cubeface'`` / ``WCSSUB_CUBEFACE``: Quadcube ``CUBEFACE`` axis
+ |      
+ |          - ``'spectral'`` / ``WCSSUB_SPECTRAL``: Spectral axis
+ |      
+ |          - ``'stokes'`` / ``WCSSUB_STOKES``: Stokes axis
+ |      
+ |          - ``'temporal'`` / ``WCSSUB_TIME``: Time axis (requires ``WCSLIB`` version 7.8 or greater)
+ |      
+ |          - ``'celestial'`` / ``WCSSUB_CELESTIAL``: An alias for the
+ |            combination of ``'longitude'``, ``'latitude'`` and ``'cubeface'``.
+ |      
+ |      Returns
+ |      -------
+ |      new_wcs : `~astropy.wcs.WCS` object
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      InvalidSubimageSpecificationError
+ |          Invalid subimage specification (no spectral axis).
+ |      
+ |      NonseparableSubimageCoordinateSystemError
+ |          Non-separable subimage coordinate system.
+ |      
+ |      Notes
+ |      -----
+ |      Combinations of subimage axes of particular types may be extracted in
+ |      the same order as they occur in the input image by combining the
+ |      integer constants with the 'binary or' (``|``) operator.  For
+ |      example::
+ |      
+ |          wcs.sub([WCSSUB_LONGITUDE | WCSSUB_LATITUDE | WCSSUB_SPECTRAL])
+ |      
+ |      would extract the longitude, latitude, and spectral axes in the same
+ |      order as the input image.  If one of each were present, the resulting
+ |      object would have three dimensions.
+ |      
+ |      For convenience, ``WCSSUB_CELESTIAL`` is defined as the combination
+ |      ``WCSSUB_LONGITUDE | WCSSUB_LATITUDE | WCSSUB_CUBEFACE``.
+ |      
+ |      The codes may also be negated to extract all but the types specified,
+ |      for example::
+ |      
+ |          wcs.sub([
+ |            WCSSUB_LONGITUDE,
+ |            WCSSUB_LATITUDE,
+ |            WCSSUB_CUBEFACE,
+ |            -(WCSSUB_SPECTRAL | WCSSUB_STOKES)])
+ |      
+ |      The last of these specifies all axis types other than spectral or
+ |      Stokes.  Extraction is done in the order specified by ``axes``, i.e. a
+ |      longitude axis (if present) would be extracted first (via ``axes[0]``)
+ |      and not subsequently (via ``axes[3]``).  Likewise for the latitude and
+ |      cubeface axes in this example.
+ |      
+ |      The number of dimensions in the returned object may be less than or
+ |      greater than the length of ``axes``.  However, it will never exceed the
+ |      number of axes in the input image.
+ |  
+ |  sswwaappaaxxeess(self, ax0, ax1)
+ |      Swap axes in a WCS.
+ |      
+ |      Parameters
+ |      ----------
+ |      wcs : `~astropy.wcs.WCS`
+ |          The WCS to have its axes swapped
+ |      ax0 : int
+ |      ax1 : int
+ |          The indices of the WCS to be swapped, counting from 0 (i.e., python
+ |          convention, not FITS convention)
+ |      
+ |      Returns
+ |      -------
+ |      `~astropy.wcs.WCS`
+ |          A new `~astropy.wcs.WCS` instance with the same number of axes,
+ |          but two swapped
+ |  
+ |  ttoo__ffiittss(self, relax=False, key=None)
+ |      Generate an `~astropy.io.fits.HDUList` object with all of the
+ |      information stored in this object.  This should be logically identical
+ |      to the input FITS file, but it will be normalized in a number of ways.
+ |      
+ |      See `to_header` for some warnings about the output produced.
+ |      
+ |      Parameters
+ |      ----------
+ |      relax : bool or int, optional
+ |          Degree of permissiveness:
+ |      
+ |          - `False` (default): Write all extensions that are
+ |            considered to be safe and recommended.
+ |      
+ |          - `True`: Write all recognized informal extensions of the
+ |            WCS standard.
+ |      
+ |          - `int`: a bit field selecting specific extensions to
+ |            write.  See :ref:`astropy:relaxwrite` for details.
+ |      
+ |      key : str
+ |          The name of a particular WCS transform to use.  This may be
+ |          either ``' '`` or ``'A'``-``'Z'`` and corresponds to the ``"a"``
+ |          part of the ``CTYPEia`` cards.
+ |      
+ |      Returns
+ |      -------
+ |      hdulist : `~astropy.io.fits.HDUList`
+ |  
+ |  ttoo__hheeaaddeerr(self, relax=None, key=None)
+ |      Generate an `astropy.io.fits.Header` object with the basic WCS
+ |      and SIP information stored in this object.  This should be
+ |      logically identical to the input FITS file, but it will be
+ |      normalized in a number of ways.
+ |      
+ |      .. warning::
+ |      
+ |        This function does not write out FITS WCS `distortion
+ |        paper`_ information, since that requires multiple FITS
+ |        header data units.  To get a full representation of
+ |        everything in this object, use `to_fits`.
+ |      
+ |      Parameters
+ |      ----------
+ |      relax : bool or int, optional
+ |          Degree of permissiveness:
+ |      
+ |          - `False` (default): Write all extensions that are
+ |            considered to be safe and recommended.
+ |      
+ |          - `True`: Write all recognized informal extensions of the
+ |            WCS standard.
+ |      
+ |          - `int`: a bit field selecting specific extensions to
+ |            write.  See :ref:`astropy:relaxwrite` for details.
+ |      
+ |          If the ``relax`` keyword argument is not given and any
+ |          keywords were omitted from the output, an
+ |          `~astropy.utils.exceptions.AstropyWarning` is displayed.
+ |          To override this, explicitly pass a value to ``relax``.
+ |      
+ |      key : str
+ |          The name of a particular WCS transform to use.  This may be
+ |          either ``' '`` or ``'A'``-``'Z'`` and corresponds to the ``"a"``
+ |          part of the ``CTYPEia`` cards.
+ |      
+ |      Returns
+ |      -------
+ |      header : `astropy.io.fits.Header`
+ |      
+ |      Notes
+ |      -----
+ |      The output header will almost certainly differ from the input in a
+ |      number of respects:
+ |      
+ |        1. The output header only contains WCS-related keywords.  In
+ |           particular, it does not contain syntactically-required
+ |           keywords such as ``SIMPLE``, ``NAXIS``, ``BITPIX``, or
+ |           ``END``.
+ |      
+ |        2. Deprecated (e.g. ``CROTAn``) or non-standard usage will
+ |           be translated to standard (this is partially dependent on
+ |           whether ``fix`` was applied).
+ |      
+ |        3. Quantities will be converted to the units used internally,
+ |           basically SI with the addition of degrees.
+ |      
+ |        4. Floating-point quantities may be given to a different decimal
+ |           precision.
+ |      
+ |        5. Elements of the ``PCi_j`` matrix will be written if and
+ |           only if they differ from the unit matrix.  Thus, if the
+ |           matrix is unity then no elements will be written.
+ |      
+ |        6. Additional keywords such as ``WCSAXES``, ``CUNITia``,
+ |           ``LONPOLEa`` and ``LATPOLEa`` may appear.
+ |      
+ |        7. The original keycomments will be lost, although
+ |           `to_header` tries hard to write meaningful comments.
+ |      
+ |        8. Keyword order may be changed.
+ |  
+ |  ttoo__hheeaaddeerr__ssttrriinngg(self, relax=None)
+ |      Identical to `to_header`, but returns a string containing the
+ |      header cards.
+ |  
+ |  wwccss__ppiixx22wwoorrlldd(self, *args, **kwargs)
+ |      Transforms pixel coordinates to world coordinates by doing
+ |      only the basic `wcslib`_ transformation.
+ |      
+ |      No `SIP`_ or `distortion paper`_ table lookup correction is
+ |      applied.  To perform distortion correction, see
+ |      `~astropy.wcs.WCS.all_pix2world`,
+ |      `~astropy.wcs.WCS.sip_pix2foc`, `~astropy.wcs.WCS.p4_pix2foc`,
+ |      or `~astropy.wcs.WCS.pix2foc`.
+ |      
+ |      Parameters
+ |      ----------
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *naxis* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |          For a transformation that is not two-dimensional, the
+ |          two-argument form must be used.
+ |      
+ |      
+ |      ra_dec_order : bool, optional
+ |          When `True` will ensure that world coordinates are always given
+ |          and returned in as (*ra*, *dec*) pairs, regardless of the order of
+ |          the axes specified by the in the ``CTYPE`` keywords.  Default is
+ |          `False`.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the world coordinates, in degrees.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      SingularMatrixError
+ |          Linear transformation matrix is singular.
+ |      
+ |      InconsistentAxisTypesError
+ |          Inconsistent or unrecognized coordinate axis types.
+ |      
+ |      ValueError
+ |          Invalid parameter value.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      ValueError
+ |          x- and y-coordinate arrays are not the same size.
+ |      
+ |      InvalidTransformError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      InvalidTransformError
+ |          Ill-conditioned coordinate transformation parameters.
+ |      
+ |      Notes
+ |      -----
+ |      The order of the axes for the result is determined by the
+ |      ``CTYPEia`` keywords in the FITS header, therefore it may not
+ |      always be of the form (*ra*, *dec*).  The
+ |      `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+ |      `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+ |      members can be used to determine the order of the axes.
+ |  
+ |  wwccss__wwoorrlldd22ppiixx(self, *args, **kwargs)
+ |      Transforms world coordinates to pixel coordinates, using only
+ |      the basic `wcslib`_ WCS transformation.  No `SIP`_ or
+ |      `distortion paper`_ table lookup transformation is applied.
+ |      
+ |      Parameters
+ |      ----------
+ |      *args
+ |          There are two accepted forms for the positional arguments:
+ |      
+ |              - 2 arguments: An *N* x *naxis* array of coordinates, and an
+ |                *origin*.
+ |      
+ |              - more than 2 arguments: An array for each axis, followed by
+ |                an *origin*.  These arrays must be broadcastable to one
+ |                another.
+ |      
+ |          Here, *origin* is the coordinate in the upper left corner of the
+ |          image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+ |          standards this is 0.
+ |      
+ |      
+ |          For a transformation that is not two-dimensional, the
+ |          two-argument form must be used.
+ |      
+ |      
+ |      ra_dec_order : bool, optional
+ |          When `True` will ensure that world coordinates are always given
+ |          and returned in as (*ra*, *dec*) pairs, regardless of the order of
+ |          the axes specified by the in the ``CTYPE`` keywords.  Default is
+ |          `False`.
+ |      
+ |      
+ |      Returns
+ |      -------
+ |      
+ |      result : array
+ |          Returns the pixel coordinates.  If the input was a single array and
+ |          origin, a single array is returned, otherwise a tuple of arrays is
+ |          returned.
+ |      
+ |      Notes
+ |      -----
+ |      The order of the axes for the input world array is determined by
+ |      the ``CTYPEia`` keywords in the FITS header, therefore it may
+ |      not always be of the form (*ra*, *dec*).  The
+ |      `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+ |      `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+ |      members can be used to determine the order of the axes.
+ |      
+ |      Raises
+ |      ------
+ |      MemoryError
+ |          Memory allocation failed.
+ |      
+ |      SingularMatrixError
+ |          Linear transformation matrix is singular.
+ |      
+ |      InconsistentAxisTypesError
+ |          Inconsistent or unrecognized coordinate axis types.
+ |      
+ |      ValueError
+ |          Invalid parameter value.
+ |      
+ |      ValueError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      ValueError
+ |          x- and y-coordinate arrays are not the same size.
+ |      
+ |      InvalidTransformError
+ |          Invalid coordinate transformation parameters.
+ |      
+ |      InvalidTransformError
+ |          Ill-conditioned coordinate transformation parameters.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Readonly properties defined here:
+ |  
+ |  aaxxiiss__ttyyppee__nnaammeess
+ |      World names for each coordinate axis.
+ |      
+ |      Returns
+ |      -------
+ |      list of str
+ |          A list of names along each axis.
+ |  
+ |  cceelleessttiiaall
+ |      A copy of the current WCS with only the celestial axes included.
+ |  
+ |  hhaass__cceelleessttiiaall
+ |  
+ |  hhaass__ddiissttoorrttiioonn
+ |      Returns `True` if any distortion terms are present.
+ |  
+ |  hhaass__ssppeeccttrraall
+ |  
+ |  hhaass__tteemmppoorraall
+ |  
+ |  iiss__cceelleessttiiaall
+ |  
+ |  iiss__ssppeeccttrraall
+ |  
+ |  iiss__tteemmppoorraall
+ |  
+ |  ppiixxeell__ssccaallee__mmaattrriixx
+ |  
+ |  ssppeeccttrraall
+ |      A copy of the current WCS with only the spectral axes included.
+ |  
+ |  tteemmppoorraall
+ |      A copy of the current WCS with only the time axes included.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors defined here:
+ |  
+ |  ____ddiicctt____
+ |      dictionary for instance variables (if defined)
+ |  
+ |  ____wweeaakkrreeff____
+ |      list of weak references to the object (if defined)
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data and other attributes defined here:
+ |  
+ |  ____aabbssttrraaccttmmeetthhooddss____ = frozenset()
+ |  
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from astropy.wcs.wcsapi.fitswcs.FITSWCSAPIMixin:
+ |  
+ |  ppiixxeell__ttoo__wwoorrlldd__vvaalluueess(self, *pixel_arrays)
+ |      Convert pixel coordinates to world coordinates.
+ |      
+ |      This method takes `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` scalars or arrays as
+ |      input, and pixel coordinates should be zero-based. Returns
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim` scalars or arrays in units given by
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_units`. Note that pixel coordinates are
+ |      assumed to be 0 at the center of the first pixel in each dimension. If a
+ |      pixel is in a region where the WCS is not defined, NaN can be returned.
+ |      The coordinates should be specified in the ``(x, y)`` order, where for
+ |      an image, ``x`` is the horizontal coordinate and ``y`` is the vertical
+ |      coordinate.
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned.
+ |  
+ |  wwoorrlldd__ttoo__ppiixxeell__vvaalluueess(self, *world_arrays)
+ |      Convert world coordinates to pixel coordinates.
+ |      
+ |      This method takes `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim` scalars or arrays as
+ |      input in units given by `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_units`. Returns
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` scalars or arrays. Note that pixel
+ |      coordinates are assumed to be 0 at the center of the first pixel in each
+ |      dimension. If a world coordinate does not have a matching pixel
+ |      coordinate, NaN can be returned.  The coordinates should be returned in
+ |      the ``(x, y)`` order, where for an image, ``x`` is the horizontal
+ |      coordinate and ``y`` is the vertical coordinate.
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Readonly properties inherited from astropy.wcs.wcsapi.fitswcs.FITSWCSAPIMixin:
+ |  
+ |  aaxxiiss__ccoorrrreellaattiioonn__mmaattrriixx
+ |      Returns an (`~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim`,
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim`) matrix that
+ |      indicates using booleans whether a given world coordinate depends on a
+ |      given pixel coordinate.
+ |      
+ |      This defaults to a matrix where all elements are `True` in the absence
+ |      of any further information. For completely independent axes, the
+ |      diagonal would be `True` and all other entries `False`.
+ |  
+ |  ppiixxeell__nn__ddiimm
+ |      The number of axes in the pixel coordinate system.
+ |  
+ |  sseerriiaalliizzeedd__ccllaasssseess
+ |      Indicates whether Python objects are given in serialized form or as
+ |      actual Python objects.
+ |  
+ |  wwoorrlldd__aaxxiiss__nnaammeess
+ |      An iterable of strings describing the name for each world axis.
+ |      
+ |      If an axis does not have a name, an empty string should be returned
+ |      (this is the default behavior for all axes if a subclass does not
+ |      override this property). Note that these names are just for display
+ |      purposes and are not standardized. For standardized axis types, see
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_physical_types`.
+ |  
+ |  wwoorrlldd__aaxxiiss__oobbjjeecctt__ccllaasssseess
+ |      A dictionary giving information on constructing high-level objects for
+ |      the world coordinates.
+ |      
+ |      Each key of the dictionary is a string key from
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_object_components`, and each value is a
+ |      tuple with three elements or four elements:
+ |      
+ |      * The first element of the tuple must be a class or a string specifying
+ |        the fully-qualified name of a class, which will specify the actual
+ |        Python object to be created.
+ |      
+ |      * The second element, should be a tuple specifying the positional
+ |        arguments required to initialize the class. If
+ |        `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_object_components` specifies that the
+ |        world coordinates should be passed as a positional argument, this this
+ |        tuple should include `None` placeholders for the world coordinates.
+ |      
+ |      * The third tuple element must be a dictionary with the keyword
+ |        arguments required to initialize the class.
+ |      
+ |      * Optionally, for advanced use cases, the fourth element (if present)
+ |        should be a callable Python object that gets called instead of the
+ |        class and gets passed the positional and keyword arguments. It should
+ |        return an object of the type of the first element in the tuple.
+ |      
+ |      Note that we don't require the classes to be Astropy classes since there
+ |      is no guarantee that Astropy will have all the classes to represent all
+ |      kinds of world coordinates. Furthermore, we recommend that the output be
+ |      kept as human-readable as possible.
+ |      
+ |      The classes used here should have the ability to do conversions by
+ |      passing an instance as the first argument to the same class with
+ |      different arguments (e.g. ``Time(Time(...), scale='tai')``). This is
+ |      a requirement for the implementation of the high-level interface.
+ |      
+ |      The second and third tuple elements for each value of this dictionary
+ |      can in turn contain either instances of classes, or if necessary can
+ |      contain serialized versions that should take the same form as the main
+ |      classes described above (a tuple with three elements with the fully
+ |      qualified name of the class, then the positional arguments and the
+ |      keyword arguments). For low-level API objects implemented in Python, we
+ |      recommend simply returning the actual objects (not the serialized form)
+ |      for optimal performance. Implementations should either always or never
+ |      use serialized classes to represent Python objects, and should indicate
+ |      which of these they follow using the
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.serialized_classes` attribute.
+ |      
+ |      See the document
+ |      `APE 14: A shared Python interface for World Coordinate Systems
+ |      <https://doi.org/10.5281/zenodo.1188875>`_ for examples .
+ |  
+ |  wwoorrlldd__aaxxiiss__oobbjjeecctt__ccoommppoonneennttss
+ |      A list with `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim` elements giving information
+ |      on constructing high-level objects for the world coordinates.
+ |      
+ |      Each element of the list is a tuple with three items:
+ |      
+ |      * The first is a name for the world object this world array
+ |        corresponds to, which *must* match the string names used in
+ |        `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_object_classes`. Note that names might
+ |        appear twice because two world arrays might correspond to a single
+ |        world object (e.g. a celestial coordinate might have both “ra” and
+ |        “dec” arrays, which correspond to a single sky coordinate object).
+ |      
+ |      * The second element is either a string keyword argument name or a
+ |        positional index for the corresponding class from
+ |        `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_object_classes`.
+ |      
+ |      * The third argument is a string giving the name of the property
+ |        to access on the corresponding class from
+ |        `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_axis_object_classes` in
+ |        order to get numerical values. Alternatively, this argument can be a
+ |        callable Python object that takes a high-level coordinate object and
+ |        returns the numerical values suitable for passing to the low-level
+ |        WCS transformation methods.
+ |      
+ |      See the document
+ |      `APE 14: A shared Python interface for World Coordinate Systems
+ |      <https://doi.org/10.5281/zenodo.1188875>`_ for examples.
+ |  
+ |  wwoorrlldd__aaxxiiss__pphhyyssiiccaall__ttyyppeess
+ |      An iterable of strings describing the physical type for each world axis.
+ |      
+ |      These should be names from the VO UCD1+ controlled Vocabulary
+ |      (http://www.ivoa.net/documents/latest/UCDlist.html). If no matching UCD
+ |      type exists, this can instead be ``"custom:xxx"``, where ``xxx`` is an
+ |      arbitrary string.  Alternatively, if the physical type is
+ |      unknown/undefined, an element can be `None`.
+ |  
+ |  wwoorrlldd__aaxxiiss__uunniittss
+ |      An iterable of strings given the units of the world coordinates for each
+ |      axis.
+ |      
+ |      The strings should follow the `IVOA VOUnit standard
+ |      <http://ivoa.net/documents/VOUnits/>`_ (though as noted in the VOUnit
+ |      specification document, units that do not follow this standard are still
+ |      allowed, but just not recommended).
+ |  
+ |  wwoorrlldd__nn__ddiimm
+ |      The number of axes in the world coordinate system.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors inherited from astropy.wcs.wcsapi.fitswcs.FITSWCSAPIMixin:
+ |  
+ |  aarrrraayy__sshhaappee
+ |      The shape of the data that the WCS applies to as a tuple of length
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` in ``(row, column)``
+ |      order (the convention for arrays in Python).
+ |      
+ |      If the WCS is valid in the context of a dataset with a particular
+ |      shape, then this property can be used to store the shape of the
+ |      data. This can be used for example if implementing slicing of WCS
+ |      objects. This is an optional property, and it should return `None`
+ |      if a shape is not known or relevant.
+ |  
+ |  ppiixxeell__bboouunnddss
+ |      The bounds (in pixel coordinates) inside which the WCS is defined,
+ |      as a list with `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim`
+ |      ``(min, max)`` tuples.
+ |      
+ |      The bounds should be given in ``[(xmin, xmax), (ymin, ymax)]``
+ |      order. WCS solutions are sometimes only guaranteed to be accurate
+ |      within a certain range of pixel values, for example when defining a
+ |      WCS that includes fitted distortions. This is an optional property,
+ |      and it should return `None` if a shape is not known or relevant.
+ |  
+ |  ppiixxeell__sshhaappee
+ |      The shape of the data that the WCS applies to as a tuple of length
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` in ``(x, y)``
+ |      order (where for an image, ``x`` is the horizontal coordinate and ``y``
+ |      is the vertical coordinate).
+ |      
+ |      If the WCS is valid in the context of a dataset with a particular
+ |      shape, then this property can be used to store the shape of the
+ |      data. This can be used for example if implementing slicing of WCS
+ |      objects. This is an optional property, and it should return `None`
+ |      if a shape is not known or relevant.
+ |      
+ |      If you are interested in getting a shape that is comparable to that of
+ |      a Numpy array, you should use
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.array_shape` instead.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from astropy.wcs.wcsapi.low_level_api.BaseLowLevelWCS:
+ |  
+ |  aarrrraayy__iinnddeexx__ttoo__wwoorrlldd__vvaalluueess(self, *index_arrays)
+ |      Convert array indices to world coordinates.
+ |      
+ |      This is the same as `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_to_world_values` except that
+ |      the indices should be given in ``(i, j)`` order, where for an image
+ |      ``i`` is the row and ``j`` is the column (i.e. the opposite order to
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_to_world_values`).
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned.
+ |  
+ |  wwoorrlldd__ttoo__aarrrraayy__iinnddeexx__vvaalluueess(self, *world_arrays)
+ |      Convert world coordinates to array indices.
+ |      
+ |      This is the same as `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_to_pixel_values` except that
+ |      the indices should be returned in ``(i, j)`` order, where for an image
+ |      ``i`` is the row and ``j`` is the column (i.e. the opposite order to
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_to_world_values`). The indices should be
+ |      returned as rounded integers.
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Readonly properties inherited from astropy.wcs.wcsapi.low_level_api.BaseLowLevelWCS:
+ |  
+ |  ppiixxeell__aaxxiiss__nnaammeess
+ |      An iterable of strings describing the name for each pixel axis.
+ |      
+ |      If an axis does not have a name, an empty string should be returned
+ |      (this is the default behavior for all axes if a subclass does not
+ |      override this property). Note that these names are just for display
+ |      purposes and are not standardized.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from astropy.wcs.wcsapi.high_level_api.HighLevelWCSMixin:
+ |  
+ |  ppiixxeell__ttoo__wwoorrlldd(self, *pixel_arrays)
+ |      Convert pixel coordinates to world coordinates (represented by
+ |      high-level objects).
+ |      
+ |      If a single high-level object is used to represent the world coordinates
+ |      (i.e., if ``len(wcs.world_axis_object_classes) == 1``), it is returned
+ |      as-is (not in a tuple/list), otherwise a tuple of high-level objects is
+ |      returned. See
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_to_world_values` for pixel
+ |      indexing and ordering conventions.
+ |  
+ |  wwoorrlldd__ttoo__ppiixxeell(self, *world_objects)
+ |      Convert world coordinates (represented by Astropy objects) to pixel
+ |      coordinates.
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned. See
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_to_pixel_values` for pixel
+ |      indexing and ordering conventions.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Readonly properties inherited from astropy.wcs.wcsapi.high_level_api.HighLevelWCSMixin:
+ |  
+ |  llooww__lleevveell__wwccss
+ |      Returns a reference to the underlying low-level WCS object.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Methods inherited from astropy.wcs.wcsapi.high_level_api.BaseHighLevelWCS:
+ |  
+ |  aarrrraayy__iinnddeexx__ttoo__wwoorrlldd(self, *index_arrays)
+ |      Convert array indices to world coordinates (represented by Astropy
+ |      objects).
+ |      
+ |      If a single high-level object is used to represent the world coordinates
+ |      (i.e., if ``len(wcs.world_axis_object_classes) == 1``), it is returned
+ |      as-is (not in a tuple/list), otherwise a tuple of high-level objects is
+ |      returned. See
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.array_index_to_world_values` for
+ |      pixel indexing and ordering conventions.
+ |  
+ |  wwoorrlldd__ttoo__aarrrraayy__iinnddeexx(self, *world_objects)
+ |      Convert world coordinates (represented by Astropy objects) to array
+ |      indices.
+ |      
+ |      If `~astropy.wcs.wcsapi.BaseLowLevelWCS.pixel_n_dim` is ``1``, this
+ |      method returns a single scalar or array, otherwise a tuple of scalars or
+ |      arrays is returned. See
+ |      `~astropy.wcs.wcsapi.BaseLowLevelWCS.world_to_array_index_values` for
+ |      pixel indexing and ordering conventions. The indices should be returned
+ |      as rounded integers.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Static methods inherited from astropy.wcs.WCSBase:
+ |  
+ |  ____nneeww____(*args, **kwargs) from builtins.type
+ |      Create and return a new object.  See help(type) for accurate signature.
+ |  
+ |  ----------------------------------------------------------------------
+ |  Data descriptors inherited from astropy.wcs.WCSBase:
+ |  
+ |  ccppddiiss11
+ |      `~astropy.wcs.DistortionLookupTable`
+ |      
+ |      The pre-linear transformation distortion lookup table, ``CPDIS1``.
+ |  
+ |  ccppddiiss22
+ |      `~astropy.wcs.DistortionLookupTable`
+ |      
+ |      The pre-linear transformation distortion lookup table, ``CPDIS2``.
+ |  
+ |  ddeett22iimm11
+ |      A `~astropy.wcs.DistortionLookupTable` object for detector to image plane
+ |      correction in the *x*-axis.
+ |  
+ |  ddeett22iimm22
+ |      A `~astropy.wcs.DistortionLookupTable` object for detector to image plane
+ |      correction in the *y*-axis.
+ |  
+ |  ssiipp
+ |      Get/set the `~astropy.wcs.Sip` object for performing `SIP`_ distortion
+ |      correction.
+ |  
+ |  wwccss
+ |      A `~astropy.wcs.Wcsprm` object to perform the basic `wcslib`_ WCS
+ |      transformation.

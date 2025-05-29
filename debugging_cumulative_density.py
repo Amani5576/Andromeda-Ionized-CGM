@@ -11,9 +11,9 @@ def build_parser():
     return parser
 
 def get_variant_suffix(args):
-    if args.smoothed:
+    if args.temp:
         return '_not_smootheD', 'debugging_assesment_not_smoothed.png'
-    elif args.temp:
+    elif args.smoothed:
         return '_smoothed', 'debugging_assesment_smoothed.png'
     elif args.CGM_dispersion:
         return '_disp', 'debugging_assesment_dispersion.png'

@@ -2,6 +2,7 @@
 from astropy.table import Table
 from astropy import units as u
 import numpy as np
+import math
 import csv
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -15,6 +16,8 @@ import warnings
 from scipy.interpolate import RectBivariateSpline, griddata
 import os
 import random
+import cmocean
+from matplotlib.colors import ListedColormap
 
 from Parsers import args #Personally made parsers
 
@@ -38,6 +41,9 @@ def galactic_cut(RM_lat, RM_lon, rm, rm_err, b_limit=False, extra=None, even_mor
     """
 
     def applying_mask(*data):
+        if b_limit == False:
+            return data
+        
         RM_lat, *_ = data
         mask = (np.abs(RM_lat) > b_upper_lim.value)
         return [d[mask] for d in data if d is not None]
@@ -54,7 +60,7 @@ def galactic_cut(RM_lat, RM_lon, rm, rm_err, b_limit=False, extra=None, even_mor
             masked_bg = applying_mask(*kw["BG_data"], *(extra[len(extra)//2:] if extra else []))
         else:
             masked_bg = applying_mask(*kw["BG_data"])
-            
+
         return (*masked_main, *masked_bg)
 
     return masked_main
@@ -113,6 +119,9 @@ def get_data_from_catalogue(sigma_detect_limit):
     rm = rm_raw[sig_mask]
     rm_err = rm_err_raw[sig_mask]
 
+    #NOTE: This galactic cut is ineffective as long as b_limit is not given as an argument.
+    RM_lat, RM_lon, rm, rm_err = galactic_cut(RM_lat, RM_lon, rm, rm_err, b_limit=args.b_limit)
+
     # galactic_cut to be applied by caller or in next function
     position = SkyCoord(RM_lon, RM_lat, unit="deg", frame="galactic")
     eq_pos = position.transform_to('icrs')
@@ -135,7 +144,7 @@ def get_data_from_catalogue(sigma_detect_limit):
             cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta)
 
 
-def get_CGM_and_BG_masks(rm_m31_coord, eq_pos, m31_sep, elliptic_CGM, elliptic_CGM_bg):
+def get_CGM_and_BG_masks(rm_m31_coord, eq_pos, m31_sep, elliptic_CGM, elliptic_CGM_bg, cutoff=cutoff, L_m31=L_m31):
     """
     Compute boolean masks for CGM and background region around M31.
     Returns:
@@ -225,7 +234,7 @@ PA_rm = m31_theta[m31_condition] + shift
 PA_m33 = m33_theta + shift
 
 print(f"{args.bg_corr=}")
-def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_corr, **kw):
+def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_corr, upto_40=False, **kw):
     """
     Perform background subtraction on Rotation Measure (RM) values using 
     RectBivariateSpline interpolation.
@@ -250,20 +259,58 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_co
     
     if not bg_corr: #no Backgorund correction with spline fit
         return rm_values
-    
-    Spline_order = 1
 
-    #Converting to degrees
-    x_bg = bg_coords.ra.deg  #(N,)
-    y_bg = bg_coords.dec.deg  #(N,)
+    spline_order = 1
     
+    """
+    Attepting to have grid resolution based off of 40 degrees cutoff 
+    instead of 30 degrees (Just on M31 -> upto_40=True in this case)
+    """
+    if upto_40:
+        # 1)Loading & transforming catalogue, get all raw coords + RMs + M31/M33 stuff
+        (RM_lat, RM_lon, rm, rm_err, position, eq_pos, rm_m31_coord, 
+        m31_sep, m31_theta, new_frame_of_reference,
+        cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta
+        ) = get_data_from_catalogue(sigma_detect_limit=args.sig_limit)
+
+        # 2)Building CGM / BG masks (ellipse vs circle controlled by flags)
+        m31_condition, bg_condition = get_CGM_and_BG_masks(
+            rm_m31_coord, eq_pos, m31_sep,
+            elliptic_CGM=args.elliptic_CGM,
+            elliptic_CGM_bg=args.elliptic_CGM_bg,
+            cutoff=40.*u.deg 
+        )
+
+        # 3)Apply those masks to slice out CGM & BG subsets
+        (bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs, rm_pos_gal_lat, 
+        rm_pos_gal_lat_bg, rm_bg, m31_sep_bg, err_bg, rm_m31, 
+        m31_sep_Rvir, err_m31) = apply_CGM_and_BG_masks(
+            rm_m31_coord, eq_pos, position, rm, rm_err, 
+            m31_sep, m31_condition, bg_condition
+        )
+
+    if upto_40:
+        #Converting to degrees
+        x_bg = bg_pos_icrs.ra.deg  #(N,)
+        y_bg = bg_pos_icrs.dec.deg  #(N,)
+        actual_x_bg = bg_coords.ra.deg
+        actual_y_bg = bg_coords.dec.deg
+        bg_values = rm_bg #Overwrite the bg_values with the larger number of bg_values
+    else:
+        #Converting to degrees
+        x_bg = bg_coords.ra.deg  #(N,)
+        y_bg = bg_coords.dec.deg  #(N,)
+        
     rm_x = rm_coords.ra.deg  #(M,)
     rm_y = rm_coords.dec.deg  #(M,)
     
     #Define a regular grid for interpolation
-    grid_res = kw.get("grid_res", 50) #len(x_bg)*1 #"N" #true modifying variable... Spline_order really doesnt do much...
+    grid_res = kw.get("grid_res", 50) #len(x_bg)*1 #"N" #true modifying variable... spline_order really doesnt do much...
     x_grid = np.linspace(x_bg.min(), x_bg.max(), grid_res) #(N,)
     y_grid = np.linspace(y_bg.min(), y_bg.max(), grid_res) #(N,)
+    if upto_40:
+        actual_x_grid = np.linspace(actual_x_bg.min(), actual_x_bg.max(), grid_res) #(N,)
+        actual_y_grid = np.linspace(actual_y_bg.min(), actual_y_bg.max(), grid_res) #(N,)
     X_grid, Y_grid = np.meshgrid(x_grid, y_grid) #each having dimensions (N,N)
     
     #Ensuring griddata inputs have correct dimensions
@@ -271,7 +318,7 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_co
     grid_points = np.column_stack((X_grid.ravel(), Y_grid.ravel()))  #(N*N,2)
     
     #Interpolating background values onto grid
-    bg_grid = griddata(bg_points, bg_values, grid_points, method='cubic')  #(N*N,)
+    bg_grid = griddata(bg_points, bg_values , grid_points, method='cubic')  #(N*N,)
     bg_grid = bg_grid.reshape(X_grid.shape)  #Reshape back to (N,N)
     
     #Handle NaNs (replace with nearest-neighbor interpolation)
@@ -279,21 +326,31 @@ def BG_correction(rm_coords, rm_values, bg_coords, bg_values, bg_corr=args.bg_co
         bg_grid = griddata(bg_points, bg_values, grid_points, method='nearest')
         bg_grid = bg_grid.reshape(X_grid.shape)
 
-    #Fitting spline to interpolated background RM data
-    fbeam = RectBivariateSpline(np.sort(y_grid), np.sort(x_grid), bg_grid,
-                                kx=Spline_order, ky=Spline_order)
+    if upto_40:
+        #Fitting spline to interpolated background RM data
+        fbeam = RectBivariateSpline(np.sort(actual_y_grid), np.sort(actual_x_grid), bg_grid,
+                                    kx=spline_order, ky=spline_order)
+    else:
+        #Fitting spline to interpolated background RM data
+        fbeam = RectBivariateSpline(np.sort(y_grid), np.sort(x_grid), bg_grid,
+                                    kx=spline_order, ky=spline_order)
     
     #Interpolating background RM values at RM positions
     bg_values_interp = fbeam.ev(rm_y, rm_x)
     
     #Finally subtracting complex background (interpolated) from given rm coords.
     rm_corrected = rm_values - bg_values_interp
-    
-    return rm_corrected
+
+    if "All_rm" in kw:
+        rm_corrected_full = kw["All_rm"].copy()
+        rm_corrected_full[kw["mask_condition"]] = rm_corrected
+        return rm_corrected_full
+    else:
+        return rm_corrected
 
 #Conducting background subtraction.  
-rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg)
-rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg) #Doing same for background itself
+rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, upto_40=args.upto_40)
+rm_bg = BG_correction(bg_pos_icrs, rm_bg, bg_pos_icrs, rm_bg, upto_40=args.upto_40) #Doing same for background itself
 #Validation/Sanity Check
 #print(len(rm_m31), len(err_m31), len(np.power(err_m31, 2)), len(rm_bg))
 
@@ -396,7 +453,6 @@ binnumber_past_rvir )= stats.binned_statistic(
 #R_vir RM Angular distance from M31 --> m31_sep_Rvir
 #=============================================================================
 
-
 #following variables below are for M33 Aanlysis alone (Not interpolated from M31)
 
 """Given by: https://watermark.silverchair.com/sty1946.pdf?token=AQECAHi208BE49Ooan9kkhW_Ercy7Dm3ZL_9Cf3qfKAc485ysgAAA1MwggNPBgkqhkiG9w0BBwagggNAMIIDPAIBADCCAzUGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMZOR9nxmNwLQ-n5xaAgEQgIIDBkOA2_nPRhEoUdyVWWdH7HjcxkZI91FVxVd10MSR2B8JJzz4o19U3CHtrPc6xBwZV5tkx5Rn_QxT82lUN9jD7TMupO4NOSNc-QMHGiXmwMKV3QD9Q742oJ2-nsU6LP3-LDkfkuj9IlIWs1iBz3VwHJv1uUJw1ec5gomXmkmSfC338C5SuOM05Iifv7RzQON3BAPcK4kyL_L4imLPEKkIbtPvNH24gxal7OyYKvfQ6G0wnPrNFBJUAOYvpApZkq-YBpcFp35zPstuBI6pR_ngTAlU5PBY3yXsXyKZp9BYzcICEu1cUkgIELIb-2OAPk2PvytZfXPqmzq6G_fURukCPKje1zFO03UZ5_PSr1VNPv5WPNTIkXdzRGnkivyeQlg48b3skkv5Ox9yJH8qr_TOe8qmZf2fP_eDO14RVsEfu6Is_Kx7AWEbdTaRukvWNnbYsTWMZNDn8d-jcYDtSoAxDVF8y8TrYVFS6prrip_ZmnBABoAjJ2O91BV4nddoTub3XsSkWDhStt9_N-Su0FxZFLjyHTcYSZUf4nW4nykzAl5KlyHdtcQguv8b5HWuBNoJ1867irDVGNDzHPcksBmxA0ftVBvlvCtJ8TCPq5Gux0EZctAMzL_Qv7_Pwg7uDrqt9d7mBIdNKUgDbUIi4ssBarnv4vWFoN5TnbaRf0VUjxaw8pWHGKqMyXotZWWSdy9tpyd2d52lG4itwUATBhbPl9pbGfYBM0GR8rrS5eYjcOyMnk_VozW23Nc5vI3QO8NfxZ8Jd9ETQEOzXUzsa0ppsSK6AQbir3h1dGGCVMzxyyYNQM1je14NO98daWiRozsKXK6l8r8BsyOKBOqagjBDSCfC-5DGGGUZ1jx1ZICv_776aLw3b6iEv9awF6C6DUfbFxE1yntrG0cRTgZ11kYrB8ABA4LXBmUBV7FXl-f7gsNIvuhklBqIOFUXDv-R_pBeVu6K6KN1N26AzHgR-Is4-wU6TpS3ugdJRpIMezkZ9fgzVX4q5Aqlj64jLHilUeciIDnXeUr2xQ
@@ -409,58 +465,114 @@ L_m33 = (np.arctan(R_vir_m33 / d_m33) * u.rad.to(u.deg)).value
 
 cutoff_m33 = cutoff * (R_vir_m33 / R_vir)
 
-def vars_before_correction_m33(eq_pos, rm, rm_err, position, R_vir_m33, d_m33, cutoff_m33):
-    
-    m33_pos = SkyCoord("23.462042 30.660222", unit="deg", frame='icrs')
-    new_frame_of_reference = m33_pos.skyoffset_frame()
-    rm_m33_coord = eq_pos.transform_to(new_frame_of_reference)
+m33_maj = 68.7 * u.arcmin    # Major axis diameter (apparent) https://deepskycorner.ch/obj/m33.en.php
+m33_min = 41.6 * u.arcmin    # Minor axis diameter (apparent) https://deepskycorner.ch/obj/m33.en.php
+m33_pa  = 23.0 * u.deg       # Position angle CCW from North https://deepskycorner.ch/obj/m33.en.php
 
-    #M33 separations
-    m33_sep_new = eq_pos.separation(m33_pos)
+# Globals: L_m33, cutoff_m33, m33_pa, m33_min, m33_maj defined elsewhere
+
+def get_data_m33(eq_pos):
+    """
+    Define M33 frame, transform eq_pos into it,
+    and compute separations & position angles.
+    Returns:
+      new_frame, rm_m33_coord, m33_sep, m33_theta
+    """
+    m33_pos = SkyCoord("23.462042 30.660222", unit="deg", frame='icrs')
+    new_frame = m33_pos.skyoffset_frame()
+    rm_m33_coord = eq_pos.transform_to(new_frame)
+
+    m33_sep = eq_pos.separation(m33_pos)
     m33_theta = eq_pos.position_angle(m33_pos)
 
+    return new_frame, rm_m33_coord, m33_sep, m33_theta
 
-    #Conditions
-    bg_condition_m33 = (m33_sep_new.deg > L_m33) & (m33_sep_new.deg < cutoff_m33.value)
-    m33_condition = m33_sep_new.deg <= L_m33
+def get_masks_m33(rm_m33_coord, eq_pos, m33_sep,
+                 elliptic_CGM, elliptic_CGM_bg):
+    """
+    Build M33 CGM and BG masks, elliptical or circular.
+    Returns:
+      m33_condition, bg_condition_m33
+    """
+    if elliptic_CGM:
+        x = rm_m33_coord.lon.arcmin
+        y = rm_m33_coord.lat.arcmin
+        theta = m33_pa.to(u.rad).value
+        x_rot = x * np.cos(theta) + y * np.sin(theta)
+        y_rot = -x * np.sin(theta) + y * np.cos(theta)
+        major_deg = L_m33
+        minor_deg = major_deg * (m33_min / m33_maj).value
+        a = major_deg * 60
+        b = minor_deg * 60
+        ellipse = lambda a_, b_: (x_rot**2 / a_**2 + y_rot**2 / b_**2)
+        m33_condition = ellipse(a, b) <= 1
+    else:
+        m33_condition = m33_sep.deg <= L_m33
 
-    #Filtered positions
+    if elliptic_CGM_bg:
+        if not elliptic_CGM:
+            # define a,b for circular simple case
+            a = L_m33 * 60
+            b = L_m33 * 60
+            ellipse = lambda a_, b_: (x**2 / a_**2 + y**2 / b_**2)
+        bg_extent = ((cutoff_m33.value - L_m33) * u.deg).to(u.arcmin).value
+        a_outer = a + bg_extent
+        b_outer = b + bg_extent
+        outer_condition = ellipse(a_outer, b_outer) <= 1
+        inner_condition = ellipse(a, b) >= 1
+        bg_condition_m33 = inner_condition & outer_condition
+    else:
+        bg_condition_m33 = (m33_sep.deg > L_m33) & (m33_sep.deg < cutoff_m33.value)
+
+    return m33_condition, bg_condition_m33
+
+def apply_masks_m33(rm_m33_coord, eq_pos, position,
+                    rm, rm_err, m33_sep,
+                    m33_condition, bg_condition_m33):
+    """
+    Apply M33 masks to extract positions & RM data for CGM & BG.
+    Returns all masked arrays.
+    """
     bg_pos_m33 = rm_m33_coord[bg_condition_m33]
-    bg_pos_icrs_m33 = bg_pos_m33.transform_to("icrs")
+    bg_pos_icrs_m33 = bg_pos_m33.transform_to('icrs')
     rm_pos_m33 = rm_m33_coord[m33_condition]
-    rm_pos_icrs_m33 = rm_pos_m33.transform_to("icrs")
+    rm_pos_icrs_m33 = rm_pos_m33.transform_to('icrs')
 
-    #Galactic latitudes
     rm_pos_gal_lat_m33 = position.b.deg[m33_condition]
     rm_pos_gal_lat_bg_m33 = position.b.deg[bg_condition_m33]
 
-    #RM and error values
     rm_bg_m33 = rm[bg_condition_m33]
-    m33_sep_bg = (m33_sep_new.deg[bg_condition_m33]) * u.deg
+    m33_sep_bg = (m33_sep.deg[bg_condition_m33]) * u.deg
     err_bg_m33 = rm_err[bg_condition_m33]
 
     rm_m33 = rm[m33_condition]
-    m33_sep_Rvir = (m33_sep_new.deg[m33_condition]) * u.deg
+    m33_sep_Rvir = (m33_sep.deg[m33_condition]) * u.deg
     err_m33 = rm_err[m33_condition]
 
     return (
-        new_frame_of_reference, rm_m33_coord,
-        m33_sep_new, m33_theta,
-        bg_condition_m33, m33_condition,
-        bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
+        bg_pos_m33, bg_pos_icrs_m33,
+        rm_pos_m33, rm_pos_icrs_m33,
         rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
         rm_bg_m33, m33_sep_bg, err_bg_m33,
         rm_m33, m33_sep_Rvir, err_m33
     )
 
-(new_frame_of_reference, rm_m33_coord,
-        m33_sep_new, m33_theta,
-        bg_condition_m33, m33_condition,
-        bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
-        rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
-        rm_bg_m33, m33_sep_bg, err_bg_m33,
-        rm_m33, m33_sep_Rvir, err_m33
-    ) = vars_before_correction_m33(eq_pos, rm, rm_err, position, R_vir_m33, d_m33, cutoff_m33)
+new_frame, rm_m33_coord, m33_sep, m33_theta = get_data_m33(eq_pos)
+m33_condition, bg_condition_m33 = get_masks_m33(
+    rm_m33_coord, eq_pos, m33_sep,
+    elliptic_CGM=args.elliptic_CGM,
+    elliptic_CGM_bg=args.elliptic_CGM_bg
+)
+
+(bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
+ rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
+ rm_bg_m33, m33_sep_bg, err_bg_m33,
+ rm_m33, m33_sep_Rvir, err_m33
+) = apply_masks_m33(
+    rm_m33_coord, eq_pos, position,
+    rm, rm_err, m33_sep,
+    m33_condition, bg_condition_m33
+)
 
 rm_m33 = BG_correction(rm_pos_icrs_m33, rm_m33, bg_pos_icrs_m33, rm_bg_m33)
 rm_bg_m33 = BG_correction(bg_pos_icrs_m33, rm_bg_m33, bg_pos_icrs_m33, rm_bg_m33) #Doing same for background itself
@@ -687,7 +799,7 @@ def ra_dec_to_pixels(RA, Dec, **kw):
 
     return np.array(X_pixels), np.array(Y_pixels)
 
-def get_smoothing_scale(delts, std_x, std_y, nsig):
+def get_smoothing_scale(delts, std_x, std_y, nsig, printing=False):
     """
     Computes kernel width in pixels and smoothing scale in degrees.
 
@@ -701,59 +813,73 @@ def get_smoothing_scale(delts, std_x, std_y, nsig):
     - dict: Kernel width in pixels and smoothing scale in degrees for X and Y.
     """
     #incase its reversed (a minus sign... especially for RA)
-    delts = tuple(map(np.abs,(delts[0],delts[1]))) 
+    delts = tuple(map(np.abs,delts)) 
 
     #kernel width in pixels
     kernel_width_x = 2 * nsig * std_x
     kernel_width_y = 2 * nsig * std_y
 
-    #smoothing scale in degrees
+    #smoothing scale in degrees (or kernel width in degrees)
     smoothing_scale_x = kernel_width_x * delts[0]
     smoothing_scale_y = kernel_width_y * delts[1]
 
-    print(f"Kernel width (X): {kernel_width_x:.3f} pixels")
-    print(f"Kernel width (Y): {kernel_width_y:.3f} pixels")
-    print(f"Smoothing scale (X): {smoothing_scale_x:.3f} degrees")
-    print(f"Smoothing scale (Y): {smoothing_scale_y:.3f} degrees")
+    if printing:
+        print(f"Kernel width (X): {kernel_width_x:.3f} pixels")
+        print(f"Kernel width (Y): {kernel_width_y:.3f} pixels")
+        print(f"Smoothing scale (X): {smoothing_scale_x:.3f} degrees")
+        print(f"Smoothing scale (Y): {smoothing_scale_y:.3f} degrees")
 
     return smoothing_scale_x, smoothing_scale_y #For file naming when saving plot
 
-def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=5000, nsig=1):
-
+def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=1000, kernel=2, max_iter=int(1e5)):
     im = np.zeros((imsize, imsize), dtype=float)
-
     x0s, y0s = ra_dec_to_pixels(ra, dec, fitfile=fitfile)
 
-    sft = .8 #Parametre for lightly shifting position
-    x0s += sft; y0s += sft #Slight shift to be in sync with wcs axis wehn plotting RM_smoothing.py
+    sft = 0.8
+    x0s += sft
+    y0s += sft
 
-    std_x, std_y = tuple(map(np.std,(x0s, y0s)))
-    
-    #Making them same from now on: 
     std = max(np.std(x0s), np.std(y0s))
+    if math.isnan(std): std = 0.5
     std_x = std_y = std
-    # print(f"{std_x=}")
-    # print(f"{std_y=}")
 
-    """IMPORTANT"""
-    if args.elliptic_CGM:
-        smooth = 1.2
-        #For half major axis
-        # smooth = 2.5 #Factor for smoothing scatter plot via 2d guassian
+    # Load DELT values safely
+    header = fits.getheader(fitfile)
+    delt1 = np.abs(header.get('CDELT1', 1.0))
+    delt2 = np.abs(header.get('CDELT2', 1.0))
+    DELTS = (delt1, delt2)
+
+    # Begin iterative adjustment
+    smooth = 1e4
+    nsig = 1.9 #Arbitrary starting point for "amani-effect"
+    target = kernel
+    tolerance = 0.1
+
+    for i in range(max_iter):
+        current_std_x = smooth * std_x
+        current_std_y = smooth * std_y
+
+        kernel_x, kernel_y = get_smoothing_scale(DELTS, std_x=current_std_x, std_y=current_std_y, nsig=nsig)
+
+        if abs(kernel_x - target) < tolerance and abs(kernel_y - target) < tolerance:
+            print(f"✅ Found suitable smooth = {smooth:.5f} at iteration {i}")
+            print(f"Kernel width=({kernel_x:.4f} deg,{kernel_y:.4f} deg)")
+            break
+
+        # Adaptive step size based on distance from target
+        error = ((target - kernel_x) + (target - kernel_y)) / 2
+        adjustment = 0.05 * error
+        smooth += adjustment
+
     else:
-        smooth = 1.1 #Factor for smoothing scatter plot via 2d guassian
+        warnings.warn(f"⚠️ Failed to converge to kernel ~2.0 within {max_iter} iterations. Final: X={kernel_x:.3f}, Y={kernel_y:.3f}", UserWarning)
 
-    std_x, std_y = smooth*std_x, smooth*std_y
-    
-    DELTS = fits.open('LGSNLGSR.SQLGBB.FITS')[0].header['CDELT*'][:2]
-    kernel_deg = get_smoothing_scale(DELTS, std_x=std_x, std_y=std_y, nsig=nsig)
-    
-    #rm_m31_normalized = np.where(rm_m31 < 0, -1, np.where(rm_m31 > 0, 1, 0))
-    
-    sxs = [std_x]*len(x0s)
-    sys = [std_y]*len(y0s)
+    std_x = smooth * std_x
+    std_y = smooth * std_y
+    sxs = [std_x] * len(x0s)
+    sys = [std_y] * len(y0s)
     amps = rm_m31
-        
+
     for x0, y0, sx, sy, amp in zip(x0s, y0s, sxs, sys, amps):
         xlo, xhi = int(x0 - nsig * sx), int(x0 + nsig * sx)
         ylo, yhi = int(y0 - nsig * sy), int(y0 + nsig * sy)
@@ -763,17 +889,15 @@ def smooth_2d_image(ra, dec, fitfile, rm_m31, imsize=5000, nsig=1):
         ylo = max(ylo, 0)
         yhi = min(yhi, imsize)
 
-        #Generate grids of x and y coordinates
         imx, imy = np.meshgrid(np.arange(xlo, xhi), np.arange(ylo, yhi))
-
-        #Ensure dimensions match
         if imx.size == 0 or imy.size == 0:
             continue
 
-        #Calculate Gaussian distribution and add toimage
         im[ylo:yhi, xlo:xhi] += gauss2d(imx, imy, amp, x0, y0, sx, sy)
 
-    return im, kernel_deg
+    return im, (kernel_x, kernel_y), imsize
+
+
 
 def get_width_midpoints(patchname): 
     
@@ -1344,15 +1468,161 @@ def apply_plot_attributes(push_title_up = 1.3, leg=True, xlim=(0,180),**kw):
     if "ylim" in kw: 
         if kw["ylim"] is not None: plt.ylim(*kw["ylim"])
 
-def get_discrete_colors(data_limits, n_bins, cmap_name):
+def get_discrete_colors(data_limits, n_bins, cmap_name, data=None, get_edges=False, use_cmocean=False, percentiles=False):
+    """
+    Returns a discrete colormap based on specified continuous colormap.
     
-    radial_lims = data_limits
-    bin_edges = np.linspace(*radial_lims, n_bins)
-    bin_width = bin_edges[1] - bin_edges[0]
-    #bin_centers = bin_edges[:-1] + bin_width / 2  #Bin centers
+    Parameters:
+    -----------
+    data_limits : tuple
+        (min, max) values for binning the data.
+    n_bins : int
+        Number of discrete color bins.
+    cmap_name : str
+        Name of the colormap.
+    get_edges : bool, optional
+        If True, also returns bin edges. Default is False.
+    use_cmocean : bool, optional
+        If True, gets colormap from cmocean.cm instead of matplotlib. Default is False.
+    
+    Returns:
+    --------
+    ListedColormap
+        Discrete colormap.
+    bin_edges : ndarray (optional)
+        Bin edges, if get_edges is True.
+    """
+    
+    if percentiles == True:
+        percentile = np.linspace(0,100, n_bins + 1)
+        bin_edges =  np.percentile(data, percentile)
+    else:
+        radial_lims = data_limits
+        bin_edges = np.linspace(*radial_lims, n_bins)
 
-    #Creating a discrete version of colormap
-    base_cmap = plt.get_cmap(cmap_name)
-    cmap = base_cmap(np.linspace(0, 1, n_bins))  #n_bins distinct colors
-    return plt.matplotlib.colors.ListedColormap(cmap) #referencing this with variable "cmap_discrete"
+    # Choose base colormap
+    if use_cmocean:
+        try:
+            base_cmap = getattr(cmocean.cm, cmap_name)
+        except AttributeError:
+            raise ValueError(f"'{cmap_name}' is not a valid colormap in cmocean.cm")
+    else:
+        base_cmap = plt.get_cmap(cmap_name)
+
+    cmap = base_cmap(np.linspace(0, 1, n_bins))  # n_bins distinct colors
+
+    discrete_cmap = ListedColormap(cmap)
+
+    if get_edges:
+        return discrete_cmap, bin_edges
+    else:
+        return discrete_cmap
+
+def simple_hist(RM, title=None, **kw):
+
+    if "inset" in kw.keys():
+        ax = kw['inset']
+    else:
+        fig, ax = plt.subplots(figsize=(12, 8))
+    
+    counts, bins, patches = plt.hist(RM, bins=20, edgecolor='k', zorder=2, color='white')
+
+    if title: ax.title(title, fontsize=25)
+
+    ax.axvline(K:=np.mean(RM), linestyle="-", linewidth=1, color="#ff0000", label=fr"$\overline{{\mathrm{{RM}}}}$ = {round(K,2)} " +r"[rad m$^{-2}$]", zorder=3)
+    ax.set_ylabel("Counts", fontsize=14)
+    ax.set_xlabel("RM"+r"[rad m$^{-2}$]", fontsize=12, labelpad=.3)
+
+    bin_edges = kw['bin_edges']
+    if "inset" in kw.keys() and args.scatter:
+        for i in range(len(bin_edges) - 1):
+            x_fill = [bin_edges[i], bin_edges[i+1]]
+            y_fill = [0, 0], [max(counts)+100, max(counts)+100]
+            
+            # Choose same color as used in scatter plot
+            color = kw['cmap_discrete'](i / kw['n_bins'])  # normalize index to [0,1]
+            # print(xfill)
+            ax.fill_between(x_fill, y_fill[0], y_fill[1], color=color, alpha=1, edgecolor='none')
+
+    if "inset" not in kw.keys():
+        # Add count labels on top of each bar
+        for count, patch in zip(counts, patches):
+            if count > 0:  # Only annotate non-zero bars
+                height = patch.get_height()
+                x = patch.get_x() + patch.get_width() / 2
+                plt.text(x, height, str(int(count)), ha='center', va='bottom', fontsize=13)
+
+    ax.legend(fontsize=10, loc='lower center', bbox_to_anchor=(0.5, .95), framealpha=0)
+    # ax.set_xlim(min(bin_edges), max(bin_edges[-1]))
+    # ax.set_ylim(min(counts+100), max(counts)+100)
+    ax.grid(True, linewidth=1)
+    
+    if "inset" not in kw.keys():
+        if args.save_plot:
+            path = curr_dir_path() + "Results/Changing_CGM_4/"
+            fname = f"Simple_hist_{kw.get('N','')}.png"
+            plt.savefig(f"{path}{fname}", dpi=600, bbox_inches="tight")
+            print(f"simple Histogram of RM points has been saved to {path}{fname}")
+        else:
+            plt.tight_layout()
+            plt.show()
+
+class RMImageMasker:
+
+    if args.elliptic_CGM:
+        import sys; sys.exit("Masking of outer radii cannot be done for Elliptical CGM. Not yet Compatible.")
+
+    def __init__(self, ra, dec, L_m31_deg, fitfile, m31_pos, outskirts_RM_value):
+        """
+        Parameters:
+        -----------
+        ra, dec : 1D arrays
+            Coordinates of the data points used to define image center.
+        L_m31_deg : float
+            Virial radius in degrees.
+        m31_pos : float
+            Position of M31 in ICRS.
+        fitfile : str
+            Path to FITS file with WCS info for pixel mapping.
+        outskirts_RM_value : float
+            RM vlaue to assign beyond virial radius (color will be given by the colorbar).
+        """
+        self.ra = ra
+        self.dec = dec
+        self.L_m31 = L_m31_deg
+        self.outer_val = outskirts_RM_value
+        self.fitfile = fitfile
+
+        #Loading WCS
+        self.wcs = WCS(fits.getheader(fitfile))
+        self.center_coord = m31_pos
+
+    def apply_mask(self, im, imsize):
+        """
+        Masks image regions beyond L_m31 from the center using Euclidean WCS projection.
+        
+        Parameters:
+        -----------
+        im : 2D numpy array
+            Image to mask.
+        imsize : int
+            Size of image (assumed square).
+        
+        Returns:
+        --------
+        im_masked : 2D numpy array
+            Masked image.
+        """
+
+        y_idx, x_idx = np.indices((imsize, imsize))
+        sky = self.wcs.pixel_to_world(x_idx, y_idx, 0, 0)[0]
+        radius_deg = sky.separation(self.center_coord).deg
+
+        mask = radius_deg > self.L_m31
+
+        im_masked = np.copy(im)
+        im_masked[mask] = self.outer_val
+
+        return im_masked
+    
 

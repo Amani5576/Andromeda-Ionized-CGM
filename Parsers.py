@@ -4,7 +4,8 @@ def build_parser():
     parser.add_argument('--sig-limit', type=int, default=0, 
                         help='Sigma detection limitation on all RM errors. e.g. 5 sigma or 3 sigma threshholds (Default is 0 sigma)')
     
-    parser.add_argument('--bg-corr', action='store_true', help='Background Correction ujsing Spline fit (Default=Fasle)')
+    parser.add_argument('--bg-corr', action='store_true', help='Background Correction ujsing Spline fit (Default=False)')
+    parser.add_argument('--upto-40', action='store_true', help='Defining grid for split fit using 40 degrees cutoff instead of 30 (Default=False)')
     parser.add_argument('--b-limit', action='store_true', help='|b|> 5 degrees before Correction and Analysis')
     parser.add_argument('--b-limit-small', action='store_true', help='|b|> 5 degrees are only taking to account after background spline-fit corrections')
     parser.add_argument('--elliptic-CGM', action='store_true', help='Apply an Elliptic CGM to Andromeda. (not inclusive to Random R_vir)')
@@ -46,10 +47,10 @@ def build_parser():
     parser.add_argument('--HI', action='store_true', help='Adding in the log_10(HI) contours')
     parser.add_argument('--scatter', action='store_true', help='Adding in scatter of RM and its BG on WCS axis plot')
     parser.add_argument('--bg', action='store_true', help='Displaying the background data points in plots')
-
+    parser.add_argument('--add-gal-grid', action='store_true', help='Adds an extra galactic grid to the Smoothed image')
+    parser.add_argument('--percent-cbar', action='store_true', help='Givie percentile range color-scheme for scatter plot. (To be used in RM_smoothing_loop.py)')
 
     return parser
-
 
 parser = build_parser()
 args = parser.parse_args()
@@ -73,3 +74,6 @@ if args.b_limit and args.b_limit_small:
 
 if args.elliptic_CGM_bg and not args.elliptic_CGM:
     parser.error("Can't use elliptical background region for non-elliptical/ circular CGM")
+
+if args.add_gal_grid and not args.smoothed:
+    parser.error("Galactic grid can only be activated for smoothed plot")

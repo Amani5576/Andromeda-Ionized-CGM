@@ -1,0 +1,88 @@
+Python Library Documentation: method all_pix2world in module astropy.wcs.wcs
+
+aallll__ppiixx22wwoorrlldd(*args, **kwargs) method of astropy.wcs.wcs.WCS instance
+    Transforms pixel coordinates to world coordinates.
+    
+    Performs all of the following in series:
+    
+        - Detector to image plane correction (if present in the
+          FITS file)
+    
+        - `SIP`_ distortion correction (if present in the FITS
+          file)
+    
+        - `distortion paper`_ table-lookup correction (if present
+          in the FITS file)
+    
+        - `wcslib`_ "core" WCS transformation
+    
+    Parameters
+    ----------
+    *args
+        There are two accepted forms for the positional arguments:
+    
+            - 2 arguments: An *N* x *naxis* array of coordinates, and an
+              *origin*.
+    
+            - more than 2 arguments: An array for each axis, followed by
+              an *origin*.  These arrays must be broadcastable to one
+              another.
+    
+        Here, *origin* is the coordinate in the upper left corner of the
+        image.  In FITS and Fortran standards, this is 1.  In Numpy and C
+        standards this is 0.
+    
+    
+        For a transformation that is not two-dimensional, the
+        two-argument form must be used.
+    
+    
+    ra_dec_order : bool, optional
+        When `True` will ensure that world coordinates are always given
+        and returned in as (*ra*, *dec*) pairs, regardless of the order of
+        the axes specified by the in the ``CTYPE`` keywords.  Default is
+        `False`.
+    
+    
+    Returns
+    -------
+    
+    result : array
+        Returns the sky coordinates, in degrees.  If the input was a single array and
+        origin, a single array is returned, otherwise a tuple of arrays is
+        returned.
+    
+    Notes
+    -----
+    The order of the axes for the result is determined by the
+    ``CTYPEia`` keywords in the FITS header, therefore it may not
+    always be of the form (*ra*, *dec*).  The
+    `~astropy.wcs.Wcsprm.lat`, `~astropy.wcs.Wcsprm.lng`,
+    `~astropy.wcs.Wcsprm.lattyp` and `~astropy.wcs.Wcsprm.lngtyp`
+    members can be used to determine the order of the axes.
+    
+    Raises
+    ------
+    MemoryError
+        Memory allocation failed.
+    
+    SingularMatrixError
+        Linear transformation matrix is singular.
+    
+    InconsistentAxisTypesError
+        Inconsistent or unrecognized coordinate axis types.
+    
+    ValueError
+        Invalid parameter value.
+    
+    ValueError
+        Invalid coordinate transformation parameters.
+    
+    ValueError
+        x- and y-coordinate arrays are not the same size.
+    
+    InvalidTransformError
+        Invalid coordinate transformation parameters.
+    
+    InvalidTransformError
+        Ill-conditioned coordinate transformation parameters.

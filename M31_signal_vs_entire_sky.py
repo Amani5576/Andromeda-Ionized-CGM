@@ -1101,7 +1101,7 @@ def plot_binned_PA(PA, RM, bin_edges, save_plot=False):
         cbar.ax.tick_params(size=3, which='both', length=0)
 
         # Apply plot attributes (title, axis limits, etc.)
-        apply_plot_attributes(push_title_up=1.1, xlim=(0, 360), ylim=(-200, 250))
+        apply_plot_attributes(push_title_up=1.1, xlim=(0, 360), ylim=(-300, 300))
 
         ax.legend(bbox_to_anchor=(1.05, 1.1), loc="upper left", framealpha=0)
 

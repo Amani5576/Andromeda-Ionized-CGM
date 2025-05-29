@@ -8,11 +8,11 @@ import argparse
 
 # Importing variables fromk main
 from main import (
-m33_sep_Rvir, rm_m33, bin_num, d_bg_m33, 
-rm_bg_m33, d_rm_m33, R_vir_m33,  bg_pos_m33,
-rm_pos_icrs_m33, bin_means_m33,
+rm_m33, bin_num, d_bg_m33, 
+rm_bg_m33, d_rm_m33, R_vir_m33,
+rm_pos_icrs_m33, eq_pos, position,
 
-rm_pos_icrs_m33, 
+rm_pos_icrs_m33, rm_err,
 rm, m33_condition,
 bg_condition_m33,
 bg_pos_icrs_m33,
@@ -24,11 +24,28 @@ BG_correction, curr_dir_path,
 stats, 
 create_annuli_binning_structure, 
 apply_plot_attributes,
+get_data_m33,
+get_masks_m33,
+apply_masks_m33,
+
 )
 
-# Making sure it's untainted rm_m33 data
-rm_m33 = rm[m33_condition]
-rm_bg_m33 = rm[bg_condition_m33]
+new_frame, rm_m33_coord, m33_sep, m33_theta = get_data_m33(eq_pos)
+m33_condition, bg_condition_m33 = get_masks_m33(
+    rm_m33_coord, eq_pos, m33_sep,
+    elliptic_CGM=args.elliptic_CGM,
+    elliptic_CGM_bg=args.elliptic_CGM_bg
+)
+
+(bg_pos_m33, bg_pos_icrs_m33, rm_pos_m33, rm_pos_icrs_m33,
+ rm_pos_gal_lat_m33, rm_pos_gal_lat_bg_m33,
+ rm_bg_m33, m33_sep_bg, err_bg_m33,
+ rm_m33, m33_sep_Rvir, err_m33
+) = apply_masks_m33(
+    rm_m33_coord, eq_pos, position,
+    rm, rm_err, m33_sep,
+    m33_condition, bg_condition_m33
+)
 
 grid_res = 50 if args.grid_res is None else args.grid_res
 rm_m33 = BG_correction(rm_pos_icrs_m33, rm_m33, bg_pos_icrs_m33, rm_bg_m33, grid_res=grid_res)

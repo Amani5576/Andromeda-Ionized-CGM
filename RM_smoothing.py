@@ -23,8 +23,34 @@ smooth_2d_image,
 convert_txt_to_Skycoord, 
 ra_dec_to_pixels,
 curr_dir_path,
-
+get_data_from_catalogue,
+get_CGM_and_BG_masks,
+apply_CGM_and_BG_masks,
+get_discrete_colors
 )
+
+# # 1)Loading & transforming catalogue, get all raw coords + RMs + M31/M33 stuff
+# (RM_lat, RM_lon, rm, rm_err, position, eq_pos, rm_m31_coord, 
+#  m31_sep, m31_theta, new_frame_of_reference,
+#  cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta
+# ) = get_data_from_catalogue(sigma_detect_limit=args.sig_limit)
+
+# # 2)Building CGM / BG masks (ellipse vs circle controlled by flags)
+# m31_condition, bg_condition = get_CGM_and_BG_masks(
+#     rm_m31_coord, eq_pos, m31_sep,
+#     elliptic_CGM=args.elliptic_CGM,
+#     elliptic_CGM_bg=args.elliptic_CGM_bg,
+#     # cutoff=(N+10)*u.deg,
+#     # L_m31=N #degrees
+# )
+
+# # 3)Apply those masks to slice out CGM & BG subsets
+# (bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs, rm_pos_gal_lat, 
+# rm_pos_gal_lat_bg, rm_bg, m31_sep_bg, err_bg, rm_m31, 
+# m31_sep_Rvir, err_m31) = apply_CGM_and_BG_masks(
+#     rm_m31_coord, eq_pos, position, rm, rm_err, 
+#     m31_sep, m31_condition, bg_condition
+# )
 
 levels = 10 #For HI density contour
 levels_2 = 10 #For HI density contour
@@ -102,7 +128,6 @@ if args.HI:
 # Print contour temperature levels
 # print(f"Contour HI levels: {np.round(levels_2,1)}"); import sys; sys.exit()
 
-
 def add_resolution_to_plot(ax, pixel_rad):
     #Shifiting Parametre of encapualtion for FWHM of 49 arcsecs (or for the new 0.85 degrees)
     h = 21.5 #In deegrees
@@ -150,7 +175,7 @@ ax.coords[0].set_ticklabel(fontsize=tick_f_s)
 ax.coords[1].set_axislabel('Dec [J2000]', fontsize=f_s)
 ax.coords[1].set_ticklabel(fontsize=tick_f_s)
 
-vmin, vmax = -100, 100 # Maximum and minimum RM limits
+vmin, vmax = -300, 300 #max(rm_m31) # Maximum and minimum RM limits
 rm_m31_clipped = np.clip(rm_m31, vmin, vmax)
 
 if args.scatter:
@@ -172,7 +197,7 @@ ra_bg, dec_bg = eq_pos.ra[bg_condition], eq_pos.dec[bg_condition]
 
 # global im
 # nsig is a multiplier for sigma (std) in y and x direction.
-im, kernel = smooth_2d_image(ra, dec, imsize=450, nsig = .09, fitfile=filename, rm_m31=rm_m31_clipped)
+im, kernel = smooth_2d_image(ra, dec, imsize=450, kernel=2, fitfile=filename, rm_m31=rm_m31_clipped)
 im_clipped = im #np.clip(im, -5000, 5000) #manually clipping based off of what i can see on defualt colorbar
 # x0s_pos, y0s_pos = ra_dec_to_pixels(ra[positive_mask], dec[positive_mask], filename=filename)
 # x0s_neg, y0s_neg = ra_dec_to_pixels(ra[negative_mask], dec[negative_mask], filename=filename)
@@ -183,10 +208,26 @@ if args.bg: x0s_bg, y0s_bg = ra_dec_to_pixels(ra_bg, dec_bg, filename=filename)
 if args.bg: ax.scatter(x0s_bg, y0s_bg, marker='x', s=.05, color='k', alpha=.6)
 
 if args.smoothed:
-    RM_dens = ax.imshow(im, cmap='jet_r', origin='lower', alpha=0.5, zorder=-1, vmin=vmin, vmax=vmax)
+    # plt.title(f"rad-limit = {N} deg")
+    n_bins=10
+    # Get discrete colormap and bin edges
+    cmap_discrete, bin_edges = get_discrete_colors((vmin, vmax), n_bins, 'jet_r', get_edges=True)
+    norm_cb = plt.matplotlib.colors.BoundaryNorm(boundaries=bin_edges, ncolors=n_bins)
 
+    # Plot imshow
+    # RM_dens = ax.imshow(im, cmap='jet_r', origin='lower', alpha=0.5, zorder=-1, vmin=vmin, vmax=vmax)
+    RM_dens = ax.imshow(im, cmap=cmap_discrete, norm=norm_cb, origin='lower', alpha=0.5, zorder=-1)
+
+    # Colorbar
     RM_dens_cbar = plt.colorbar(RM_dens, ax=ax, fraction=0.05, orientation='horizontal')
     RM_dens_cbar.set_label('Smooth RM Intensity (capped)', labelpad=labelpad, fontsize=cbar_lab_size)
+
+    # Optional: place ticks at bin centers
+    # bin_centers = bin_edges[:-1] + (bin_edges[1] - bin_edges[0]) / 2
+    # RM_dens_cbar.set_ticks(bin_centers)
+
+    # RM_dens_cbar = plt.colorbar(RM_dens, ax=ax, fraction=0.05, orientation='horizontal')
+    # RM_dens_cbar.set_label('Smooth RM Intensity (capped)', labelpad=labelpad, fontsize=cbar_lab_size)
 
     # steps = 11
     # min_tick_1 = np.min(rm_m31_clipped) ; max_tick_1 = np.max(rm_m31_clipped) 
@@ -294,7 +335,7 @@ ra_axis.set_major_formatter('d.d')  #Setting format of RA axis to degrees
 #ZOOMING OUT (in degrees)
 ra_min, ra_max = 40, -30
 dec_min, dec_max = 16, 48
- 
+
 # #ZOOMING IN (in degrees)
 # ra_min, ra_max = 30, -4
 # dec_min, dec_max = 23, 50
@@ -302,7 +343,7 @@ dec_min, dec_max = 16, 48
 # Convert these to pixel coordinates using WCS
 bottom_left = wcs.world_to_pixel_values(ra_min, dec_min, 0, 0)
 top_right = wcs.world_to_pixel_values(ra_max, dec_max, 0, 0)
-   
+
 #Extracting pixel coordinates
 x_min, y_min, _, _ = bottom_left
 x_max, y_max, _, _ = top_right
@@ -327,8 +368,6 @@ if args.save_plot:
         filename = f"Temperature_Contours_within_CGM_of_M31.png"
         plt.savefig(f"{path}{filename}", dpi=600, bbox_inches="tight")
         print(f"=Temperature Contour has been saved to {path}{filename}")
-
+    plt.close()
 else:
     plt.show()
-
-

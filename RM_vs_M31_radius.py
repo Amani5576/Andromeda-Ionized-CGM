@@ -25,16 +25,26 @@ get_CGM_and_BG_masks,
 apply_CGM_and_BG_masks
 )
 
-(RM_lat, RM_lon, rm, rm_err,
-        position, eq_pos, new_frame_of_reference,
-        rm_m31_coord, m31_sep, m31_theta,
-        cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta,
-        bg_condition, m31_condition,
-        bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs,
-        rm_pos_gal_lat, rm_pos_gal_lat_bg,
-        rm_bg, m31_sep_bg, err_bg,
-        rm_m31, m31_sep_Rvir, err_m31
-    ) = vars_before_correction()
+# 1)Loading & transforming catalogue, get all raw coords + RMs + M31/M33 stuff
+(RM_lat, RM_lon, rm, rm_err, position, eq_pos, rm_m31_coord, 
+ m31_sep, m31_theta, new_frame_of_reference,
+ cloud6_pos, m33_pos, m33_m31coord, m33_sep, m33_theta
+) = get_data_from_catalogue(sigma_detect_limit=args.sig_limit)
+
+# 2)Building CGM / BG masks (ellipse vs circle controlled by flags)
+m31_condition, bg_condition = get_CGM_and_BG_masks(
+    rm_m31_coord, eq_pos, m31_sep,
+    elliptic_CGM=args.elliptic_CGM,
+    elliptic_CGM_bg=args.elliptic_CGM_bg
+)
+
+# 3)Apply those masks to slice out CGM & BG subsets
+(bg_pos, bg_pos_icrs, rm_pos, rm_pos_icrs, rm_pos_gal_lat, 
+ rm_pos_gal_lat_bg, rm_bg, m31_sep_bg, err_bg, rm_m31, 
+ m31_sep_Rvir, err_m31) = apply_CGM_and_BG_masks(
+    rm_m31_coord, eq_pos, position, rm, rm_err, 
+    m31_sep, m31_condition, bg_condition
+)
 
 grid_res = 50 if args.grid_res is None else args.grid_res
 rm_m31 = BG_correction(rm_pos_icrs, rm_m31, bg_pos_icrs, rm_bg, grid_res = grid_res)
